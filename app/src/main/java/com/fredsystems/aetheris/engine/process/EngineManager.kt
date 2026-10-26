@@ -14,13 +14,13 @@ class EngineManager(private val engine: EngineProcess) {
     val info: StateFlow<String> = _info
 
     fun init() {
-        engine.start()
+        try { engine.start() } catch (e: Exception) { }
         scope.launch {
             var reader: BufferedReader? = null
             // obtain reader via reflection? Use engine readLine loop
             while (engine.isAlive()) {
-                val line = engine.readLine() ?: break
-                parse(line)
+                val line = try { engine.readLine() } catch (e: Exception) { null } ?: break
+                try { parse(line) } catch (e: Exception) { }
             }
         }
     }

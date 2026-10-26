@@ -17,10 +17,16 @@ class EngineProcess(private val context: Context) {
         if (process != null) return
         val nativeDir = context.applicationInfo.nativeLibraryDir
         val bin = "$nativeDir/libaetheris_engine.so"
-        process = ProcessBuilder(bin).redirectErrorStream(true).start()
-        writer = BufferedWriter(OutputStreamWriter(process!!.outputStream))
-        reader = BufferedReader(InputStreamReader(process!!.inputStream))
-        send("uci")
+        try {
+            process = ProcessBuilder(bin).redirectErrorStream(true).start()
+            writer = BufferedWriter(OutputStreamWriter(process!!.outputStream))
+            reader = BufferedReader(InputStreamReader(process!!.inputStream))
+            send("uci")
+        } catch (e: Exception) {
+            process = null
+            writer = null
+            reader = null
+        }
     }
 
     fun send(cmd: String) {

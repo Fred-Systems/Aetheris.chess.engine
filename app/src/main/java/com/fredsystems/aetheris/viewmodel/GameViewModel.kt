@@ -34,7 +34,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     val options = mutableStateOf(EngineOptions())
 
     init {
-        engineManager.init()
+        try { engineManager.init() } catch (e: Exception) { }
         viewModelScope.launch {
             engineManager.score.collectLatest { evaluation.value = it }
         }

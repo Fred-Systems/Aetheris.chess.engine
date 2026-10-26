@@ -27,8 +27,8 @@ class SimViewModel(private val context: Context) : ViewModel() {
     var games = 1
 
     init {
-        engineA.init()
-        engineB.init()
+        try { engineA.init() } catch (e: Exception) { }
+        try { engineB.init() } catch (e: Exception) { }
     }
 
     private fun initialBoard(): BoardState {
