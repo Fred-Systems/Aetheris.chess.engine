@@ -14,7 +14,7 @@ fun AnalysisScreen(viewModel: GameViewModel) {
     Column(modifier = Modifier.fillMaxSize().padding(8.dp)) {
         Text("Game Analysis", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
-        ChessBoard(board = viewModel.board.value, onSquareClick = {}, modifier = Modifier.fillMaxWidth())
+        ChessBoard(board = viewModel.boardState.value, onSquareClick = {}, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(8.dp))
         Text("Move-by-move review with blunders/mistakes calculated by Aetheris.")
     }

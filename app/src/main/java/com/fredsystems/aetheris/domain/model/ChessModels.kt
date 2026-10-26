@@ -18,5 +18,13 @@ data class BoardState(
     val castling: String = "KQkq",
     val enPassant: Int? = null,
     val halfMove: Int = 0,
-    val fullMove: Int = 1
+    val fullMove: Int = 1,
+    val selectedSquare: Int? = null,
+    val legalTargets: Set<Int> = emptySet(),
+    val lastMoveFrom: Int? = null,
+    val lastMoveTo: Int? = null,
+    val checkSquare: Int? = null,
+    val moveNumber: Int = 0,
+    val gameOver: Boolean = false,
+    val statusText: String = ""
 )

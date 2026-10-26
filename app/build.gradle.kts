@@ -12,8 +12,8 @@ android {
         applicationId = "com.fredsystems.aetheris"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
@@ -72,6 +72,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-    // chesslib removed; using custom model
+    implementation("com.github.bhlangonijr:chesslib:1.3.3")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

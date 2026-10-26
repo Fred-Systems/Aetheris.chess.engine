@@ -51,6 +51,7 @@ class EngineManager(private val engine: EngineProcess) {
     fun go(depth: Int, timeMs: Int = 0) = engine.send("go depth $depth movetime $timeMs")
     fun setOption(name: String, value: String) = engine.send("setoption name $name value $value")
     fun isReady() = engine.send("isready")
-    fun newGame() = engine.send("ucinewgame")
+    fun newGame() { bestMove.value = null; engine.send("ucinewgame") }
+    fun sendStop() = engine.send("stop")
     fun stop() = engine.stop()
 }
