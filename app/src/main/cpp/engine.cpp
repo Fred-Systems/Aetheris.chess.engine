@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <cstdlib>
 
 namespace aetheris {
 
@@ -49,6 +50,14 @@ void resetBoard() {
 
 // Expose for search
 Board& getBoard() { return g_board; }
+
+static int parseIntOr(const std::string& text, int fallback) {
+    if (text.empty()) return fallback;
+    char* end = nullptr;
+    long value = std::strtol(text.c_str(), &end, 10);
+    if (end == text.c_str()) return fallback;
+    return static_cast<int>(value);
+}
 
 static int pieceIndex(char c) {
     switch (std::tolower(static_cast<unsigned char>(c))) {
@@ -109,11 +118,11 @@ void setPosition(const std::string& fen) {
     if (i < fen.size()) {
         size_t start = i;
         while (i < fen.size() && fen[i] != ' ') i++;
-        try { g_board.halfmove = std::stoi(fen.substr(start, i - start)); } catch (...) { g_board.halfmove = 0; }
+        g_board.halfmove = parseIntOr(fen.substr(start, i - start), 0);
     }
     while (i < fen.size() && fen[i] == ' ') i++;
     if (i < fen.size()) {
-        try { g_board.fullmove = std::stoi(fen.substr(i)); } catch (...) { g_board.fullmove = 1; }
+        g_board.fullmove = parseIntOr(fen.substr(i), 1);
     }
     for (int c = 0; c < 2; c++) {
         g_board.occupied[c] = 0;
