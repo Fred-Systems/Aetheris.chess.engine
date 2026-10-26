@@ -14,12 +14,13 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - uses: android-actions/setup-android@v3
       - uses: gradle/gradle-build-action@v3
       - name: Setup NDK
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r26b
+      - name: Verify SDK
+        run: echo "ANDROID_HOME=$ANDROID_HOME"; ls $ANDROID_HOME/ndk 2>/dev/null || true
       - name: Build
         run: gradle assembleRelease
       - name: Upload APK
