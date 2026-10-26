@@ -41,7 +41,7 @@ fun NotebookScreen(viewModel: GameNotebookViewModel, onBack: () -> Unit) {
         return
     }
     val g = selected!!
-    val boardState = remember(g, ply.value) { buildBoard(g, ply.value) }
+    val boardState = remember(g, ply) { buildBoard(g, ply) }
     Column(Modifier.fillMaxSize().padding(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(g.title, style = MaterialTheme.typography.titleMedium)
@@ -50,7 +50,7 @@ fun NotebookScreen(viewModel: GameNotebookViewModel, onBack: () -> Unit) {
         Box(Modifier.weight(1f)) {
             ChessBoard(board = boardState, onSquareClick = {}, modifier = Modifier.fillMaxSize())
             // draw arrows for current ply
-            val arrows = g.arrows[ply.value] ?: emptyList()
+            val arrows = g.arrows[ply] ?: emptyList()
             Canvas(Modifier.fillMaxSize()) {
                 arrows.forEach { a ->
                     if (a.length >= 4) {
@@ -64,13 +64,13 @@ fun NotebookScreen(viewModel: GameNotebookViewModel, onBack: () -> Unit) {
             }
         }
         Row {
-            Button(onClick = { if (ply.value > 0) viewModel.ply.value = ply.value - 1 }) { Text("Prev") }
+            Button(onClick = { if (ply > 0) viewModel.ply.value = ply - 1 }) { Text("Prev") }
             Spacer(Modifier.width(8.dp))
-            Button(onClick = { if (ply.value < g.moves.size) viewModel.ply.value = ply.value + 1 }) { Text("Next") }
+            Button(onClick = { if (ply < g.moves.size) viewModel.ply.value = ply + 1 }) { Text("Next") }
             Spacer(Modifier.width(8.dp))
-            Text("Ply ${ply.value}/${g.moves.size}")
+            Text("Ply ${ply}/${g.moves.size}")
         }
-        Text("Glyphs: ${g.glyphs[ply.value] ?: ""}")
+        Text("Glyphs: ${g.glyphs[ply] ?: ""}")
         Row {
             listOf("!", "?", "!!", "??", "!?").forEach { gl ->
                 TextButton(onClick = { viewModel.addGlyph(gl) }) { Text(gl) }
@@ -78,7 +78,7 @@ fun NotebookScreen(viewModel: GameNotebookViewModel, onBack: () -> Unit) {
         }
         OutlinedTextField(value = comment, onValueChange = { comment = it }, label = { Text("Comment") }, modifier = Modifier.fillMaxWidth())
         Button(onClick = { viewModel.addComment(comment.text); comment = TextFieldValue("") }) { Text("Save Comment") }
-        Text(g.comments[ply.value] ?: "")
+        Text(g.comments[ply] ?: "")
     }
 }
 
