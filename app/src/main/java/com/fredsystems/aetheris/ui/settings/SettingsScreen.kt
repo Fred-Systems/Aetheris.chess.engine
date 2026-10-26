@@ -26,7 +26,9 @@ import com.fredsystems.aetheris.domain.model.EngineOptions
 import com.fredsystems.aetheris.domain.model.TimeControl
 import com.fredsystems.aetheris.ui.theme.BoardThemes
 import com.fredsystems.aetheris.ui.theme.PieceSets
+import com.fredsystems.aetheris.updater.GitHubUpdater
 import com.fredsystems.aetheris.viewmodel.GameViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
@@ -46,6 +48,15 @@ fun SettingsScreen(
     var mode by remember { mutableStateOf(opts.mode) }
     var presetExpanded by remember { mutableStateOf(false) }
     var pieceSetExpanded by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val updater = remember { GitHubUpdater(context) }
+    val scope = rememberCoroutineScope()
+    var updateTag by remember { mutableStateOf<String?>(null) }
+    var updateUrl by remember { mutableStateOf<String?>(null) }
+    var updateIsNewer by remember { mutableStateOf(false) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    var checkingUpdate by remember { mutableStateOf(false) }
 
     fun applyPreset(name: String) {
         when (name) {
@@ -67,6 +78,27 @@ fun SettingsScreen(
         viewModel.resetAllSettings()
     }
 
+    fun checkUpdate() {
+        checkingUpdate = true
+        scope.launch {
+            val json = updater.fetchLatest()
+            val tag = json?.optString("tag_name")
+            val remoteCode = tag?.trimStart('v')?.replace(".", "")?.toLongOrNull() ?: 0L
+            val url = json?.optJSONArray("assets")?.let { arr ->
+                for (i in 0 until arr.length()) {
+                    val a = arr.getJSONObject(i)
+                    if (a.optString("name").endsWith(".apk")) return@let a.optString("browser_download_url")
+                }
+                null
+            }
+            updateTag = tag
+            updateUrl = url
+            updateIsNewer = remoteCode > updater.currentVersionCode()
+            checkingUpdate = false
+            showUpdateDialog = true
+        }
+    }
+
     Column(
         Modifier
             .fillMaxSize()
@@ -77,6 +109,134 @@ fun SettingsScreen(
         Text("Appearance, gameplay and engine personality.", fontSize = 13.sp, color = Color(0xFF9B93B8))
         Spacer(Modifier.height(16.dp))
 
+        SettingsCard("Gameplay") {
+            Text("Default color", color = Color(0xFFF2EEFF), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(7.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                listOf("white" to "White", "black" to "Black", "random" to "Random").forEach { (id, label) ->
+                    ModeChip(label, settings.playerColor == id, Modifier.weight(1f)) {
+                        viewModel.updateSettings(settings.copy(playerColor = id))
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text("Time control", color = Color(0xFFF2EEFF), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(7.dp))
+            TimeControl.all.chunked(4).forEach { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    row.forEach { tc ->
+                        ModeChip(tc.label, settings.timeControl == tc.id, Modifier.weight(1f)) {
+                            viewModel.updateSettings(settings.copy(timeControl = tc.id))
+                        }
+                    }
+                    repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+                Spacer(Modifier.height(6.dp))
+            }
+            Spacer(Modifier.height(6.dp))
+            Text("Time per move", color = Color(0xFFF2EEFF), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(7.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                listOf(0 to "Off", 15 to "15s", 30 to "30s", 60 to "1m", 120 to "2m").forEach { (sec, label) ->
+                    ModeChip(label, settings.moveTimeSeconds == sec, Modifier.weight(1f)) {
+                        viewModel.updateSettings(settings.copy(moveTimeSeconds = sec))
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            LabeledSlider(
+                title = "Custom move time",
+                valueText = if (settings.moveTimeSeconds == 0) "Off" else "${settings.moveTimeSeconds}s",
+                value = settings.moveTimeSeconds.toFloat(),
+                range = 0f..300f
+            ) { viewModel.updateSettings(settings.copy(moveTimeSeconds = it.toInt())) }
+            Spacer(Modifier.height(4.dp))
+            SwitchRow("Show eval in Play", settings.showEvalPlay) {
+                viewModel.updateSettings(settings.copy(showEvalPlay = it))
+            }
+            SwitchRow("Show eval in Analysis", settings.showEvalAnalysis) {
+                viewModel.updateSettings(settings.copy(showEvalAnalysis = it))
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        SettingsCard("Engine") {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Persona presets", fontWeight = FontWeight.SemiBold, color = Color(0xFFF2EEFF), fontSize = 13.sp)
+                Box {
+                    OutlinedButton(onClick = { presetExpanded = true }, shape = RoundedCornerShape(11.dp)) { Text("Choose") }
+                    DropdownMenu(expanded = presetExpanded, onDismissRequest = { presetExpanded = false }) {
+                        listOf("The Grandmaster", "The Maverick", "The Iron Wall", "The Tal Prodigy").forEach { p ->
+                            DropdownMenuItem(text = { Text(p) }, onClick = { applyPreset(p); presetExpanded = false })
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Text("Engine mode", color = Color(0xFFB9B2CE), fontSize = 12.sp)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ModeChip("Dual", mode == EngineMode.DUAL_CORE, Modifier.weight(1f)) { mode = EngineMode.DUAL_CORE }
+                ModeChip("NNUE", mode == EngineMode.PURE_NNUE, Modifier.weight(1f)) { mode = EngineMode.PURE_NNUE }
+                ModeChip("Classical", mode == EngineMode.PURE_CLASSICAL, Modifier.weight(1f)) { mode = EngineMode.PURE_CLASSICAL }
+            }
+            Spacer(Modifier.height(10.dp))
+            SettingsCard("Search Depth: ${depth.toInt()}") {
+                Slider(value = depth, onValueChange = { depth = it }, valueRange = 1f..24f)
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = {
+                        viewModel.updateOptions(
+                            EngineOptions(aggression.toInt(), positional.toInt(), complexity.toInt(), solidity.toInt(), opts.materialWeight, depth.toInt(), mode)
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(14.dp)
+                ) { Text("Apply engine") }
+                OutlinedButton(onClick = { resetAll() }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
+                    Text("Reset all defaults")
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        SettingsCard("Persona Customization") {
+            PersonalitySlider("Aggression", "Defense", aggression) { aggression = it }
+            PersonalitySlider("Positional", "Tactical", positional) { positional = it }
+            PersonalitySlider("Complexity", "Simplification", complexity) { complexity = it }
+            PersonalitySlider("Solidity", "Activity", solidity) { solidity = it }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        SettingsCard("Layout") {
+            LabeledSlider(
+                title = "App density",
+                valueText = "${(settings.uiScale * 100).toInt()}%",
+                value = settings.uiScale,
+                range = 0.75f..1.5f
+            ) { viewModel.updateSettings(settings.copy(uiScale = it)) }
+            LabeledSlider(
+                title = "Board size",
+                valueText = "${(settings.boardScale * 100).toInt()}%",
+                value = settings.boardScale,
+                range = 0.55f..2.0f
+            ) { viewModel.updateSettings(settings.copy(boardScale = it)) }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(
+                    onClick = { viewModel.updateSettings(settings.copy(uiScale = 1f, boardScale = 1.25f)) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text("Reset layout") }
+                OutlinedButton(
+                    onClick = { viewModel.updateSettings(settings.copy(flipped = !settings.flipped)) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text(if (settings.flipped) "Unflip board" else "Flip board") }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
         SettingsCard("Board & Pieces") {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Piece style", color = Color(0xFFF2EEFF), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
@@ -118,123 +278,26 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
-        SettingsCard("Layout") {
-            LabeledSlider(
-                title = "App density",
-                valueText = "${(settings.uiScale * 100).toInt()}%",
-                value = settings.uiScale,
-                range = 0.75f..1.5f
-            ) { viewModel.updateSettings(settings.copy(uiScale = it)) }
-            LabeledSlider(
-                title = "Board size",
-                valueText = "${(settings.boardScale * 100).toInt()}%",
-                value = settings.boardScale,
-                range = 0.55f..1.0f
-            ) { viewModel.updateSettings(settings.copy(boardScale = it)) }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(
-                    onClick = { viewModel.updateSettings(settings.copy(uiScale = 1f, boardScale = 1f)) },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) { Text("Reset layout") }
-                OutlinedButton(
-                    onClick = { viewModel.updateSettings(settings.copy(flipped = !settings.flipped)) },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) { Text(if (settings.flipped) "Unflip board" else "Flip board") }
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-        SettingsCard("Gameplay") {
-            Text("Default color", color = Color(0xFFF2EEFF), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(7.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                listOf("white" to "White", "black" to "Black", "random" to "Random").forEach { (id, label) ->
-                    ModeChip(label, settings.playerColor == id, Modifier.weight(1f)) {
-                        viewModel.updateSettings(settings.copy(playerColor = id))
-                    }
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            Text("Time control", color = Color(0xFFF2EEFF), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(7.dp))
-            TimeControl.all.chunked(4).forEach { row ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    row.forEach { tc ->
-                        ModeChip(tc.label, settings.timeControl == tc.id, Modifier.weight(1f)) {
-                            viewModel.updateSettings(settings.copy(timeControl = tc.id))
-                        }
-                    }
-                    repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
-                }
-                Spacer(Modifier.height(6.dp))
-            }
-            Spacer(Modifier.height(4.dp))
-            SwitchRow("Show eval in Play", settings.showEvalPlay) {
-                viewModel.updateSettings(settings.copy(showEvalPlay = it))
-            }
-            SwitchRow("Show eval in Analysis", settings.showEvalAnalysis) {
-                viewModel.updateSettings(settings.copy(showEvalAnalysis = it))
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-        SettingsCard("Engine") {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("Persona presets", fontWeight = FontWeight.SemiBold, color = Color(0xFFF2EEFF), fontSize = 13.sp)
-                Box {
-                    OutlinedButton(onClick = { presetExpanded = true }, shape = RoundedCornerShape(11.dp)) { Text("Choose") }
-                    DropdownMenu(expanded = presetExpanded, onDismissRequest = { presetExpanded = false }) {
-                        listOf("The Grandmaster", "The Maverick", "The Iron Wall", "The Tal Prodigy").forEach { p ->
-                            DropdownMenuItem(text = { Text(p) }, onClick = { applyPreset(p); presetExpanded = false })
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(10.dp))
-            Text("Engine mode", color = Color(0xFFB9B2CE), fontSize = 12.sp)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                ModeChip("Dual", mode == EngineMode.DUAL_CORE, Modifier.weight(1f)) { mode = EngineMode.DUAL_CORE }
-                ModeChip("NNUE", mode == EngineMode.PURE_NNUE, Modifier.weight(1f)) { mode = EngineMode.PURE_NNUE }
-                ModeChip("Classical", mode == EngineMode.PURE_CLASSICAL, Modifier.weight(1f)) { mode = EngineMode.PURE_CLASSICAL }
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-        PersonalitySlider("Aggression", "Defense", aggression) { aggression = it }
-        PersonalitySlider("Positional", "Tactical", positional) { positional = it }
-        PersonalitySlider("Complexity", "Simplification", complexity) { complexity = it }
-        PersonalitySlider("Solidity", "Activity", solidity) { solidity = it }
-
-        SettingsCard("Search Depth: ${depth.toInt()}") {
-            Slider(value = depth, onValueChange = { depth = it }, valueRange = 1f..24f)
-        }
-
-        Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(
-                onClick = {
-                    viewModel.updateOptions(
-                        EngineOptions(aggression.toInt(), positional.toInt(), complexity.toInt(), solidity.toInt(), opts.materialWeight, depth.toInt(), mode)
-                    )
-                },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(14.dp)
-            ) { Text("Apply engine") }
-            OutlinedButton(onClick = { resetAll() }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
-                Text("Reset all defaults")
-            }
-        }
-
         Spacer(Modifier.height(20.dp))
         Text("More", color = Color(0xFF9B93B8), fontSize = 12.sp)
         Spacer(Modifier.height(6.dp))
         MenuRow("Engine vs Engine Simulation", onOpenSim)
         MenuRow("Game Notebook", onOpenNotebook)
         MenuRow("External Engines", onOpenExternal)
-        MenuRow("Check for Updates", onCheckUpdate)
+        MenuRow(if (checkingUpdate) "Checking..." else "Check for Updates", { checkUpdate() })
+        MenuRow("Download Latest APK", {
+            scope.launch {
+                val json = updater.fetchLatest()
+                val url = json?.optJSONArray("assets")?.let { arr ->
+                    for (i in 0 until arr.length()) {
+                        val a = arr.getJSONObject(i)
+                        if (a.optString("name").endsWith(".apk")) return@let a.optString("browser_download_url")
+                    }
+                    null
+                }
+                if (url != null) updater.downloadAndInstall(url)
+            }
+        })
 
         Spacer(Modifier.height(30.dp))
         Text(
@@ -245,6 +308,38 @@ fun SettingsScreen(
             color = Color(0xFF6F6887)
         )
         Spacer(Modifier.height(20.dp))
+    }
+
+    if (showUpdateDialog) {
+        AlertDialog(
+            onDismissRequest = { showUpdateDialog = false },
+            title = { Text("Update", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Latest release: ${updateTag ?: "unknown"}")
+                    Text(if (updateIsNewer) "A newer version is available." else "You are up to date.")
+                    if (updateUrl != null) Text("APK: $updateUrl", fontSize = 11.sp, color = Color(0xFF9B93B8))
+                }
+            },
+            confirmButton = {
+                if (updateIsNewer && updateUrl != null) {
+                    Button(onClick = {
+                        updater.downloadAndInstall(updateUrl!!)
+                        showUpdateDialog = false
+                    }) { Text("Update now") }
+                } else {
+                    TextButton(onClick = { showUpdateDialog = false }) { Text("OK") }
+                }
+            },
+            dismissButton = {
+                if (updateUrl != null) {
+                    TextButton(onClick = {
+                        updater.downloadAndInstall(updateUrl!!)
+                        showUpdateDialog = false
+                    }) { Text("Download APK") }
+                }
+            }
+        )
     }
 }
 

@@ -84,10 +84,14 @@ fun ChessBoard(
     var dragFrom by remember { mutableStateOf<Int?>(null) }
     var dragPosition by remember { mutableStateOf(Offset.Zero) }
     var dragging by remember { mutableStateOf(false) }
+    var draggedMove by remember { mutableStateOf(false) }
     var boardWidthPx by remember { mutableStateOf(0) }
 
     LaunchedEffect(board.moveNumber) {
-        if (board.moveNumber > 0) {
+        if (board.moveNumber > 0 && draggedMove) {
+            draggedMove = false
+            animation.snapTo(1f)
+        } else if (board.moveNumber > 0) {
             animation.snapTo(0f)
             animation.animateTo(1f, tween(190, easing = FastOutSlowInEasing))
         } else {
@@ -130,6 +134,7 @@ fun ChessBoard(
                             val target = indexAt(change.position, size.width)
                             if (dragging) {
                                 if (target != null && target != start) {
+                                    draggedMove = true
                                     onSquareClick(start)
                                     onSquareClick(target)
                                 } else {

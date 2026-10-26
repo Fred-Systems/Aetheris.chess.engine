@@ -21,12 +21,13 @@ data class AppSettings(
     val pieceSet: String = "cburnett",
     val boardTheme: String = "brown",
     val uiScale: Float = 1.0f,
-    val boardScale: Float = 1.0f,
+    val boardScale: Float = 1.25f,
     val showEvalPlay: Boolean = false,
     val showEvalAnalysis: Boolean = true,
     val flipped: Boolean = false,
     val playerColor: String = "white",
-    val timeControl: String = "unlimited"
+    val timeControl: String = "unlimited",
+    val moveTimeSeconds: Int = 0
 )
 
 class SettingsStore(context: Context) {
@@ -36,12 +37,13 @@ class SettingsStore(context: Context) {
         pieceSet = prefs.getString("pieceSet", "cburnett") ?: "cburnett",
         boardTheme = prefs.getString("boardTheme", "brown") ?: "brown",
         uiScale = prefs.getFloat("uiScale", 1.0f),
-        boardScale = prefs.getFloat("boardScale", 1.0f),
+        boardScale = prefs.getFloat("boardScale", 1.25f),
         showEvalPlay = prefs.getBoolean("showEvalPlay", false),
         showEvalAnalysis = prefs.getBoolean("showEvalAnalysis", true),
         flipped = prefs.getBoolean("flipped", false),
         playerColor = prefs.getString("playerColor", "white") ?: "white",
-        timeControl = prefs.getString("timeControl", "unlimited") ?: "unlimited"
+        timeControl = prefs.getString("timeControl", "unlimited") ?: "unlimited",
+        moveTimeSeconds = prefs.getInt("moveTimeSeconds", 0)
     )
 
     fun save(s: AppSettings) {
@@ -55,6 +57,7 @@ class SettingsStore(context: Context) {
             .putBoolean("flipped", s.flipped)
             .putString("playerColor", s.playerColor)
             .putString("timeControl", s.timeControl)
+            .putInt("moveTimeSeconds", s.moveTimeSeconds)
             .apply()
     }
 }

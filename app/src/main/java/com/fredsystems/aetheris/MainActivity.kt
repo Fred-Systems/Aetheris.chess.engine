@@ -209,7 +209,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     val maxBoard = if (maxWidth < maxHeight) maxWidth else maxHeight
                     val available = (maxBoard - 22.dp).coerceAtLeast(160.dp)
-                    val boardSize = available * settings.boardScale.coerceIn(0.55f, 1f)
+                    val boardSize = available * settings.boardScale.coerceIn(0.55f, 2f)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (evalVisible) {
                             EvaluationBar(score = eval, modifier = Modifier.height(boardSize).width(20.dp))

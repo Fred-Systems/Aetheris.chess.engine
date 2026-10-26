@@ -50,6 +50,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     val whiteTimeMs = mutableStateOf(0L)
     val blackTimeMs = mutableStateOf(0L)
     val timeControlSeconds = mutableStateOf(TimeControl.byId(settings.value.timeControl).seconds)
+    val moveTimeSeconds = mutableStateOf(settings.value.moveTimeSeconds)
 
     private var engineGeneration = 0
     private var clockJob: Job? = null
@@ -61,6 +62,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
             ensureNnueAsset()?.let { NativeEngine.setNnue(it) }
         }.onFailure { engineAvailable.value = false }
         evalVisible.value = settings.value.showEvalPlay
+        moveTimeSeconds.value = settings.value.moveTimeSeconds
         resetClocks()
         startClockLoop()
         maybeEngineMove()
@@ -125,6 +127,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
             moveNumber = boardState.value.moveNumber + 1
         )
         boardState.value = next
+        if (moveTimeSeconds.value > 0) resetClocks()
         updateEvaluationAsync()
         if (allowEngineReply) maybeEngineMove()
     }
@@ -147,9 +150,14 @@ class GameViewModel(private val context: Context) : ViewModel() {
         if (!engineAvailable.value) return
         val fen = board.fen
         val depth = options.value.depth
+        val perMove = moveTimeSeconds.value
         val timed = timeControlSeconds.value > 0
         val remaining = if (board.sideToMove == Side.WHITE) whiteTimeMs.value else blackTimeMs.value
-        val timeMs = if (timed && remaining > 0) min(1500L, remaining / 20 + 60L) else 1200L
+        val timeMs = when {
+            perMove > 0 -> (perMove * 1000L).coerceAtMost(30000L)
+            timed && remaining > 0 -> min(1500L, remaining / 20 + 60L)
+            else -> 1200L
+        }
         val generation = ++engineGeneration
         engineThinking.value = true
         viewModelScope.launch {
@@ -289,7 +297,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
         saveSettings(s)
         if (s.flipped != flipped.value) flipped.value = s.flipped
         timeControlSeconds.value = TimeControl.byId(s.timeControl).seconds
+        moveTimeSeconds.value = s.moveTimeSeconds
         evalVisible.value = if (mode.value == PlayMode.ANALYSIS) s.showEvalAnalysis else s.showEvalPlay
+        resetClocks()
     }
 
     fun resetAllSettings() {
@@ -298,6 +308,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         settings.value = defaults
         playerColor.value = PieceColor.WHITE
         flipped.value = defaults.flipped
+        moveTimeSeconds.value = defaults.moveTimeSeconds
         evalVisible.value = if (mode.value == PlayMode.ANALYSIS) defaults.showEvalAnalysis else defaults.showEvalPlay
         timeControlSeconds.value = TimeControl.byId(defaults.timeControl).seconds
         resetOptions()
@@ -320,7 +331,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     private fun resetClocks() {
-        val ms = timeControlSeconds.value * 1000L
+        val ms = if (moveTimeSeconds.value > 0) moveTimeSeconds.value * 1000L else timeControlSeconds.value * 1000L
         whiteTimeMs.value = ms
         blackTimeMs.value = ms
     }
@@ -331,7 +342,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
             while (isActive) {
                 delay(100)
                 if (mode.value != PlayMode.PLAY) continue
-                if (timeControlSeconds.value <= 0) continue
+                if (timeControlSeconds.value <= 0 && moveTimeSeconds.value <= 0) continue
                 if (boardState.value.gameOver) continue
                 if (board.sideToMove == Side.WHITE) {
                     whiteTimeMs.value = (whiteTimeMs.value - 100).coerceAtLeast(0)

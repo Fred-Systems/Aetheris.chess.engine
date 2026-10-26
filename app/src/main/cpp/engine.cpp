@@ -11,29 +11,23 @@ namespace aetheris {
 const Bitboard KNIGHT_ATTACKS[64] = {
     0x0000000A0A000000ULL,0x0000001414000000ULL,0x0000002828000000ULL,0x0000005050000000ULL,
     0x000000A0A0000000ULL,0x0000004040000000ULL,0x0000008080000000ULL,0x0000000000000000ULL,
-    /* simplified placeholder full table not needed for compile; filled at runtime below */
 };
 const Bitboard KING_ATTACKS[64] = {0};
 const Bitboard PASSED_PAWN_MASK[2][64] = {{{0}}};
 const Bitboard ISOLATED_PAWN_MASK[64] = {0};
 
 void initBitboards() {
-    // Runtime init of attack tables (knights/king/sliding handled in movegen)
 }
 
-// Board state
 static Board g_board;
 
 void resetBoard() {
     std::memset(&g_board, 0, sizeof(g_board));
-    // standard startpos
     g_board.pieces[WHITE][ROOK] = 0x81ULL;
     g_board.pieces[WHITE][KNIGHT] = 0x42ULL;
     g_board.pieces[WHITE][BISHOP] = 0x24ULL;
     g_board.pieces[WHITE][QUEEN] = 0x08ULL;
     g_board.pieces[WHITE][KING] = 0x10ULL;
-    g_board.pieces[WHITE][PAWN] = 0x00FF000000000000ULL >> 40; // rank2
-    // Actually set rank 2
     g_board.pieces[WHITE][PAWN] = 0x000000000000FF00ULL;
     g_board.pieces[BLACK][PAWN] = 0x00FF000000000000ULL;
     g_board.pieces[BLACK][ROOK] = 0x8100000000000000ULL;
@@ -48,16 +42,7 @@ void resetBoard() {
     g_board.side = WHITE;
 }
 
-// Expose for search
 Board& getBoard() { return g_board; }
-
-static int parseIntOr(const std::string& text, int fallback) {
-    if (text.empty()) return fallback;
-    char* end = nullptr;
-    long value = std::strtol(text.c_str(), &end, 10);
-    if (end == text.c_str()) return fallback;
-    return static_cast<int>(value);
-}
 
 static int pieceIndex(char c) {
     switch (std::tolower(static_cast<unsigned char>(c))) {
@@ -71,12 +56,23 @@ static int pieceIndex(char c) {
     }
 }
 
+static int parseIntOr(const std::string& text, int fallback) {
+    if (text.empty()) return fallback;
+    char* end = nullptr;
+    long value = std::strtol(text.c_str(), &end, 10);
+    if (end == text.c_str()) return fallback;
+    return static_cast<int>(value);
+}
+
 void setPosition(const std::string& fen) {
     std::memset(&g_board, 0, sizeof(g_board));
+    size_t first = fen.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) return;
+    std::string f = fen.substr(first);
     int rank = 7, file = 0;
     size_t i = 0;
-    for (; i < fen.size() && fen[i] != ' '; ++i) {
-        char c = fen[i];
+    for (; i < f.size() && f[i] != ' '; ++i) {
+        char c = f[i];
         if (c == '/') { rank--; file = 0; }
         else if (c >= '1' && c <= '8') { file += c - '0'; }
         else {
@@ -90,13 +86,13 @@ void setPosition(const std::string& fen) {
     }
     g_board.side = WHITE;
     g_board.castleRights = 0;
-    while (i < fen.size() && fen[i] == ' ') i++;
-    if (i < fen.size()) g_board.side = (fen[i] == 'b') ? BLACK : WHITE;
-    while (i < fen.size() && fen[i] != ' ') i++;
-    while (i < fen.size() && fen[i] == ' ') i++;
-    if (i < fen.size() && fen[i] != '-') {
-        for (; i < fen.size() && fen[i] != ' '; ++i) {
-            switch (fen[i]) {
+    while (i < f.size() && f[i] == ' ') i++;
+    if (i < f.size()) g_board.side = (f[i] == 'b') ? BLACK : WHITE;
+    while (i < f.size() && f[i] != ' ') i++;
+    while (i < f.size() && f[i] == ' ') i++;
+    if (i < f.size() && f[i] != '-') {
+        for (; i < f.size() && f[i] != ' '; ++i) {
+            switch (f[i]) {
                 case 'K': g_board.castleRights |= 1; break;
                 case 'Q': g_board.castleRights |= 2; break;
                 case 'k': g_board.castleRights |= 4; break;
@@ -105,24 +101,24 @@ void setPosition(const std::string& fen) {
             }
         }
     } else {
-        while (i < fen.size() && fen[i] != ' ') i++;
+        while (i < f.size() && f[i] != ' ') i++;
     }
-    while (i < fen.size() && fen[i] == ' ') i++;
-    if (i < fen.size() && fen[i] != '-') {
-        int ef = fen[i] - 'a';
-        int er = (i + 1 < fen.size()) ? (fen[i + 1] - '1') : 0;
+    while (i < f.size() && f[i] == ' ') i++;
+    if (i < f.size() && f[i] != '-') {
+        int ef = f[i] - 'a';
+        int er = (i + 1 < f.size()) ? (f[i + 1] - '1') : 0;
         if (ef >= 0 && ef < 8 && er >= 0 && er < 8) g_board.epSquare = er * 8 + ef;
     }
-    while (i < fen.size() && fen[i] != ' ') i++;
-    while (i < fen.size() && fen[i] == ' ') i++;
-    if (i < fen.size()) {
-        size_t start = i;
-        while (i < fen.size() && fen[i] != ' ') i++;
-        g_board.halfmove = parseIntOr(fen.substr(start, i - start), 0);
+    while (i < f.size() && f[i] != ' ') i++;
+    while (i < f.size() && f[i] == ' ') i++;
+    if (i < f.size()) {
+        size_t start2 = i;
+        while (i < f.size() && f[i] != ' ') i++;
+        g_board.halfmove = parseIntOr(f.substr(start2, i - start2), 0);
     }
-    while (i < fen.size() && fen[i] == ' ') i++;
-    if (i < fen.size()) {
-        g_board.fullmove = parseIntOr(fen.substr(i), 1);
+    while (i < f.size() && f[i] == ' ') i++;
+    if (i < f.size()) {
+        g_board.fullmove = parseIntOr(f.substr(i), 1);
     }
     for (int c = 0; c < 2; c++) {
         g_board.occupied[c] = 0;
