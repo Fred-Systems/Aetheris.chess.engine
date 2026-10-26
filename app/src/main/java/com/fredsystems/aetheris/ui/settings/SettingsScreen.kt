@@ -1,6 +1,10 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package com.fredsystems.aetheris.ui.settings
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,13 +13,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fredsystems.aetheris.domain.model.EngineMode
 import com.fredsystems.aetheris.domain.model.EngineOptions
+import com.fredsystems.aetheris.domain.model.TimeControl
+import com.fredsystems.aetheris.ui.theme.BoardThemes
+import com.fredsystems.aetheris.ui.theme.PieceSets
 import com.fredsystems.aetheris.viewmodel.GameViewModel
 
 @Composable
@@ -27,6 +37,7 @@ fun SettingsScreen(
     onOpenExternal: () -> Unit
 ) {
     val opts by viewModel.options
+    val settings by viewModel.settings
     var aggression by remember { mutableStateOf(opts.aggression.toFloat()) }
     var positional by remember { mutableStateOf(opts.positional.toFloat()) }
     var complexity by remember { mutableStateOf(opts.complexity.toFloat()) }
@@ -34,6 +45,7 @@ fun SettingsScreen(
     var depth by remember { mutableStateOf(opts.depth.toFloat()) }
     var mode by remember { mutableStateOf(opts.mode) }
     var presetExpanded by remember { mutableStateOf(false) }
+    var pieceSetExpanded by remember { mutableStateOf(false) }
 
     fun applyPreset(name: String) {
         when (name) {
@@ -52,7 +64,7 @@ fun SettingsScreen(
         solidity = d.solidity.toFloat()
         depth = d.depth.toFloat()
         mode = d.mode
-        viewModel.resetOptions()
+        viewModel.resetAllSettings()
     }
 
     Column(
@@ -61,49 +73,146 @@ fun SettingsScreen(
             .verticalScroll(rememberScrollState())
             .padding(18.dp)
     ) {
-        Text("Engine Settings", fontSize = 28.sp, fontWeight = FontWeight.Black, color = Color(0xFFF2EEFF))
-        Text("Shape Aetheris into your perfect opponent.", fontSize = 13.sp, color = Color(0xFF9B93B8))
-        Spacer(Modifier.height(18.dp))
+        Text("Settings", fontSize = 28.sp, fontWeight = FontWeight.Black, color = Color(0xFFF2EEFF))
+        Text("Appearance, gameplay and engine personality.", fontSize = 13.sp, color = Color(0xFF9B93B8))
+        Spacer(Modifier.height(16.dp))
 
-        Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF1A1626)) {
-            Column(Modifier.padding(16.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Persona Presets", fontWeight = FontWeight.SemiBold, color = Color(0xFFF2EEFF))
-                    Box {
-                        OutlinedButton(onClick = { presetExpanded = true }, shape = RoundedCornerShape(12.dp)) {
-                            Text("Choose")
-                        }
-                        DropdownMenu(expanded = presetExpanded, onDismissRequest = { presetExpanded = false }) {
-                            listOf("The Grandmaster", "The Maverick", "The Iron Wall", "The Tal Prodigy").forEach { p ->
-                                DropdownMenuItem(text = { Text(p) }, onClick = { applyPreset(p); presetExpanded = false })
-                            }
+        SettingsCard("Board & Pieces") {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Piece style", color = Color(0xFFF2EEFF), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Box {
+                    OutlinedButton(onClick = { pieceSetExpanded = true }, shape = RoundedCornerShape(11.dp)) {
+                        Text(PieceSets.byId(settings.pieceSet).label)
+                    }
+                    DropdownMenu(expanded = pieceSetExpanded, onDismissRequest = { pieceSetExpanded = false }) {
+                        PieceSets.all.forEach { set ->
+                            DropdownMenuItem(
+                                text = { Text(set.label) },
+                                onClick = {
+                                    viewModel.updateSettings(settings.copy(pieceSet = set.id))
+                                    pieceSetExpanded = false
+                                }
+                            )
                         }
                     }
                 }
-                Spacer(Modifier.height(12.dp))
-                Text("Engine Mode", color = Color(0xFFB9B2CE), fontSize = 12.sp)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    ModeChip("Dual", mode == EngineMode.DUAL_CORE, Modifier.weight(1f)) { mode = EngineMode.DUAL_CORE }
-                    ModeChip("NNUE", mode == EngineMode.PURE_NNUE, Modifier.weight(1f)) { mode = EngineMode.PURE_NNUE }
-                    ModeChip("Classical", mode == EngineMode.PURE_CLASSICAL, Modifier.weight(1f)) { mode = EngineMode.PURE_CLASSICAL }
+            }
+            Spacer(Modifier.height(8.dp))
+            PieceStrip(settings.pieceSet)
+            Spacer(Modifier.height(14.dp))
+            Text("Board theme", color = Color(0xFFF2EEFF), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(8.dp))
+            BoardThemes.all.chunked(5).forEach { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    row.forEach { theme ->
+                        ThemeSwatch(
+                            light = theme.light,
+                            dark = theme.dark,
+                            selected = settings.boardTheme == theme.id,
+                            modifier = Modifier.weight(1f)
+                        ) { viewModel.updateSettings(settings.copy(boardTheme = theme.id)) }
+                    }
+                    repeat(5 - row.size) { Spacer(Modifier.weight(1f)) }
                 }
+                Spacer(Modifier.height(8.dp))
             }
         }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(12.dp))
+        SettingsCard("Layout") {
+            LabeledSlider(
+                title = "App density",
+                valueText = "${(settings.uiScale * 100).toInt()}%",
+                value = settings.uiScale,
+                range = 0.75f..1.5f
+            ) { viewModel.updateSettings(settings.copy(uiScale = it)) }
+            LabeledSlider(
+                title = "Board size",
+                valueText = "${(settings.boardScale * 100).toInt()}%",
+                value = settings.boardScale,
+                range = 0.55f..1.0f
+            ) { viewModel.updateSettings(settings.copy(boardScale = it)) }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(
+                    onClick = { viewModel.updateSettings(settings.copy(uiScale = 1f, boardScale = 1f)) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text("Reset layout") }
+                OutlinedButton(
+                    onClick = { viewModel.updateSettings(settings.copy(flipped = !settings.flipped)) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text(if (settings.flipped) "Unflip board" else "Flip board") }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        SettingsCard("Gameplay") {
+            Text("Default color", color = Color(0xFFF2EEFF), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(7.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                listOf("white" to "White", "black" to "Black", "random" to "Random").forEach { (id, label) ->
+                    ModeChip(label, settings.playerColor == id, Modifier.weight(1f)) {
+                        viewModel.updateSettings(settings.copy(playerColor = id))
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text("Time control", color = Color(0xFFF2EEFF), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(7.dp))
+            TimeControl.all.chunked(4).forEach { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    row.forEach { tc ->
+                        ModeChip(tc.label, settings.timeControl == tc.id, Modifier.weight(1f)) {
+                            viewModel.updateSettings(settings.copy(timeControl = tc.id))
+                        }
+                    }
+                    repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+                Spacer(Modifier.height(6.dp))
+            }
+            Spacer(Modifier.height(4.dp))
+            SwitchRow("Show eval in Play", settings.showEvalPlay) {
+                viewModel.updateSettings(settings.copy(showEvalPlay = it))
+            }
+            SwitchRow("Show eval in Analysis", settings.showEvalAnalysis) {
+                viewModel.updateSettings(settings.copy(showEvalAnalysis = it))
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        SettingsCard("Engine") {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Persona presets", fontWeight = FontWeight.SemiBold, color = Color(0xFFF2EEFF), fontSize = 13.sp)
+                Box {
+                    OutlinedButton(onClick = { presetExpanded = true }, shape = RoundedCornerShape(11.dp)) { Text("Choose") }
+                    DropdownMenu(expanded = presetExpanded, onDismissRequest = { presetExpanded = false }) {
+                        listOf("The Grandmaster", "The Maverick", "The Iron Wall", "The Tal Prodigy").forEach { p ->
+                            DropdownMenuItem(text = { Text(p) }, onClick = { applyPreset(p); presetExpanded = false })
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Text("Engine mode", color = Color(0xFFB9B2CE), fontSize = 12.sp)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ModeChip("Dual", mode == EngineMode.DUAL_CORE, Modifier.weight(1f)) { mode = EngineMode.DUAL_CORE }
+                ModeChip("NNUE", mode == EngineMode.PURE_NNUE, Modifier.weight(1f)) { mode = EngineMode.PURE_NNUE }
+                ModeChip("Classical", mode == EngineMode.PURE_CLASSICAL, Modifier.weight(1f)) { mode = EngineMode.PURE_CLASSICAL }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
         PersonalitySlider("Aggression", "Defense", aggression) { aggression = it }
         PersonalitySlider("Positional", "Tactical", positional) { positional = it }
         PersonalitySlider("Complexity", "Simplification", complexity) { complexity = it }
         PersonalitySlider("Solidity", "Activity", solidity) { solidity = it }
 
-        Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF1A1626), modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
-                Text("Search Depth: ${depth.toInt()}", color = Color(0xFFF2EEFF), fontWeight = FontWeight.SemiBold)
-                Slider(value = depth, onValueChange = { depth = it }, valueRange = 1f..24f)
-            }
+        SettingsCard("Search Depth: ${depth.toInt()}") {
+            Slider(value = depth, onValueChange = { depth = it }, valueRange = 1f..24f)
         }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Button(
                 onClick = {
@@ -113,9 +222,9 @@ fun SettingsScreen(
                 },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(14.dp)
-            ) { Text("Apply") }
+            ) { Text("Apply engine") }
             OutlinedButton(onClick = { resetAll() }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
-                Text("Reset Defaults")
+                Text("Reset all defaults")
             }
         }
 
@@ -140,6 +249,84 @@ fun SettingsScreen(
 }
 
 @Composable
+private fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF1A1626), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Text(title, color = Color(0xFFF2EEFF), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Spacer(Modifier.height(12.dp))
+            content()
+        }
+    }
+}
+
+@Composable
+private fun LabeledSlider(
+    title: String,
+    valueText: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    onChange: (Float) -> Unit
+) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(title, color = Color(0xFFF2EEFF), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Text(valueText, color = Color(0xFFB9A8FF), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    }
+    Slider(value = value, onValueChange = onChange, valueRange = range)
+}
+
+@Composable
+private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, color = Color(0xFFE7E1FA), fontSize = 13.sp)
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+@Composable
+private fun ThemeSwatch(
+    light: Color,
+    dark: Color,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = modifier
+            .aspectRatio(1f)
+            .then(if (selected) Modifier.border(2.dp, Color(0xFFB9A8FF), RoundedCornerShape(10.dp)) else Modifier),
+        shape = RoundedCornerShape(10.dp),
+        onClick = onClick,
+        color = Color.Transparent
+    ) {
+        Column {
+            Box(Modifier.fillMaxWidth().weight(1f).background(light))
+            Box(Modifier.fillMaxWidth().weight(1f).background(dark))
+        }
+    }
+}
+
+@Composable
+private fun PieceStrip(set: String) {
+    val context = LocalContext.current
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+        listOf("wK", "wQ", "wR", "wB", "wN", "wP", "bK", "bQ", "bR", "bB", "bN", "bP").forEach { code ->
+            val bitmap = remember(set, code) {
+                runCatching {
+                    context.assets.open("pieces/$set/$code.png").use { BitmapFactory.decodeStream(it).asImageBitmap() }
+                }.getOrNull()
+            }
+            if (bitmap != null) {
+                Image(bitmap, null, Modifier.size(22.dp))
+            }
+        }
+    }
+}
+
+@Composable
 private fun ModeChip(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Surface(
         modifier = modifier,
@@ -149,10 +336,10 @@ private fun ModeChip(label: String, selected: Boolean, modifier: Modifier = Modi
     ) {
         Text(
             label,
-            modifier = Modifier.padding(vertical = 10.dp),
+            modifier = Modifier.padding(vertical = 9.dp),
             textAlign = TextAlign.Center,
             color = if (selected) Color.White else Color(0xFFB9B2CE),
-            fontSize = 12.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold
         )
     }

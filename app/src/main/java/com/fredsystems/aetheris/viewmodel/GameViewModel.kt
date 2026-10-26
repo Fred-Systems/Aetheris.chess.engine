@@ -4,64 +4,82 @@ import android.content.Context
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fredsystems.aetheris.domain.model.AppSettings
 import com.fredsystems.aetheris.domain.model.BoardState
 import com.fredsystems.aetheris.domain.model.EngineMode
 import com.fredsystems.aetheris.domain.model.EngineOptions
 import com.fredsystems.aetheris.domain.model.Piece
 import com.fredsystems.aetheris.domain.model.PieceColor
 import com.fredsystems.aetheris.domain.model.PieceType
-import com.fredsystems.aetheris.engine.process.EngineManager
-import com.fredsystems.aetheris.engine.process.EngineProcess
+import com.fredsystems.aetheris.domain.model.SettingsStore
+import com.fredsystems.aetheris.domain.model.TimeControl
+import com.fredsystems.aetheris.engine.NativeEngine
 import com.github.bhlangonijr.chesslib.Board
 import com.github.bhlangonijr.chesslib.Piece as LibPiece
 import com.github.bhlangonijr.chesslib.PieceType as LibPieceType
 import com.github.bhlangonijr.chesslib.Side
 import com.github.bhlangonijr.chesslib.Square as LibSquare
 import com.github.bhlangonijr.chesslib.move.Move as LibMove
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlin.math.min
+import kotlin.random.Random
+
+enum class PlayMode { PLAY, ANALYSIS }
 
 class GameViewModel(private val context: Context) : ViewModel() {
-    private val engineProcess = EngineProcess(context)
-    val engineManager = EngineManager(engineProcess)
+    private val store = SettingsStore(context)
     private var board = Board()
     private val moveList = mutableListOf<String>()
-    private var pendingEngineMove = false
+    private val settingsStore = store
+    val settings = mutableStateOf(store.load())
 
     val boardState = mutableStateOf(toUi(board))
     val evaluation = mutableStateOf(0)
-    val bestMove = mutableStateOf<String?>(null)
     val options = mutableStateOf(EngineOptions())
     val engineThinking = mutableStateOf(false)
     val engineAvailable = mutableStateOf(true)
+    val mode = mutableStateOf(PlayMode.PLAY)
+    val evalVisible = mutableStateOf(false)
+    val flipped = mutableStateOf(settings.value.flipped)
+    val playerColor = mutableStateOf(if (settings.value.playerColor == "black") PieceColor.BLACK else PieceColor.WHITE)
+    val whiteTimeMs = mutableStateOf(0L)
+    val blackTimeMs = mutableStateOf(0L)
+    val timeControlSeconds = mutableStateOf(TimeControl.byId(settings.value.timeControl).seconds)
+
+    private var engineGeneration = 0
+    private var clockJob: Job? = null
 
     init {
-        try { engineManager.init() } catch (e: Exception) { engineAvailable.value = false }
-        viewModelScope.launch {
-            engineManager.score.collectLatest { evaluation.value = it }
-        }
-        viewModelScope.launch {
-            engineManager.bestMove.collectLatest { mv ->
-                if (mv.isNullOrBlank()) return@collectLatest
-                if (pendingEngineMove) {
-                    pendingEngineMove = false
-                    engineThinking.value = false
-                    applyUciMove(mv)
-                }
-            }
-        }
-        applyOptions(options.value)
+        runCatching {
+            NativeEngine.nativeInit()
+            applyNativeOptions(options.value)
+            ensureNnueAsset()?.let { NativeEngine.setNnue(it) }
+        }.onFailure { engineAvailable.value = false }
+        evalVisible.value = settings.value.showEvalPlay
+        resetClocks()
+        startClockLoop()
+        maybeEngineMove()
     }
 
     fun onSquareClick(index: Int) {
         if (boardState.value.gameOver) return
+        val playerSide = board.sideToMove == Side.WHITE
+        if (mode.value == PlayMode.PLAY) {
+            val userIsWhite = playerColor.value == PieceColor.WHITE
+            if (playerSide != userIsWhite) return
+        }
         val sq = LibSquare.squareAt(index)
         val selected = boardState.value.selectedSquare
         if (selected != null) {
             val from = LibSquare.squareAt(selected)
             val legal = findLegalMove(from, sq)
             if (legal != null) {
-                makeMove(legal)
+                makeMove(legal, allowEngineReply = true)
                 return
             }
             val clicked = board.getPiece(sq)
@@ -94,13 +112,11 @@ class GameViewModel(private val context: Context) : ViewModel() {
             ?: candidates.first()
     }
 
-    private fun makeMove(move: LibMove) {
+    private fun makeMove(move: LibMove, allowEngineReply: Boolean) {
         val from = move.from.ordinal
         val to = move.to.ordinal
         if (!board.doMove(move)) return
         moveList.add(move.toString())
-        pendingEngineMove = false
-        engineThinking.value = false
         val next = toUi(board).copy(
             selectedSquare = null,
             legalTargets = emptySet(),
@@ -109,38 +125,127 @@ class GameViewModel(private val context: Context) : ViewModel() {
             moveNumber = boardState.value.moveNumber + 1
         )
         boardState.value = next
+        updateEvaluationAsync()
+        if (allowEngineReply) maybeEngineMove()
     }
 
-    fun requestBestMove() {
-        if (engineThinking.value || board.isMated || board.isDraw()) return
-        pendingEngineMove = true
+    private fun maybeEngineMove() {
+        if (mode.value != PlayMode.PLAY) return
+        if (boardState.value.gameOver) return
+        val userIsWhite = playerColor.value == PieceColor.WHITE
+        val sideIsWhite = board.sideToMove == Side.WHITE
+        if (sideIsWhite == userIsWhite) return
+        startEngineSearch(force = false)
+    }
+
+    fun forceEngineMove() {
+        if (boardState.value.gameOver || engineThinking.value) return
+        startEngineSearch(force = true)
+    }
+
+    private fun startEngineSearch(force: Boolean) {
+        if (!engineAvailable.value) return
+        val fen = board.fen
+        val depth = options.value.depth
+        val timed = timeControlSeconds.value > 0
+        val remaining = if (board.sideToMove == Side.WHITE) whiteTimeMs.value else blackTimeMs.value
+        val timeMs = if (timed && remaining > 0) min(1500L, remaining / 20 + 60L) else 1200L
+        val generation = ++engineGeneration
         engineThinking.value = true
-        engineManager.newGame()
-        engineManager.setPosition(board.fen)
-        engineManager.go(options.value.depth, 0)
+        viewModelScope.launch {
+            val move = withContext(Dispatchers.Default) {
+                runCatching {
+                    NativeEngine.setPosition(fen)
+                    NativeEngine.go(depth, timeMs.toInt())
+                }.getOrNull()
+            }
+            if (generation != engineGeneration) return@launch
+            engineThinking.value = false
+            if (move.isNullOrBlank()) {
+                if (force) engineAvailable.value = false
+                val fallback = board.legalMoves().randomOrNull()
+                if (fallback != null) makeMove(fallback, allowEngineReply = false)
+                return@launch
+            }
+            if (generation != engineGeneration) return@launch
+            applyUciMove(move)
+        }
     }
 
     fun stopEngine() {
-        pendingEngineMove = false
+        engineGeneration++
         engineThinking.value = false
-        engineManager.sendStop()
     }
 
-    fun newGame() {
+    fun newGame(colorChoice: String = settings.value.playerColor) {
+        val chosen = when (colorChoice) {
+            "black" -> PieceColor.BLACK
+            "random" -> if (Random.nextBoolean()) PieceColor.WHITE else PieceColor.BLACK
+            else -> PieceColor.WHITE
+        }
+        playerColor.value = chosen
+        flipped.value = chosen == PieceColor.BLACK
+        mode.value = PlayMode.PLAY
+        evalVisible.value = settings.value.showEvalPlay
+        engineGeneration++
         board = Board()
         moveList.clear()
-        pendingEngineMove = false
         engineThinking.value = false
         boardState.value = toUi(board)
-        engineManager.newGame()
+        evaluation.value = 0
+        resetClocks()
+        saveSettings(settings.value.copy(
+            playerColor = if (chosen == PieceColor.WHITE) "white" else "black",
+            flipped = flipped.value
+        ))
+        maybeEngineMove()
+    }
+
+    fun setMode(newMode: PlayMode) {
+        if (mode.value == newMode) return
+        mode.value = newMode
+        engineGeneration++
+        engineThinking.value = false
+        evalVisible.value = if (newMode == PlayMode.ANALYSIS) settings.value.showEvalAnalysis
+        else settings.value.showEvalPlay
+        if (newMode == PlayMode.PLAY) maybeEngineMove()
+    }
+
+    fun toggleEval() {
+        evalVisible.value = !evalVisible.value
+        val s = if (mode.value == PlayMode.ANALYSIS) {
+            settings.value.copy(showEvalAnalysis = evalVisible.value)
+        } else {
+            settings.value.copy(showEvalPlay = evalVisible.value)
+        }
+        saveSettings(s)
+    }
+
+    fun toggleFlip() {
+        flipped.value = !flipped.value
+        saveSettings(settings.value.copy(flipped = flipped.value))
     }
 
     fun undoMove() {
-        if (board.backup.isEmpty()) return
-        board.undoMove()
-        if (moveList.isNotEmpty()) moveList.removeAt(moveList.size - 1)
+        if (board.backup.isEmpty() && moveList.isEmpty()) return
+        engineGeneration++
+        engineThinking.value = false
+        if (mode.value == PlayMode.PLAY) {
+            var guard = 0
+            do {
+                if (board.backup.isEmpty()) break
+                board.undoMove()
+                if (moveList.isNotEmpty()) moveList.removeAt(moveList.size - 1)
+                guard++
+            } while (guard < 4 && board.sideToMove != (if (playerColor.value == PieceColor.WHITE) Side.WHITE else Side.BLACK) && board.backup.isNotEmpty())
+        } else {
+            if (board.backup.isEmpty()) return
+            board.undoMove()
+            if (moveList.isNotEmpty()) moveList.removeAt(moveList.size - 1)
+        }
         boardState.value = toUi(board).copy(moveNumber = boardState.value.moveNumber + 1)
-        engineManager.newGame()
+        updateEvaluationAsync()
+        maybeEngineMove()
     }
 
     private fun applyUciMove(uci: String) {
@@ -156,30 +261,94 @@ class GameViewModel(private val context: Context) : ViewModel() {
             'r' -> LibPieceType.ROOK
             else -> LibPieceType.QUEEN
         }
-        val move = candidates.firstOrNull { it.promotion == LibPiece.NONE } 
+        val move = candidates.firstOrNull { it.promotion == LibPiece.NONE }
             ?: candidates.firstOrNull { it.promotion.pieceType == desired }
             ?: candidates.first()
-        makeMove(move)
+        makeMove(move, allowEngineReply = false)
     }
 
     fun updateOptions(o: EngineOptions) {
         options.value = o
-        applyOptions(o)
+        applyNativeOptions(o)
     }
 
-    private fun applyOptions(o: EngineOptions) {
-        engineManager.setOption("Aggression", o.aggression.toString())
-        engineManager.setOption("Positional", o.positional.toString())
-        engineManager.setOption("Complexity", o.complexity.toString())
-        engineManager.setOption("Solidity", o.solidity.toString())
-        engineManager.setOption("MaterialWeight", o.materialWeight.toString())
-        engineManager.setOption("Depth", o.depth.toString())
-        engineManager.setOption("EngineMode", o.mode.uci)
-        ensureNnueAsset()?.let { engineManager.setOption("NNUEFile", it) }
+    private fun applyNativeOptions(o: EngineOptions) {
+        runCatching {
+            NativeEngine.setParams(
+                o.aggression, o.positional, o.complexity, o.solidity,
+                o.materialWeight, o.mode.ordinal
+            )
+        }
     }
 
     fun resetOptions() {
         updateOptions(EngineOptions())
+    }
+
+    fun updateSettings(s: AppSettings) {
+        saveSettings(s)
+        if (s.flipped != flipped.value) flipped.value = s.flipped
+        timeControlSeconds.value = TimeControl.byId(s.timeControl).seconds
+        evalVisible.value = if (mode.value == PlayMode.ANALYSIS) s.showEvalAnalysis else s.showEvalPlay
+    }
+
+    fun resetAllSettings() {
+        val defaults = AppSettings()
+        store.save(defaults)
+        settings.value = defaults
+        playerColor.value = PieceColor.WHITE
+        flipped.value = defaults.flipped
+        evalVisible.value = if (mode.value == PlayMode.ANALYSIS) defaults.showEvalAnalysis else defaults.showEvalPlay
+        timeControlSeconds.value = TimeControl.byId(defaults.timeControl).seconds
+        resetOptions()
+        resetClocks()
+    }
+
+    private fun saveSettings(s: AppSettings) {
+        settings.value = s
+        settingsStore.save(s)
+    }
+
+    private fun updateEvaluationAsync() {
+        val fen = board.fen
+        viewModelScope.launch {
+            val score = withContext(Dispatchers.Default) {
+                runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
+            }
+            evaluation.value = score
+        }
+    }
+
+    private fun resetClocks() {
+        val ms = timeControlSeconds.value * 1000L
+        whiteTimeMs.value = ms
+        blackTimeMs.value = ms
+    }
+
+    private fun startClockLoop() {
+        clockJob?.cancel()
+        clockJob = viewModelScope.launch {
+            while (isActive) {
+                delay(100)
+                if (mode.value != PlayMode.PLAY) continue
+                if (timeControlSeconds.value <= 0) continue
+                if (boardState.value.gameOver) continue
+                if (board.sideToMove == Side.WHITE) {
+                    whiteTimeMs.value = (whiteTimeMs.value - 100).coerceAtLeast(0)
+                    if (whiteTimeMs.value == 0L) timeOut(PieceColor.WHITE)
+                } else {
+                    blackTimeMs.value = (blackTimeMs.value - 100).coerceAtLeast(0)
+                    if (blackTimeMs.value == 0L) timeOut(PieceColor.BLACK)
+                }
+            }
+        }
+    }
+
+    private fun timeOut(side: PieceColor) {
+        engineGeneration++
+        engineThinking.value = false
+        val winner = if (side == PieceColor.WHITE) "Black" else "White"
+        boardState.value = boardState.value.copy(gameOver = true, statusText = "$winner wins on time")
     }
 
     private fun ensureNnueAsset(): String? {
@@ -238,7 +407,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     override fun onCleared() {
-        engineManager.stop()
+        clockJob?.cancel()
         super.onCleared()
     }
 }

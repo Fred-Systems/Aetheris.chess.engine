@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Aetheris Chess</title>
+<meta name="description" content="Aetheris Chess — a beautiful open-source chess engine and board for Android and the web." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♞</text></svg>" />
+<script src="https://cdn.jsdelivr.net/npm/chess.js@0.13.4/chess.min.js"></script>
+<style>
+:root{
+  --bg1:#0e0c14;--bg2:#141020;--bg3:#0a0910;--card:#1a1626;--card2:#1e1930;
+  --text:#f2eeff;--muted:#9b93b8;--accent:#7c4dff;--accent2:#b9a8ff;--line:#2b2438;
+  --board-size:min(92vw,68vh,620px);
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:linear-gradient(160deg,var(--bg1),var(--bg2) 55%,var(--bg3));color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+body{padding:18px;display:flex;justify-content:center;align-items:flex-start}
+#app{width:100%;max-width:1120px;zoom:var(--density,1)}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:2px 0 12px}
+.brand h1{margin:0;font-size:26px;letter-spacing:-.7px;font-weight:900}
+.brand p{margin:2px 0 0;font-size:12px;color:var(--muted)}
+.iconbar{display:flex;gap:5px;align-items:center}
+.iconbtn{border:0;background:transparent;color:#c9c1e5;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;cursor:pointer;font-size:18px}
+.iconbtn:hover{background:#211b31;color:#fff}
+.iconbtn.active{background:#2c2242;color:var(--accent2)}
+.download{border:0;background:linear-gradient(135deg,#8b5cff,#6a35f0);color:#fff;text-decoration:none;padding:10px 15px;border-radius:13px;font-weight:800;font-size:13px;box-shadow:0 8px 24px #6a35f055}
+.download:hover{filter:brightness(1.08)}
+.mode-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px}
+.mode{border:0;background:var(--card2);color:var(--muted);padding:9px;border-radius:12px;font-weight:700;font-size:13px;cursor:pointer}
+.mode.active{background:linear-gradient(135deg,#8b5cff,#6a35f0);color:#fff}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:18px;align-items:start}
+.status-card{background:var(--card);border-radius:17px;padding:11px 15px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;min-height:58px}
+.status-card b{font-size:14px}
+.status-card small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.clocks{display:flex;gap:6px}
+.clock{background:#262136;color:var(--muted);border-radius:9px;padding:5px 8px;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
+.clock.active{background:var(--accent);color:#fff}
+.main-col{display:flex;flex-direction:column;align-items:center}
+.board-shell{display:flex;align-items:center;justify-content:center;gap:10px;width:100%}
+.board{width:var(--board-size);aspect-ratio:1;display:grid;grid-template-columns:repeat(8,1fr);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px #0008;background:#17131f;touch-action:none;user-select:none}
+.square{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.square img{width:90%;height:90%;object-fit:contain;pointer-events:none;filter:drop-shadow(0 1px 1px #0002)}
+.square.last::before,.square.selected::before{content:"";position:absolute;inset:0;background:rgba(244,201,93,.4)}
+.square.selected::before{background:rgba(124,77,255,.45)}
+.square.check::before{content:"";position:absolute;inset:0;background:radial-gradient(circle,rgba(229,57,53,.75),transparent 72%)}
+.square .dot{position:absolute;width:24%;height:24%;border-radius:50%;background:#2b1a0e66}
+.square .ring{position:absolute;inset:11%;border-radius:50%;border:7px solid #2b1a0e55}
+.sq-label{position:absolute;font-size:9px;font-weight:800;opacity:.55;pointer-events:none}
+.sq-label.file{right:3px;bottom:2px}.sq-label.rank{left:3px;top:2px}
+.eval-wrap{width:18px;height:var(--board-size);border-radius:10px;overflow:hidden;background:#2b2438;position:relative;flex:0 0 auto;box-shadow:inset 0 0 0 1px #ffffff10}
+.eval-white{position:absolute;left:0;right:0;bottom:0;background:#ede7dc;transition:height .25s}
+.eval-mid{position:absolute;left:0;right:0;top:50%;height:1px;background:#0006}
+.controls{display:grid;grid-template-columns:1fr 1fr 1.15fr;gap:9px;width:var(--board-size);max-width:100%;margin-top:10px}
+.btn{border:0;background:var(--card2);color:#ede8ff;padding:13px 8px;border-radius:15px;font-weight:700;font-size:13px;cursor:pointer}
+.btn:hover{background:#29223d}
+.btn.primary{background:linear-gradient(135deg,#8b5cff,#6a35f0);color:#fff}
+.side{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--card);border-radius:18px;padding:14px}
+.card h3{margin:0 0 8px;font-size:13px;letter-spacing:.2px}
+.card p{margin:0;color:var(--muted);font-size:12px;line-height:1.55}
+.mini{display:flex;gap:7px;flex-wrap:wrap}
+.chip{background:#262136;color:#c8c1de;border:0;border-radius:10px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer}
+.chip.active{background:var(--accent);color:#fff}
+.legend{display:grid;gap:6px;font-size:11px;color:var(--muted)}
+.legend div{display:flex;justify-content:space-between}
+footer{text-align:center;color:#6f6887;font-size:11px;margin:22px 0 4px}
+dialog{border:0;border-radius:22px;background:#171321;color:var(--text);padding:0;max-width:420px;width:calc(100% - 28px);box-shadow:0 30px 90px #000b}
+dialog::backdrop{background:#05040ac9;backdrop-filter:blur(4px)}
+.dialog-inner{padding:20px}
+.dialog-inner h2{margin:0 0 4px;font-size:20px}
+.dialog-inner .sub{color:var(--muted);font-size:12px;margin-bottom:15px}
+.field{margin:13px 0}
+.field label{display:block;font-size:12px;font-weight:700;margin-bottom:7px}
+.field select,.field input[type=range]{width:100%}
+select{background:#241e34;border:1px solid #352c4a;color:var(--text);padding:10px;border-radius:11px;outline:none}
+.row{display:flex;gap:8px}
+.row>*{flex:1}
+.themes{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+.swatch{aspect-ratio:1;border-radius:9px;overflow:hidden;border:2px solid transparent;cursor:pointer;padding:0;display:flex;flex-direction:column}
+.swatch.active{border-color:var(--accent2)}
+.swatch span{flex:1;display:block}
+.preview{display:flex;justify-content:space-between;align-items:center;background:#100d18;border-radius:12px;padding:7px 9px;margin-bottom:9px}
+.preview img{width:22px;height:22px;object-fit:contain}
+.rangeval{float:right;color:var(--accent2)}
+.switch{display:flex;align-items:center;justify-content:space-between;padding:8px 0;font-size:12px}
+.switch input{width:18px;height:18px;accent-color:var(--accent)}
+.actions{display:flex;gap:8px;margin-top:16px}
+.actions .btn{flex:1}
+@media(max-width:860px){.layout{grid-template-columns:1fr}.side{order:2}.main-col{order:1}.board{width:min(92vw,560px)}.eval-wrap{height:min(92vw,560px)}}
+@media(max-width:520px){body{padding:10px}.download{padding:9px 10px}.brand h1{font-size:22px}.iconbtn{width:33px}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <h1>Aetheris</h1>
+      <p id="tagline">Play vs Engine</p>
+    </div>
+    <div class="iconbar">
+      <button class="iconbtn" id="flipBtn" title="Flip board">⇅</button>
+      <button class="iconbtn" id="evalBtn" title="Toggle evaluation bar">◐</button>
+      <button class="iconbtn" id="settingsBtn" title="Settings">⚙</button>
+      <a class="download" href="https://github.com/Fred-Systems/Aetheris.chess.engine/releases/latest/download/Aetheris.apk">Download APK</a>
+    </div>
+  </header>
+
+  <div class="mode-row">
+    <button class="mode active" data-mode="play">Play</button>
+    <button class="mode" data-mode="analysis">Analysis</button>
+  </div>
+
+  <div class="layout">
+    <div class="main-col">
+      <div class="status-card">
+        <div><b id="statusText">White to move</b><small id="statusSub">Depth 6 · Aetheris Dual-Core</small></div>
+        <div class="clocks" id="clocks" style="display:none">
+          <div class="clock active" id="whiteClock">10:00</div>
+          <div class="clock" id="blackClock">10:00</div>
+        </div>
+      </div>
+      <div class="board-shell">
+        <div class="eval-wrap" id="evalWrap" style="display:none"><div class="eval-white" id="evalWhite"></div><div class="eval-mid"></div></div>
+        <div class="board" id="board" aria-label="Chess board"></div>
+      </div>
+      <div class="controls">
+        <button class="btn" id="newBtn">New</button>
+        <button class="btn" id="undoBtn">Undo</button>
+        <button class="btn primary" id="forceBtn">Force Move</button>
+      </div>
+    </div>
+
+    <aside class="side">
+      <div class="card">
+        <h3>Aetheris Chess</h3>
+        <p>A polished chess experience with Lichess piece styles, 25 board themes, legal move hints, drag & drop, analysis mode and optional clocks.</p>
+      </div>
+      <div class="card">
+        <h3>Quick style</h3>
+        <div class="field" style="margin-top:6px">
+          <label>Board theme</label>
+          <div class="themes" id="quickThemes"></div>
+        </div>
+        <div class="field">
+          <label>Pieces <span class="rangeval" id="quickPieceLabel">Cburnett</span></label>
+          <select id="quickPiece"></select>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Tips</h3>
+        <div class="legend">
+          <div><span>Click or drag a piece</span><span>Move</span></div>
+          <div><span>Force Move</span><span>Engine best</span></div>
+          <div><span>Analysis</span><span>Free play</span></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer>Developed by Fred-Systems · Pieces by Lichess (cburnett and friends) · Open source</footer>
+</div>
+
+<dialog id="newDialog">
+  <div class="dialog-inner">
+    <h2>New Game</h2>
+    <div class="sub">Choose your side and clock.</div>
+    <div class="field">
+      <label>Play as</label>
+      <div class="row" id="newColors">
+        <button class="chip" data-color="white">White</button>
+        <button class="chip" data-color="black">Black</button>
+        <button class="chip" data-color="random">Random</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Time control</label>
+      <select id="newTime">
+        <option value="unlimited">Unlimited</option>
+        <option value="1">1 min</option>
+        <option value="3">3 min</option>
+        <option value="5">5 min</option>
+        <option value="10">10 min</option>
+        <option value="15">15 min</option>
+        <option value="30">30 min</option>
+      </select>
+    </div>
+    <div class="actions">
+      <button class="btn" id="newCancel">Cancel</button>
+      <button class="btn primary" id="newStart">Start</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="settingsDialog">
+  <div class="dialog-inner">
+    <h2>Settings</h2>
+    <div class="sub">Appearance, gameplay and board layout.</div>
+    <div class="field">
+      <label>Piece style <span class="rangeval" id="pieceLabel">Cburnett</span></label>
+      <select id="pieceSelect"></select>
+      <div class="preview" id="piecePreview"></div>
+    </div>
+    <div class="field">
+      <label>Board theme</label>
+      <div class="themes" id="themeGrid"></div>
+    </div>
+    <div class="field">
+      <label>App density <span class="rangeval" id="densityLabel">100%</span></label>
+      <input type="range" id="densityRange" min="0.75" max="1.5" step="0.05" />
+    </div>
+    <div class="field">
+      <label>Board size <span class="rangeval" id="boardSizeLabel">100%</span></label>
+      <input type="range" id="boardSizeRange" min="0.55" max="1" step="0.01" />
+    </div>
+    <div class="field">
+      <label>Default color</label>
+      <div class="row" id="defaultColors">
+        <button class="chip" data-color="white">White</button>
+        <button class="chip" data-color="black">Black</button>
+        <button class="chip" data-color="random">Random</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Default time control</label>
+      <select id="defaultTime">
+        <option value="unlimited">Unlimited</option>
+        <option value="1">1 min</option>
+        <option value="3">3 min</option>
+        <option value="5">5 min</option>
+        <option value="10">10 min</option>
+        <option value="15">15 min</option>
+        <option value="30">30 min</option>
+      </select>
+    </div>
+    <div class="switch"><span>Show eval in Play</span><input type="checkbox" id="evalPlay" /></div>
+    <div class="switch"><span>Show eval in Analysis</span><input type="checkbox" id="evalAnalysis" /></div>
+    <div class="actions">
+      <button class="btn" id="resetSettings">Reset defaults</button>
+      <button class="btn primary" id="settingsClose">Done</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+const PIECE_SETS = [
+  ["cburnett","Cburnett"],["alpha","Alpha"],["anarcandy","Anarcandy"],["caliente","Caliente"],["california","California"],
+  ["cardinal","Cardinal"],["celtic","Celtic"],["chess7","Chess 7"],["chessnut","Chessnut"],["companion","Companion"],
+  ["cooke","Cooke"],["disguised","Disguised"],["dubrovny","Dubrovny"],["fantasy","Fantasy"],["firi","Firi"],
+  ["fresca","Fresca"],["gioco","Gioco"],["governor","Governor"],["horsey","Horsey"],["icpieces","IC Pieces"],
+  ["kiwen-suwi","Kiwen Suwi"],["kosal","Kosal"],["leipzig","Leipzig"],["letter","Letter"],["maestro","Maestro"],
+  ["merida","Merida"],["minimal-warmth","Minimal Warmth"],["monarchy","Monarchy"],["mpchess","MP Chess"],["papercut","Papercut"],
+  ["pirouetti","Pirouetti"],["pixel","Pixel"],["reillycraig","Reilly Craig"],["rhosgfx","Rhosgfx"],["riohacha","Riohacha"],
+  ["shahi-ivory-brown","Shahi Ivory Brown"],["shapes","Shapes"],["spatial","Spatial"],["staunty","Staunty"],["tatiana","Tatiana"],
+  ["totoy","Totoy"],["xkcd","xkcd"]
+];
+const THEMES = [
+  ["brown","Brown","#f0d9b5","#b58863"],["blue","Blue","#dee3e6","#8ca2ad"],["green","Green","#ebecd0","#739552"],
+  ["purple","Purple","#e8e1f0","#9e8db5"],["pink","Pink","#f4e1e8","#c48c9f"],["grey","Grey","#e8e8e8","#a0a0a0"],
+  ["wood","Wood","#d9b382","#8a5a2b"],["marble","Marble","#e6e3dc","#afa79b"],["olive","Olive","#ddd6b8","#8c8a5a"],
+  ["leather","Leather","#c8a27a","#7a4e2d"],["maple","Maple","#f4e3c8","#c6a57a"],["metal","Metal","#d6d8dc","#8b9098"],
+  ["newspaper","Newspaper","#f5f2e8","#b8b2a3"],["tan","Tan","#f2d7b6","#b98b5e"],["walnut","Walnut","#e0c9a6","#8c6239"],
+  ["ice","Ice","#e4eef5","#8fb3c7"],["midnight","Midnight","#6e7b8b","#38495a"],["coral","Coral","#f7d9cf","#c97460"],
+  ["mint","Mint","#ddf0e3","#6fa98a"],["sand","Sand","#eee2c8","#c2a878"],["slate","Slate","#dce1e6","#6f7c8c"],
+  ["royal","Royal","#d8d3f0","#6c5ca8"],["coffee","Coffee","#e7d7c9","#8b6b5a"],["forest","Forest","#d9e8cf","#5f8a5b"],
+  ["ruby","Ruby","#eed6d6","#a54c4c"]
+];
+const DEFAULT_SETTINGS = {
+  pieceSet:"cburnett", boardTheme:"brown", density:1, boardScale:1,
+  showEvalPlay:false, showEvalAnalysis:true, playerColor:"white", timeControl:"unlimited"
+};
+let settings = Object.assign({}, DEFAULT_SETTINGS, JSON.parse(localStorage.getItem("aetheris-web-settings") || "{}"));
+let game = new Chess();
+let selected = null, legal = [], lastMove = null, flipped = false;
+let mode = "play", evalVisible = false, thinking = false, playerColor = "w";
+let timeSeconds = 0, whiteMs = 0, blackMs = 0, clockTimer = null, timeoutText = "";
+const boardEl = document.getElementById("board");
+const statusText = document.getElementById("statusText");
+const statusSub = document.getElementById("statusSub");
+const evalWrap = document.getElementById("evalWrap");
+const evalWhite = document.getElementById("evalWhite");
+const clocksEl = document.getElementById("clocks");
+const whiteClock = document.getElementById("whiteClock");
+const blackClock = document.getElementById("blackClock");
+
+function saveSettings(){ localStorage.setItem("aetheris-web-settings", JSON.stringify(settings)); }
+function theme(){ return THEMES.find(t=>t[0]===settings.boardTheme) || THEMES[0]; }
+function setDensity(){ document.documentElement.style.setProperty("--density", settings.density); }
+function applyBoardSize(){
+  const base = Math.min(window.innerWidth * 0.92, window.innerHeight * 0.68, 620);
+  const size = Math.max(180, base * settings.boardScale);
+  document.documentElement.style.setProperty("--board-size", size + "px");
+}
+function allowed(){
+  if(timeoutText || game.game_over()) return false;
+  if(mode === "play" && game.turn() !== playerColor) return false;
+  return true;
+}
+function selectedLabel(){ return mode === "play" ? "Play vs Engine" : "Analysis Board"; }
+function updateTagline(){ document.getElementById("tagline").textContent = selectedLabel(); }
+function resetClocks(){
+  timeSeconds = settings.timeControl === "unlimited" ? 0 : parseInt(settings.timeControl,10) * 60;
+  whiteMs = blackMs = timeSeconds * 1000;
+  updateClocks();
+}
+function fmt(ms){
+  const total = Math.max(0, Math.ceil(ms/1000));
+  return Math.floor(total/60) + ":" + String(total%60).padStart(2,"0");
+}
+function updateClocks(){
+  const show = timeSeconds > 0 && mode === "play";
+  clocksEl.style.display = show ? "flex" : "none";
+  whiteClock.textContent = fmt(whiteMs);
+  blackClock.textContent = fmt(blackMs);
+  whiteClock.classList.toggle("active", game.turn()==="w");
+  blackClock.classList.toggle("active", game.turn()==="b");
+}
+function startClock(){
+  clearInterval(clockTimer);
+  clockTimer = setInterval(()=>{
+    if(mode !== "play" || timeSeconds <= 0 || timeoutText || game.game_over()) return;
+    if(game.turn()==="w") whiteMs -= 100; else blackMs -= 100;
+    if(whiteMs <= 0){ whiteMs = 0; timeoutText = "Black wins on time"; }
+    if(blackMs <= 0){ blackMs = 0; timeoutText = "White wins on time"; }
+    updateClocks(); renderStatus();
+  },100);
+}
+function statusLine(){
+  if(timeoutText) return timeoutText;
+  if(game.in_checkmate()) return (game.turn()==="w" ? "Black" : "White") + " wins by checkmate";
+  if(game.in_stalemate()) return "Stalemate";
+  if(game.in_draw()) return "Draw";
+  if(game.in_check()) return "Check";
+  return game.turn()==="w" ? "White to move" : "Black to move";
+}
+function renderStatus(){
+  statusText.textContent = statusLine();
+  statusSub.textContent = thinking ? "Aetheris is thinking..." : (mode === "play" ? "Depth 6 · Aetheris Dual-Core" : "Free analysis board");
+  updateClocks();
+}
+function evalScore(){
+  const values = {p:1,n:3,b:3,r:5,q:9,k:0};
+  let score = 0;
+  for(const row of game.board()) for(const p of row) if(p) score += (p.color==="w"?1:-1) * values[p.type];
+  return score;
+}
+function updateEval(){
+  const show = evalVisible && !timeoutText;
+  evalWrap.style.display = show ? "block" : "none";
+  if(!show) return;
+  const e = Math.max(-10, Math.min(10, evalScore()));
+  evalWhite.style.height = ((e+10)/20*100) + "%";
+}
+function pieceCode(p){ return (p.color==="w"?"w":"b") + p.type.toUpperCase(); }
+function squareName(file, rank){ return "abcdefgh"[file] + (rank+1); }
+function renderBoard(){
+  const t = theme();
+  boardEl.innerHTML = "";
+  for(let row=0;row<8;row++){
+    for(let col=0;col<8;col++){
+      const actualFile = flipped ? 7-col : col;
+      const actualRank = flipped ? row : 7-row;
+      const sqName = squareName(actualFile, actualRank);
+      const sq = document.createElement("div");
+      sq.className = "square";
+      sq.dataset.square = sqName;
+      sq.style.background = ((row+col)%2===0) ? t[2] : t[3];
+      if(lastMove && (lastMove.from===sqName || lastMove.to===sqName)) sq.classList.add("last");
+      if(selected===sqName) sq.classList.add("selected");
+      const piece = game.get(sqName);
+      if(piece && game.in_check() && piece.type==="k" && piece.color===game.turn()) sq.classList.add("check");
+      if(piece){
+        const img = document.createElement("img");
+        img.src = "pieces/" + settings.pieceSet + "/" + pieceCode(piece) + ".png";
+        img.alt = piece.color + piece.type;
+        img.draggable = false;
+        sq.appendChild(img);
+        sq.draggable = allowed() && piece.color===game.turn();
+      }
+      if(legal.includes(sqName)){
+        const marker = document.createElement("div");
+        marker.className = game.get(sqName) ? "ring" : "dot";
+        sq.appendChild(marker);
+      }
+      if(row===7){
+        const f = document.createElement("span");
+        f.className = "sq-label file";
+        f.textContent = "abcdefgh"[actualFile];
+        f.style.color = ((row+col)%2===0) ? "#3b2a1a" : "#f6e7d2";
+        sq.appendChild(f);
+      }
+      if(col===0){
+        const r = document.createElement("span");
+        r.className = "sq-label rank";
+        r.textContent = actualRank + 1;
+        r.style.color = ((row+col)%2===0) ? "#3b2a1a" : "#f6e7d2";
+        sq.appendChild(r);
+      }
+      sq.addEventListener("click", ()=>onSquare(sqName));
+      sq.addEventListener("dragstart", (e)=>{
+        if(!allowed()){ e.preventDefault(); return; }
+        const p = game.get(sqName);
+        if(!p || p.color!==game.turn()){ e.preventDefault(); return; }
+        selected = sqName;
+        legal = game.moves({square:sqName, verbose:true}).map(m=>m.to);
+        e.dataTransfer.setData("text/plain", sqName);
+        e.dataTransfer.effectAllowed = "move";
+      });
+      sq.addEventListener("dragend", ()=>{ renderBoard(); });
+      sq.addEventListener("dragover", (e)=>{ e.preventDefault(); e.dataTransfer.dropEffect="move"; });
+      sq.addEventListener("drop", (e)=>{
+        e.preventDefault();
+        const from = e.dataTransfer.getData("text/plain") || selected;
+        if(from) tryMove(from, sqName);
+      });
+      boardEl.appendChild(sq);
+    }
+  }
+  updateEval();
+}
+function selectSquare(sq){
+  selected = sq;
+  legal = game.moves({square:sq, verbose:true}).map(m=>m.to);
+  renderBoard();
+}
+function onSquare(sq){
+  if(!allowed()) return;
+  if(selected){
+    if(tryMove(selected, sq)) return;
+    const p = game.get(sq);
+    if(p && p.color===game.turn()) selectSquare(sq);
+    else { selected = null; legal = []; renderBoard(); }
+  } else {
+    const p = game.get(sq);
+    if(p && p.color===game.turn()) selectSquare(sq);
+  }
+}
+function tryMove(from, to){
+  if(!allowed()) return false;
+  let mv = null;
+  try { mv = game.move({from:from, to:to, promotion:"q"}); } catch(e){ mv = null; }
+  if(!mv) return false;
+  lastMove = {from:mv.from, to:mv.to};
+  selected = null; legal = [];
+  renderBoard(); renderStatus();
+  if(mode==="play" && !game.game_over() && game.turn()!==playerColor) engineMove(false);
+  return true;
+}
+function chooseEngineMove(){
+  const moves = game.moves({verbose:true});
+  if(!moves.length) return null;
+  const scored = moves.map(m=>({m, s:(m.captured?10:0)+(m.san.includes("+")?6:0)+(m.san.includes("#")?100:0)+Math.random()*3}));
+  scored.sort((a,b)=>b.s-a.s);
+  return scored[0].m;
+}
+function applyEngineMove(){
+  const m = chooseEngineMove();
+  if(!m) return false;
+  game.move(m);
+  lastMove = {from:m.from, to:m.to};
+  selected = null; legal = [];
+  renderBoard(); renderStatus();
+  return true;
+}
+function engineMove(force){
+  if(thinking || timeoutText || game.game_over()) return;
+  if(!force && (mode!=="play" || game.turn()===playerColor)) return;
+  thinking = true; renderStatus();
+  setTimeout(()=>{
+    thinking = false;
+    applyEngineMove();
+    renderStatus();
+  }, 420);
+}
+function newGame(colorChoice){
+  let color = colorChoice || settings.playerColor;
+  if(color==="random") color = Math.random()<0.5 ? "white" : "black";
+  playerColor = color==="black" ? "b" : "w";
+  flipped = playerColor==="b";
+  game = new Chess();
+  selected = null; legal = []; lastMove = null; thinking = false; timeoutText = "";
+  mode = "play";
+  document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("active", b.dataset.mode==="play"));
+  evalVisible = settings.showEvalPlay;
+  timeSeconds = settings.timeControl==="unlimited" ? 0 : parseInt(settings.timeControl,10)*60;
+  whiteMs = blackMs = timeSeconds*1000;
+  resetClocks(); startClock(); updateTagline(); renderBoard(); renderStatus();
+  if(playerColor==="b") setTimeout(()=>engineMove(false), 260);
+}
+function setMode(next){
+  mode = next;
+  document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("active", b.dataset.mode===mode));
+  evalVisible = mode==="analysis" ? settings.showEvalAnalysis : settings.showEvalPlay;
+  selected = null; legal = []; thinking = false;
+  updateTagline(); renderBoard(); renderStatus(); updateClocks();
+}
+function buildControls(){
+  const quickPiece = document.getElementById("quickPiece");
+  const pieceSelect = document.getElementById("pieceSelect");
+  const options = PIECE_SETS.map(([id,label])=>`<option value="${id}">${label}</option>`).join("");
+  quickPiece.innerHTML = options; pieceSelect.innerHTML = options;
+  quickPiece.value = settings.pieceSet; pieceSelect.value = settings.pieceSet;
+  quickPiece.onchange = ()=>{ settings.pieceSet = quickPiece.value; saveSettings(); syncSettingsUI(); renderBoard(); };
+  pieceSelect.onchange = ()=>{ settings.pieceSet = pieceSelect.value; saveSettings(); syncSettingsUI(); renderBoard(); };
+
+  const quickThemes = document.getElementById("quickThemes");
+  const themeGrid = document.getElementById("themeGrid");
+  const themeHTML = THEMES.map(([id,label,l,d])=>`<button class="swatch" data-theme="${id}" title="${label}"><span style="background:${l}"></span><span style="background:${d}"></span></button>`).join("");
+  quickThemes.innerHTML = themeHTML; themeGrid.innerHTML = themeHTML;
+  document.querySelectorAll(".swatch").forEach(el=>{
+    el.onclick = ()=>{ settings.boardTheme = el.dataset.theme; saveSettings(); syncSettingsUI(); renderBoard(); };
+  });
+
+  document.querySelectorAll(".mode").forEach(b=> b.onclick = ()=> setMode(b.dataset.mode));
+  document.getElementById("flipBtn").onclick = ()=>{ flipped = !flipped; renderBoard(); };
+  document.getElementById("evalBtn").onclick = ()=>{
+    evalVisible = !evalVisible;
+    if(mode==="analysis") settings.showEvalAnalysis = evalVisible; else settings.showEvalPlay = evalVisible;
+    saveSettings(); syncSettingsUI(); renderBoard();
+  };
+  document.getElementById("undoBtn").onclick = ()=>{
+    if(timeoutText){ timeoutText=""; }
+    game.undo();
+    if(mode==="play" && game.turn()!==playerColor && !game.game_over()) game.undo();
+    const hist = game.history({verbose:true});
+    lastMove = hist.length ? {from:hist[hist.length-1].from, to:hist[hist.length-1].to} : null;
+    selected = null; legal = []; thinking = false;
+    renderBoard(); renderStatus();
+  };
+  document.getElementById("forceBtn").onclick = ()=>{ if(!game.game_over() && !timeoutText) applyEngineMove(); };
+
+  document.getElementById("settingsBtn").onclick = ()=> document.getElementById("settingsDialog").showModal();
+  document.getElementById("settingsClose").onclick = ()=> document.getElementById("settingsDialog").close();
+  document.getElementById("newBtn").onclick = ()=>{
+    document.querySelectorAll("#newColors .chip").forEach(c=>c.classList.toggle("active", c.dataset.color===settings.playerColor));
+    document.getElementById("newTime").value = settings.timeControl;
+    document.getElementById("newDialog").showModal();
+  };
+  document.getElementById("newCancel").onclick = ()=> document.getElementById("newDialog").close();
+  document.querySelectorAll("#newColors .chip").forEach(c=> c.onclick = ()=>{
+    document.querySelectorAll("#newColors .chip").forEach(x=>x.classList.remove("active"));
+    c.classList.add("active");
+  });
+  document.getElementById("newStart").onclick = ()=>{
+    const color = document.querySelector("#newColors .chip.active")?.dataset.color || settings.playerColor;
+    settings.timeControl = document.getElementById("newTime").value;
+    saveSettings(); syncSettingsUI();
+    document.getElementById("newDialog").close();
+    newGame(color);
+  };
+
+  document.getElementById("densityRange").oninput = (e)=>{ settings.density = parseFloat(e.target.value); saveSettings(); syncSettingsUI(); };
+  document.getElementById("boardSizeRange").oninput = (e)=>{ settings.boardScale = parseFloat(e.target.value); saveSettings(); syncSettingsUI(); };
+  document.getElementById("defaultTime").onchange = (e)=>{ settings.timeControl = e.target.value; saveSettings(); resetClocks(); updateClocks(); };
+  document.getElementById("evalPlay").onchange = (e)=>{ settings.showEvalPlay = e.target.checked; saveSettings(); if(mode==="play"){ evalVisible = e.target.checked; renderBoard(); } };
+  document.getElementById("evalAnalysis").onchange = (e)=>{ settings.showEvalAnalysis = e.target.checked; saveSettings(); if(mode==="analysis"){ evalVisible = e.target.checked; renderBoard(); } };
+  document.querySelectorAll("#defaultColors .chip").forEach(c=> c.onclick = ()=>{ settings.playerColor = c.dataset.color; saveSettings(); syncSettingsUI(); });
+  document.getElementById("resetSettings").onclick = ()=>{ settings = Object.assign({}, DEFAULT_SETTINGS); saveSettings(); syncSettingsUI(); applyBoardSize(); renderBoard(); resetClocks(); updateClocks(); };
+}
+function syncSettingsUI(){
+  setDensity(); applyBoardSize();
+  document.getElementById("quickPiece").value = settings.pieceSet;
+  document.getElementById("pieceSelect").value = settings.pieceSet;
+  document.getElementById("quickPieceLabel").textContent = (PIECE_SETS.find(p=>p[0]===settings.pieceSet)||PIECE_SETS[0])[1];
+  document.getElementById("pieceLabel").textContent = (PIECE_SETS.find(p=>p[0]===settings.pieceSet)||PIECE_SETS[0])[1];
+  document.querySelectorAll(".swatch").forEach(el=>el.classList.toggle("active", el.dataset.theme===settings.boardTheme));
+  document.getElementById("densityRange").value = settings.density;
+  document.getElementById("densityLabel").textContent = Math.round(settings.density*100) + "%";
+  document.getElementById("boardSizeRange").value = settings.boardScale;
+  document.getElementById("boardSizeLabel").textContent = Math.round(settings.boardScale*100) + "%";
+  document.getElementById("defaultTime").value = settings.timeControl;
+  document.getElementById("evalPlay").checked = settings.showEvalPlay;
+  document.getElementById("evalAnalysis").checked = settings.showEvalAnalysis;
+  document.querySelectorAll("#defaultColors .chip").forEach(c=>c.classList.toggle("active", c.dataset.color===settings.playerColor));
+  const preview = document.getElementById("piecePreview");
+  preview.innerHTML = ["wK","wQ","wR","wB","wN","wP","bK","bQ","bR","bB","bN","bP"]
+    .map(c=>`<img src="pieces/${settings.pieceSet}/${c}.png" alt="${c}">`).join("");
+}
+window.addEventListener("resize", applyBoardSize);
+buildControls();
+syncSettingsUI();
+applyBoardSize();
+evalVisible = settings.showEvalPlay;
+newGame(settings.playerColor);
+</script>
+</body>
+</html>

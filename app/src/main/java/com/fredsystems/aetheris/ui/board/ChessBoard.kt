@@ -1,11 +1,15 @@
 package com.fredsystems.aetheris.ui.board
 
+import android.graphics.BitmapFactory
+import android.util.LruCache
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -17,14 +21,20 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.fredsystems.aetheris.R
@@ -32,23 +42,50 @@ import com.fredsystems.aetheris.domain.model.BoardState
 import com.fredsystems.aetheris.domain.model.Piece
 import com.fredsystems.aetheris.domain.model.PieceColor
 import com.fredsystems.aetheris.domain.model.PieceType
+import com.fredsystems.aetheris.ui.theme.BoardTheme
+import com.fredsystems.aetheris.ui.theme.BoardThemes
+import kotlin.math.roundToInt
 
-private val LightSquare = Color(0xFFF0D9B5)
-private val DarkSquare = Color(0xFFB58863)
 private val SelectedGlow = Color(0xFF7C4DFF)
 private val LegalDot = Color(0x662B1A0E)
 private val LastMoveTint = Color(0x66F4C95D)
 private val CheckTint = Color(0x99E53935)
 private val BoardFrame = Color(0xFF17131F)
 
+private object PieceBitmapCache {
+    private val cache = LruCache<String, ImageBitmap>(96)
+    fun get(context: android.content.Context, set: String, code: String): ImageBitmap? {
+        val key = "$set/$code"
+        cache.get(key)?.let { return it }
+        return try {
+            val bitmap = context.assets.open("pieces/$set/$code.png").use {
+                BitmapFactory.decodeStream(it).asImageBitmap()
+            }
+            cache.put(key, bitmap)
+            bitmap
+        } catch (e: Exception) {
+            null
+        }
+    }
+}
+
 @Composable
 fun ChessBoard(
     board: BoardState,
     onSquareClick: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    pieceSet: String = "cburnett",
+    boardTheme: BoardTheme = BoardThemes.byId("brown"),
+    flipped: Boolean = false
 ) {
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
     val animation = remember { Animatable(1f) }
+    var dragFrom by remember { mutableStateOf<Int?>(null) }
+    var dragPosition by remember { mutableStateOf(Offset.Zero) }
+    var dragging by remember { mutableStateOf(false) }
+    var boardWidthPx by remember { mutableStateOf(0) }
+
     LaunchedEffect(board.moveNumber) {
         if (board.moveNumber > 0) {
             animation.snapTo(0f)
@@ -58,93 +95,190 @@ fun ChessBoard(
         }
     }
 
+    fun displayToIndex(row: Int, col: Int): Int =
+        if (!flipped) (7 - row) * 8 + col else row * 8 + (7 - col)
+
+    fun indexAt(position: Offset, widthPx: Int): Int? {
+        if (widthPx <= 0) return null
+        val cell = widthPx / 8f
+        if (position.x < 0f || position.y < 0f || position.x >= widthPx || position.y >= widthPx) return null
+        val col = (position.x / cell).toInt().coerceIn(0, 7)
+        val row = (position.y / cell).toInt().coerceIn(0, 7)
+        return displayToIndex(row, col)
+    }
+
     BoxWithConstraints(
         modifier = modifier
             .aspectRatio(1f)
             .clip(RoundedCornerShape(18.dp))
             .background(BoardFrame)
-            .padding(4.dp)
-            .clip(RoundedCornerShape(15.dp))
+            .onSizeChanged { boardWidthPx = it.width }
+            .pointerInput(flipped, board.pieces, board.sideToMove, board.gameOver) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val start = indexAt(down.position, size.width) ?: return@awaitEachGesture
+                    dragFrom = start
+                    dragPosition = down.position
+                    dragging = false
+                    var released = false
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        dragPosition = change.position
+                        if (!change.pressed) {
+                            released = true
+                            val target = indexAt(change.position, size.width)
+                            if (dragging) {
+                                if (target != null && target != start) {
+                                    onSquareClick(start)
+                                    onSquareClick(target)
+                                } else {
+                                    onSquareClick(start)
+                                }
+                            } else {
+                                onSquareClick(start)
+                            }
+                            break
+                        }
+                        if (!dragging && (change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
+                            val piece = board.pieces[start]
+                            if (piece != null && piece.color == board.sideToMove) {
+                                dragging = true
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                change.consume()
+                            }
+                        } else if (dragging) {
+                            change.consume()
+                        }
+                    }
+                    if (!released && dragFrom != null) dragFrom = null
+                    dragFrom = null
+                    dragging = false
+                }
+            }
     ) {
         val square = maxWidth / 8
+        val squarePx = with(LocalDensity.current) { square.toPx() }
         val animating = board.lastMoveFrom != null && board.lastMoveTo != null && animation.value < 1f
+        val light = boardTheme.light
+        val dark = boardTheme.dark
 
-        for (rank in 7 downTo 0) {
-            for (file in 0..7) {
-                val index = rank * 8 + file
-                val isLight = (file + rank) % 2 == 0
-                val tint = when {
-                    index == board.lastMoveFrom || index == board.lastMoveTo -> LastMoveTint
-                    else -> Color.Transparent
+        Canvas(Modifier.fillMaxSize()) {
+            val cell = size.width / 8f
+            for (row in 0..7) {
+                for (col in 0..7) {
+                    val topLeft = Offset(col * cell, row * cell)
+                    drawRect(if ((row + col) % 2 == 0) light else dark, topLeft, Size(cell, cell))
                 }
-                Box(
-                    modifier = Modifier
-                        .offset(x = square * file, y = square * (7 - rank))
-                        .size(square)
-                        .background(if (isLight) LightSquare else DarkSquare)
-                        .clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onSquareClick(index)
-                        }
-                ) {
-                    if (tint != Color.Transparent) {
-                        Box(Modifier.fillMaxSize().background(tint))
+            }
+            for (row in 0..7) {
+                for (col in 0..7) {
+                    val index = displayToIndex(row, col)
+                    val topLeft = Offset(col * cell, row * cell)
+                    val full = Size(cell, cell)
+                    if (index == board.lastMoveFrom || index == board.lastMoveTo) {
+                        drawRect(LastMoveTint, topLeft, full)
                     }
                     if (index == board.selectedSquare) {
-                        Box(Modifier.fillMaxSize().background(SelectedGlow.copy(alpha = 0.45f)))
+                        drawRect(SelectedGlow.copy(alpha = 0.45f), topLeft, full)
                     }
                     if (index == board.checkSquare) {
-                        Box(Modifier.fillMaxSize().background(
-                            Brush.radialGradient(listOf(CheckTint, Color.Transparent))
-                        ))
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(CheckTint, Color.Transparent),
+                                center = Offset(topLeft.x + cell / 2, topLeft.y + cell / 2),
+                                radius = cell * 0.7f
+                            ),
+                            radius = cell * 0.7f,
+                            center = Offset(topLeft.x + cell / 2, topLeft.y + cell / 2)
+                        )
                     }
                     if (index in board.legalTargets) {
-                        val isCapture = board.pieces.containsKey(index) || index == board.lastMoveTo
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            if (isCapture) {
-                                Box(Modifier.fillMaxSize(0.78f).clip(RoundedCornerShape(50)).background(Color(0x332B1A0E)))
-                            } else {
-                                Box(Modifier.size(square * 0.26f).clip(RoundedCornerShape(50)).background(LegalDot))
-                            }
+                        val center = Offset(topLeft.x + cell / 2, topLeft.y + cell / 2)
+                        if (board.pieces.containsKey(index)) {
+                            drawCircle(
+                                color = Color(0x552B1A0E),
+                                radius = cell * 0.42f,
+                                center = center,
+                                style = Stroke(width = cell * 0.09f)
+                            )
+                        } else {
+                            drawCircle(
+                                color = LegalDot,
+                                radius = cell * 0.14f,
+                                center = center
+                            )
                         }
-                    }
-                    val piece = board.pieces[index]
-                    if (piece != null && !(animating && index == board.lastMoveTo)) {
-                        PieceImage(piece, Modifier.fillMaxSize().padding(square * 0.045f))
-                    }
-                    if (file == 0) {
-                        Text(
-                            text = "${rank + 1}",
-                            modifier = Modifier.align(Alignment.TopStart).padding(2.dp),
-                            color = if (isLight) Color(0x993B2A1A) else Color(0x99F6E7D2),
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    if (rank == 0) {
-                        Text(
-                            text = ('a' + file).toString(),
-                            modifier = Modifier.align(Alignment.BottomEnd).padding(2.dp),
-                            color = if (isLight) Color(0x993B2A1A) else Color(0x99F6E7D2),
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
                     }
                 }
             }
         }
 
+        for (row in 0..7) {
+            for (col in 0..7) {
+                val index = displayToIndex(row, col)
+                val piece = board.pieces[index]
+                val isDragged = dragging && index == dragFrom
+                if (piece != null && !isDragged && !(animating && index == board.lastMoveTo)) {
+                    PieceImage(
+                        piece = piece,
+                        pieceSet = pieceSet,
+                        modifier = Modifier
+                            .offset(x = square * col, y = square * row)
+                            .size(square)
+                            .padding(square * 0.045f)
+                    )
+                }
+                val actualFile = index % 8
+                val actualRank = index / 8
+                if (row == 7) {
+                    Text(
+                        text = ('a' + actualFile).toString(),
+                        modifier = Modifier
+                            .offset(x = square * col, y = square * row)
+                            .size(square)
+                            .padding(2.dp),
+                        color = if ((row + col) % 2 == 0) Color(0x993B2A1A) else Color(0x99F6E7D2),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                if (col == 0) {
+                    Text(
+                        text = "${actualRank + 1}",
+                        modifier = Modifier
+                            .offset(x = square * col, y = square * row)
+                            .size(square)
+                            .padding(2.dp),
+                        color = if ((row + col) % 2 == 0) Color(0x993B2A1A) else Color(0x99F6E7D2),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.End
+                    )
+                }
+            }
+        }
+
         if (animating && board.lastMoveFrom != null && board.lastMoveTo != null) {
-            val fromFile = board.lastMoveFrom % 8
-            val fromRank = board.lastMoveFrom / 8
-            val toFile = board.lastMoveTo % 8
-            val toRank = board.lastMoveTo / 8
-            val movingPiece = board.pieces[board.lastMoveTo]
+            val fromIndex = board.lastMoveFrom
+            val toIndex = board.lastMoveTo
+            val from = if (!flipped) {
+                Offset((fromIndex % 8).toFloat(), (7 - fromIndex / 8).toFloat())
+            } else {
+                Offset((7 - fromIndex % 8).toFloat(), (fromIndex / 8).toFloat())
+            }
+            val to = if (!flipped) {
+                Offset((toIndex % 8).toFloat(), (7 - toIndex / 8).toFloat())
+            } else {
+                Offset((7 - toIndex % 8).toFloat(), (toIndex / 8).toFloat())
+            }
+            val movingPiece = board.pieces[toIndex]
             if (movingPiece != null) {
-                val x = lerp(square * fromFile, square * toFile, animation.value)
-                val y = lerp(square * (7 - fromRank), square * (7 - toRank), animation.value)
+                val x = square * (from.x + (to.x - from.x) * animation.value)
+                val y = square * (from.y + (to.y - from.y) * animation.value)
                 PieceImage(
                     piece = movingPiece,
+                    pieceSet = pieceSet,
                     modifier = Modifier
                         .offset(x = x, y = y)
                         .size(square)
@@ -153,19 +287,51 @@ fun ChessBoard(
                 )
             }
         }
+
+        if (dragging && dragFrom != null) {
+            val piece = board.pieces[dragFrom!!]
+            if (piece != null) {
+                PieceImage(
+                    piece = piece,
+                    pieceSet = pieceSet,
+                    modifier = Modifier
+                        .offset {
+                            IntOffset(
+                                (dragPosition.x - squarePx / 2f).roundToInt(),
+                                (dragPosition.y - squarePx / 2f).roundToInt()
+                            )
+                        }
+                        .size(square)
+                        .padding(square * 0.02f)
+                        .zIndex(5f)
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun PieceImage(piece: Piece, modifier: Modifier = Modifier) {
-    Image(
-        painter = painterResource(id = pieceRes(piece)),
-        contentDescription = null,
-        modifier = modifier
-    )
+private fun PieceImage(piece: Piece, pieceSet: String, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val code = pieceCode(piece)
+    val bitmap = remember(pieceSet, code) { PieceBitmapCache.get(context, pieceSet, code) }
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap,
+            contentDescription = null,
+            modifier = modifier,
+            filterQuality = FilterQuality.High
+        )
+    } else {
+        Image(
+            painter = painterResource(id = legacyPieceRes(piece)),
+            contentDescription = null,
+            modifier = modifier
+        )
+    }
 }
 
-private fun pieceRes(piece: Piece): Int {
+private fun pieceCode(piece: Piece): String {
     val prefix = if (piece.color == PieceColor.WHITE) "w" else "b"
     val suffix = when (piece.type) {
         PieceType.KING -> "K"
@@ -175,7 +341,11 @@ private fun pieceRes(piece: Piece): Int {
         PieceType.KNIGHT -> "N"
         PieceType.PAWN -> "P"
     }
-    return when (prefix + suffix) {
+    return prefix + suffix
+}
+
+private fun legacyPieceRes(piece: Piece): Int {
+    return when (pieceCode(piece)) {
         "wK" -> R.drawable.piece_wk
         "wQ" -> R.drawable.piece_wq
         "wR" -> R.drawable.piece_wr

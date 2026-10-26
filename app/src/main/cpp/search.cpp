@@ -246,10 +246,23 @@ static bool timeUp() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count() >= timeLimitMs;
 }
 
+static std::uint64_t positionKey(const Board& b) {
+    std::uint64_t key = 0x9e3779b97f4a7c15ULL;
+    for (int c = 0; c < 2; c++) {
+        for (int p = 0; p < 6; p++) {
+            key ^= b.pieces[c][p] + 0x9e3779b97f4a7c15ULL + (key << 6) + (key >> 2);
+        }
+    }
+    key ^= static_cast<std::uint64_t>(b.side) * 0xbf58476d1ce4e5b9ULL;
+    key ^= static_cast<std::uint64_t>(b.castleRights) * 0x94d049bb133111ebULL;
+    key ^= static_cast<std::uint64_t>(b.epSquare + 1) * 0xd6e8feb86659fd93ULL;
+    return key;
+}
+
 static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode) {
     if (timeUp()) { stopSearch = true; return 0; }
     nodeCount++;
-    std::uint64_t key = b.occupied[0] ^ b.occupied[1] ^ (b.side ? 0x9e3779b97f4a7c15ULL : 0);
+    std::uint64_t key = positionKey(b);
     int idx = key & (tt2.size() - 1);
     if (tt2[idx].key == key && tt2[idx].depth >= depth) {
         int s = tt2[idx].score;
@@ -318,11 +331,16 @@ Move searchBestMove(Board& b, int depth, int timeMs) {
     Move best = 0;
     for (int d = 1; d <= depth; d++) {
         int s = alphaBeta(b, d, -INF, INF, true);
-        std::uint64_t key = b.occupied[0] ^ b.occupied[1] ^ (b.side ? 0x9e3779b97f4a7c15ULL : 0);
+        std::uint64_t key = positionKey(b);
         int idx = key & (tt2.size() - 1);
-        if (tt2[idx].key == key) best = tt2[idx].best;
+        if (tt2[idx].key == key && tt2[idx].best) best = tt2[idx].best;
         if (stopSearch) break;
         std::cout << "info depth " << d << " score cp " << s << " nodes " << nodeCount << std::endl;
+    }
+    if (best == 0) {
+        std::vector<Move> legal;
+        genMoves(b, legal, false);
+        if (!legal.empty()) best = legal[0];
     }
     return best;
 }

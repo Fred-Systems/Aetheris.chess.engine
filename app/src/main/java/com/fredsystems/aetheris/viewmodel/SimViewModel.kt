@@ -8,19 +8,18 @@ import com.fredsystems.aetheris.domain.model.BoardState
 import com.fredsystems.aetheris.domain.model.Piece
 import com.fredsystems.aetheris.domain.model.PieceColor
 import com.fredsystems.aetheris.domain.model.PieceType
-import com.fredsystems.aetheris.engine.process.EngineManager
-import com.fredsystems.aetheris.engine.process.EngineProcess
+import com.fredsystems.aetheris.engine.NativeEngine
 import com.github.bhlangonijr.chesslib.Board
 import com.github.bhlangonijr.chesslib.Piece as LibPiece
 import com.github.bhlangonijr.chesslib.PieceType as LibPieceType
 import com.github.bhlangonijr.chesslib.Side
 import com.github.bhlangonijr.chesslib.Square as LibSquare
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SimViewModel(private val context: Context) : ViewModel() {
-    val engineA = EngineManager(EngineProcess(context))
-    val engineB = EngineManager(EngineProcess(context))
     private var board = Board()
     val boardState = mutableStateOf(toUi(board))
     val eval = mutableStateOf(0)
@@ -29,14 +28,16 @@ class SimViewModel(private val context: Context) : ViewModel() {
 
     var depthA = 6
     var depthB = 6
-    var timeMs = 0
+    var timeMs = 800
     var games = 1
     var modeA = "DualCore"
     var modeB = "DualCore"
 
     init {
-        try { engineA.init() } catch (e: Exception) { }
-        try { engineB.init() } catch (e: Exception) { }
+        runCatching {
+            NativeEngine.nativeInit()
+            ensureNnue()?.let { NativeEngine.setNnue(it) }
+        }
     }
 
     fun start() {
@@ -44,29 +45,24 @@ class SimViewModel(private val context: Context) : ViewModel() {
         running.value = true
         viewModelScope.launch {
             try {
-                engineA.setOption("EngineMode", modeA)
-                engineB.setOption("EngineMode", modeB)
                 for (g in 1..games) {
                     board = Board()
                     boardState.value = toUi(board)
-                    engineA.newGame()
-                    engineB.newGame()
                     status.value = "Game $g"
                     var plies = 0
                     while (running.value && plies < 160 && !board.isMated && !board.isDraw()) {
                         val white = board.sideToMove == Side.WHITE
-                        val eng = if (white) engineA else engineB
                         val depth = if (white) depthA else depthB
-                        eng.bestMove.value = null
-                        eng.setPosition(board.fen)
-                        eng.go(depth, timeMs)
-                        var mv: String? = null
-                        for (i in 0..240) {
-                            delay(50)
-                            val bm = eng.bestMove.value
-                            if (!bm.isNullOrBlank()) { mv = bm; break }
+                        val fen = board.fen
+                        val mode = if (white) modeA else modeB
+                        val mv = withContext(Dispatchers.Default) {
+                            runCatching {
+                                NativeEngine.setParams(50, 50, 50, 50, 50, modeOrdinal(mode))
+                                NativeEngine.setPosition(fen)
+                                NativeEngine.go(depth, timeMs)
+                            }.getOrNull()
                         }
-                        if (mv == null || mv.length < 4) break
+                        if (mv.isNullOrBlank() || mv.length < 4) break
                         val from = LibSquare.fromValue(mv.substring(0, 2))
                         val to = LibSquare.fromValue(mv.substring(2, 4))
                         val candidates = board.legalMoves().filter { it.from == from && it.to == to }
@@ -83,11 +79,13 @@ class SimViewModel(private val context: Context) : ViewModel() {
                             ?: candidates.first()
                         if (!board.doMove(move)) break
                         boardState.value = toUi(board)
-                        eval.value = eng.score.value
+                        eval.value = withContext(Dispatchers.Default) {
+                            runCatching { NativeEngine.evaluateFen(board.fen) }.getOrDefault(eval.value)
+                        }
                         plies++
-                        delay(260)
+                        delay(220)
                     }
-                    if (g < games) delay(500)
+                    if (g < games) delay(400)
                 }
             } finally {
                 status.value = "Finished"
@@ -96,7 +94,29 @@ class SimViewModel(private val context: Context) : ViewModel() {
         }
     }
 
-    fun stop() { running.value = false }
+    fun stop() {
+        running.value = false
+        status.value = "Stopped"
+    }
+
+    private fun modeOrdinal(mode: String): Int = when (mode) {
+        "PureNNUE" -> 1
+        "PureClassical" -> 2
+        else -> 0
+    }
+
+    private fun ensureNnue(): String? = try {
+        val out = java.io.File(context.filesDir, "nnue/weights.bin")
+        out.parentFile?.mkdirs()
+        if (!out.exists()) {
+            context.assets.open("nnue/weights.bin").use { input ->
+                out.outputStream().use { output -> input.copyTo(output) }
+            }
+        }
+        out.absolutePath
+    } catch (e: Exception) {
+        null
+    }
 
     private fun toUi(b: Board): BoardState {
         val arr = b.boardToArray()
@@ -132,10 +152,5 @@ class SimViewModel(private val context: Context) : ViewModel() {
         LibPieceType.QUEEN -> PieceType.QUEEN
         LibPieceType.KING -> PieceType.KING
         else -> PieceType.PAWN
-    }
-
-    override fun onCleared() {
-        engineA.stop(); engineB.stop()
-        super.onCleared()
     }
 }
