@@ -68,9 +68,12 @@ class GameViewModel(private val context: Context) : ViewModel() {
     fun updateOptions(o: EngineOptions) {
         options.value = o
         engineManager.setOption("Aggression", o.aggression.toString())
+        engineManager.setOption("Positional", o.positional.toString())
+        engineManager.setOption("Complexity", o.complexity.toString())
+        engineManager.setOption("Solidity", o.solidity.toString())
         engineManager.setOption("MaterialWeight", o.materialWeight.toString())
         engineManager.setOption("Depth", o.depth.toString())
-        engineManager.setOption("EngineMode", if (o.mode == EngineMode.NNUE) "NNUE" else "Classical")
+        engineManager.setOption("EngineMode", o.mode.uci)
         val path = ensureNnueAsset()
         if (path != null) engineManager.setOption("NNUEFile", path)
     }

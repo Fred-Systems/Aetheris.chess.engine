@@ -7,8 +7,7 @@ import java.io.BufferedReader
 
 class EngineManager(private val engine: EngineProcess) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val _bestMove = MutableStateFlow<String?>(null)
-    val bestMove: StateFlow<String?> = _bestMove
+    val bestMove = MutableStateFlow<String?>(null)
     private val _score = MutableStateFlow(0)
     val score: StateFlow<Int> = _score
     private val _info = MutableStateFlow("")
@@ -30,7 +29,7 @@ class EngineManager(private val engine: EngineProcess) {
         when {
             line.startsWith("bestmove") -> {
                 val parts = line.split(" ")
-                _bestMove.value = parts.getOrElse(1) { "" }
+                bestMove.value = parts.getOrElse(1) { "" }
             }
             line.startsWith("info") -> {
                 _info.value = line

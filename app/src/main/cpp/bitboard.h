@@ -41,9 +41,12 @@ void resetBoard();
 void setPosition(const std::string& fen);
 int evaluate(const Board& b);
 void setAggression(int a);
+void setPositional(int v);
+void setComplexity(int v);
+void setSolidity(int v);
 void setMaterialWeight(int m);
 
-enum EngineMode { ENGINE_CLASSICAL = 0, ENGINE_NNUE = 1 };
+enum EngineMode { ENGINE_DUAL_CORE = 0, ENGINE_PURE_NNUE = 1, ENGINE_PURE_CLASSICAL = 2 };
 extern int engineMode;
 void setEngineMode(int m);
 void setNNUEPath(const std::string& p);

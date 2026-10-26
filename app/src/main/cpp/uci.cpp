@@ -7,6 +7,9 @@
 namespace aetheris {
 extern Move searchBestMove(Board& b, int depth, int timeMs);
 extern void setAggression(int a);
+extern void setPositional(int v);
+extern void setComplexity(int v);
+extern void setSolidity(int v);
 extern void setMaterialWeight(int m);
 extern void setEngineMode(int m);
 extern void setNNUEPath(const std::string& p);
@@ -27,6 +30,9 @@ int main() {
             std::cout << "id name Aetheris" << std::endl;
             std::cout << "id author Fred-Systems" << std::endl;
             std::cout << "option name Aggression type spin default 50 min 0 max 100" << std::endl;
+            std::cout << "option name Positional type spin default 50 min 0 max 100" << std::endl;
+            std::cout << "option name Complexity type spin default 50 min 0 max 100" << std::endl;
+            std::cout << "option name Solidity type spin default 50 min 0 max 100" << std::endl;
             std::cout << "option name MaterialWeight type spin default 50 min 0 max 100" << std::endl;
             std::cout << "option name UseOpeningBook type check default false" << std::endl;
             std::cout << "option name Depth type spin default 6 min 1 max 64" << std::endl;
@@ -53,11 +59,15 @@ int main() {
                 // trim
                 while (!val.empty() && (val.front() == ' ')) val.erase(val.begin());
                 if (optName == "Aggression") setAggression(std::stoi(val));
+                else if (optName == "Positional") setPositional(std::stoi(val));
+                else if (optName == "Complexity") setComplexity(std::stoi(val));
+                else if (optName == "Solidity") setSolidity(std::stoi(val));
                 else if (optName == "MaterialWeight") setMaterialWeight(std::stoi(val));
                 else if (optName == "Depth") depthLimit = std::stoi(val);
                 else if (optName == "EngineMode") {
-                    if (val == "Classical") setEngineMode(ENGINE_CLASSICAL);
-                    else setEngineMode(ENGINE_NNUE);
+                    if (val == "PureClassical") setEngineMode(ENGINE_PURE_CLASSICAL);
+                    else if (val == "PureNNUE") setEngineMode(ENGINE_PURE_NNUE);
+                    else setEngineMode(ENGINE_DUAL_CORE);
                 }
                 else if (optName == "NNUEFile") setNNUEPath(val);
             }
