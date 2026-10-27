@@ -25,8 +25,13 @@ class GitHubUpdater(private val context: Context) {
         }
     }
 
+    // Releases use semantic version tags (v1.0.4), so compare the same
+    // normalized version representation on both sides rather than Android's
+    // monotonically increasing integer versionCode.
     fun currentVersionCode(): Long {
-        return context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode
+        val info = context.packageManager.getPackageInfo(context.packageName, 0)
+        return info.versionName?.trimStart('v')?.replace(".", "")?.toLongOrNull()
+            ?: info.longVersionCode
     }
 
     suspend fun checkForUpdate(): Pair<Boolean, String?> = withContext(Dispatchers.IO) {
