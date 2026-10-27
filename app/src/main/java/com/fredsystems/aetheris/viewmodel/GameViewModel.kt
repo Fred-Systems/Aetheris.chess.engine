@@ -48,6 +48,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     val boardState = mutableStateOf(toUi(board))
     val evaluation = mutableStateOf(0)
     val analysisLines = mutableStateOf<List<EngineAnalysisLine>>(emptyList())
+    val bestMoveUci = mutableStateOf<String?>(null)
     val analysisLoading = mutableStateOf(false)
     val nnueStatus = mutableStateOf("Checking neural network…")
     val options = mutableStateOf(EngineOptions())
@@ -316,6 +317,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
             board.loadFromFen(positionHistory[target])
             historyIndex.value = target
             analysisLines.value = emptyList()
+            bestMoveUci.value = null
             boardState.value = toUi(board).copy(moveNumber = target)
             evaluation.value = 0
             updateEvaluationAsync()
@@ -362,6 +364,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
                 val score = parts[1].toIntOrNull() ?: return@mapNotNull null
                 if (moves.isEmpty()) null else EngineAnalysisLine(moves, if (whiteToMove) score else -score)
             }.toList()
+            bestMoveUci.value = analysisLines.value.firstOrNull()?.moves?.firstOrNull()
             analysisLoading.value = false
         }
     }
@@ -428,17 +431,22 @@ class GameViewModel(private val context: Context) : ViewModel() {
     private fun updateEvaluationAsync() {
         val fen = board.fen
         viewModelScope.launch {
-            val score = withContext(Dispatchers.Default) {
-                // Use a short search, not a single static leaf evaluation. This sees forcing
-                // recaptures and reduces the misleading material swings after temporarily hanging a piece.
-                val searched = runCatching {
+            val result = withContext(Dispatchers.Default) {
+                val raw = runCatching {
                     NativeEngine.analyzeFen(fen, options.value.depth.coerceIn(4, 10), 900, 1)
-                        .lineSequence().firstOrNull()?.substringAfter("|")?.trim()?.toIntOrNull()
-                }.getOrNull()
-                val raw = searched ?: runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
-                if (fen.split(" ").getOrNull(1) == "b") -raw else raw
+                }.getOrDefault("")
+                val row = raw.lineSequence().firstOrNull().orEmpty()
+                val parts = row.split("|", limit = 2)
+                val moves = parts.firstOrNull().orEmpty().trim().split(Regex("\\s+")).filter { it.length >= 4 }
+                val score = parts.getOrNull(1)?.trim()?.toIntOrNull()
+                    ?: runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
+                val whitePerspective = if (fen.split(" ").getOrNull(1) == "b") -score else score
+                Pair(whitePerspective, moves.firstOrNull())
             }
-            if (board.fen == fen) evaluation.value = score
+            if (board.fen == fen) {
+                evaluation.value = result.first
+                bestMoveUci.value = result.second
+            }
         }
     }
 
