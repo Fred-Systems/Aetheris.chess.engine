@@ -76,6 +76,7 @@ jobs:
           "$SDK_BUILD_TOOLS/zipalign" -f -p 4 "$APK_PATH" "$RUNNER_TEMP/aetheris-aligned.apk"
           "$SDK_BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/aetheris-release.jks" --ks-key-alias "$ANDROID_KEY_ALIAS" --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD --out Aetheris-1.0.9.apk "$RUNNER_TEMP/aetheris-aligned.apk"
           "$SDK_BUILD_TOOLS/apksigner" verify --verbose --print-certs Aetheris-1.0.9.apk
+          cp Aetheris-1.0.9.apk Aetheris.apk
           rm -f "$RUNNER_TEMP/aetheris-release.jks" "$RUNNER_TEMP/aetheris-aligned.apk"
       - name: Publish or update regular release assets
         env:
@@ -84,10 +85,10 @@ jobs:
           set -euo pipefail
           NOTES="Regular production release of Aetheris 1.0.9. Includes the UCI move-square crash fix, NNUE v1 support for 128/512 hidden units, analysis principal variations and move navigation, and the WebAssembly browser engine. The APK is built and signed with the production keystore and its signature is verified before publication."
           if gh release view v1.0.9 >/dev/null 2>&1; then
-            gh release upload v1.0.9 Aetheris-1.0.9.apk Aetheris-UCI-Engine-Android.zip --clobber
+            gh release upload v1.0.9 Aetheris-1.0.9.apk Aetheris.apk Aetheris-UCI-Engine-Android.zip --clobber
             gh release edit v1.0.9 --title "Aetheris 1.0.9" --notes "$NOTES"
           else
-            gh release create v1.0.9 Aetheris-1.0.9.apk Aetheris-UCI-Engine-Android.zip \
+            gh release create v1.0.9 Aetheris-1.0.9.apk Aetheris.apk Aetheris-UCI-Engine-Android.zip \
               --target "${GITHUB_SHA}" \
               --title "Aetheris 1.0.9" \
               --notes "$NOTES"
