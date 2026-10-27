@@ -27,16 +27,30 @@ bool loadNNUE(const std::string& path) {
     f.read(reinterpret_cast<char*>(&version), sizeof(int));
     f.read(reinterpret_cast<char*>(&nf), sizeof(int));
     f.read(reinterpret_cast<char*>(&nh), sizeof(int));
-    if (nf <= 0 || nh <= 0) return false;
+    // Reject malformed or truncated network files before allocating or evaluating.
+    // The bundled Aetheris network uses 768 piece-square features and 128 hidden units.
+    if (nf != 768 || nh != 128) {
+        g_nnue.loaded = false;
+        return false;
+    }
+    std::vector<float> w1((size_t)nh * nf, 0.0f);
+    std::vector<float> b1((size_t)nh, 0.0f);
+    std::vector<float> w2((size_t)nh, 0.0f);
+    float b2 = 0.0f;
+    f.read(reinterpret_cast<char*>(w1.data()), w1.size() * sizeof(float));
+    f.read(reinterpret_cast<char*>(b1.data()), b1.size() * sizeof(float));
+    f.read(reinterpret_cast<char*>(w2.data()), w2.size() * sizeof(float));
+    f.read(reinterpret_cast<char*>(&b2), sizeof(float));
+    if (!f) {
+        g_nnue.loaded = false;
+        return false;
+    }
     NUM_FEATURES = nf;
     HIDDEN = nh;
-    g_nnue.w1.assign((size_t)HIDDEN * NUM_FEATURES, 0.0f);
-    g_nnue.b1.assign(HIDDEN, 0.0f);
-    g_nnue.w2.assign(HIDDEN, 0.0f);
-    f.read(reinterpret_cast<char*>(g_nnue.w1.data()), g_nnue.w1.size() * sizeof(float));
-    f.read(reinterpret_cast<char*>(g_nnue.b1.data()), g_nnue.b1.size() * sizeof(float));
-    f.read(reinterpret_cast<char*>(g_nnue.w2.data()), g_nnue.w2.size() * sizeof(float));
-    f.read(reinterpret_cast<char*>(&g_nnue.b2), sizeof(float));
+    g_nnue.w1 = std::move(w1);
+    g_nnue.b1 = std::move(b1);
+    g_nnue.w2 = std::move(w2);
+    g_nnue.b2 = b2;
     g_nnue.loaded = true;
     return true;
 }
