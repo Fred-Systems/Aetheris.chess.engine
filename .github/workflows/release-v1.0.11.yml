@@ -86,7 +86,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          NOTES="Regular production release of Aetheris 1.0.11. Includes the UCI move-square crash fix, NNUE v1 support for 128/512 hidden units, analysis principal variations and move navigation, and the WebAssembly browser engine. The APK is built and signed with the production keystore and its signature is verified before publication."
+          NOTES="Aetheris 1.0.11. Adds safer engine-search state handling, reduces reliance on the experimental NNUE model in Dual mode, uses deeper tactical search for evaluation, automatically populates multi-PV analysis lines, colored best-move/candidate arrows, and collapsible PGN notation with copy/save-to-Notebook controls. Includes UCI move-square crash fix, 128/512-hidden-unit NNUE file support, and the WebAssembly browser engine. APK signing and signature verification are required before publication."
           if gh release view v1.0.11 >/dev/null 2>&1; then
             gh release upload v1.0.11 Aetheris-1.0.11.apk Aetheris.apk Aetheris-UCI-Engine-Android.zip --clobber
             gh release edit v1.0.11 --title "Aetheris 1.0.11" --notes "$NOTES"
