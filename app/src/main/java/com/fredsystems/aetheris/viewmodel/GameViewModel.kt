@@ -481,11 +481,13 @@ class GameViewModel(private val context: Context) : ViewModel() {
                 val configuredOptions = options.value
                 applyNativeOptions(configuredOptions.copy(mode = EngineMode.PURE_NNUE))
                 val startPositionCp = NativeEngine.evaluateFen(Board().fen)
-                applyNativeOptions(configuredOptions)
-                nnueStatus.value = if (abs(startPositionCp) > 100) {
-                    "Custom NNUE loaded, but start position scores ${if (startPositionCp >= 0) "+" else ""}$startPositionCp cp — check training/calibration"
+                if (abs(startPositionCp) > 100) {
+                    options.value = configuredOptions.copy(mode = EngineMode.PURE_CLASSICAL)
+                    applyNativeOptions(options.value)
+                    nnueStatus.value = "Custom NNUE rejected for play: start position scores $startPositionCp cp. Classical evaluation enabled."
                 } else {
-                    "Custom NNUE loaded and start-position score looks plausible (${if (startPositionCp >= 0) "+" else ""}$startPositionCp cp)"
+                    applyNativeOptions(configuredOptions)
+                    nnueStatus.value = "Custom NNUE loaded; starting-position score $startPositionCp cp"
                 }
                 updateEvaluationAsync()
             } else {
