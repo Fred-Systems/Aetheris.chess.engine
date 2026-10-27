@@ -304,6 +304,12 @@ fun SettingsScreen(
                 value = settings.analysisAutoplaySeconds.toFloat(),
                 range = 1f..15f
             ) { viewModel.updateSettings(settings.copy(analysisAutoplaySeconds = it.toInt().coerceIn(1, 15))) }
+            LabeledSlider(
+                title = "Engine analysis lines",
+                valueText = settings.analysisLineCount.toString(),
+                value = settings.analysisLineCount.toFloat(),
+                range = 1f..5f
+            ) { viewModel.updateSettings(settings.copy(analysisLineCount = it.toInt().coerceIn(1, 5))) }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(
                     onClick = { viewModel.updateSettings(settings.copy(uiScale = 1f, boardScale = 1.8f)) },
