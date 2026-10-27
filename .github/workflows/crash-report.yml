@@ -46,22 +46,22 @@ jobs:
           fi
           printf '%s' "$ANDROID_SIGNING_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/aetheris-release.jks"
           SDK_BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$SDK_BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/aetheris-release.jks" --ks-key-alias "$ANDROID_KEY_ALIAS" --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD --out Aetheris-CrashReport-1.0.7.apk "$APK_PATH"
-          "$SDK_BUILD_TOOLS/apksigner" verify --verbose --print-certs Aetheris-CrashReport-1.0.7.apk
+          "$SDK_BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/aetheris-release.jks" --ks-key-alias "$ANDROID_KEY_ALIAS" --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD --out Aetheris-CrashReport-1.0.9.apk "$APK_PATH"
+          "$SDK_BUILD_TOOLS/apksigner" verify --verbose --print-certs Aetheris-CrashReport-1.0.9.apk
           rm -f "$RUNNER_TEMP/aetheris-release.jks"
       - name: Upload signed APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Aetheris-CrashReport-1.0.7-SIGNED
-          path: Aetheris-CrashReport-1.0.7.apk
+          name: Aetheris-CrashReport-1.0.9-SIGNED
+          path: Aetheris-CrashReport-1.0.9.apk
           if-no-files-found: error
           retention-days: 14
       - name: Publish diagnostic prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create v1.0.7-crashreport Aetheris-CrashReport-1.0.7.apk \
+          gh release create v1.0.9-crashreport Aetheris-CrashReport-1.0.9.apk \
             --target "${GITHUB_SHA}" \
-            --title "Aetheris 1.0.7 Crash Report Build" \
+            --title "Aetheris 1.0.9 Crash Report Build" \
             --prerelease \
-            --notes "Diagnostic-only Aetheris build. Installs alongside the normal app. Persists the last engine-search FEN/depth/time and search start/completion markers, adds native search progress to Android logcat (tag AetherisEngine), and offers Settings > Export crash report. Please reproduce the crash once, reopen the app, then export and send the report. This is not the regular release."
+            --notes "Diagnostic-only Aetheris 1.0.9 build. Installs alongside the normal app. Automatically displays a full-screen, scrollable crash report after a detected failure. Records Java uncaught-exception stack traces, native fatal signal number and fault address, device/runtime details, last engine-search FEN/depth/time, search completion, and move-application stages. Please reproduce the crash in this diagnostic app, reopen it, then export and send the report. This is not the regular release."
