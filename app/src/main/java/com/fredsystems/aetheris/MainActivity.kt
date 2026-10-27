@@ -260,6 +260,16 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 ModeChip("Play", mode == PlayMode.PLAY, Modifier.weight(1f)) { vm.setMode(PlayMode.PLAY) }
                 ModeChip("Analysis", mode == PlayMode.ANALYSIS, Modifier.weight(1f)) { vm.setMode(PlayMode.ANALYSIS) }
             }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { vm.setMode(PlayMode.ANALYSIS); navController.navigate("analysis") },
+                    modifier = Modifier.weight(1f)
+                ) { Text("Analysis & engine lines") }
+                OutlinedButton(
+                    onClick = { navController.navigate("sim") },
+                    modifier = Modifier.weight(1f)
+                ) { Text("Engine match") }
+            }
 
             Surface(
                 shape = RoundedCornerShape(18.dp),
