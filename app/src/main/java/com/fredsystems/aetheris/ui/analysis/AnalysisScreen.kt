@@ -29,7 +29,8 @@ fun AnalysisScreen(viewModel: GameViewModel) {
     val lines = viewModel.analysisLines.value
     val loading = viewModel.analysisLoading.value
     var autoplay by remember { mutableStateOf(false) }
-    var pgnExpanded by remember { mutableStateOf(LocalConfiguration.current.screenWidthDp >= 600 && settings.showPgnPanel) }
+    val configuration = LocalConfiguration.current
+    var pgnExpanded by remember(configuration.screenWidthDp, settings.showPgnPanel) { mutableStateOf(configuration.screenWidthDp >= 600 && settings.showPgnPanel) }
 
     LaunchedEffect(index, length) {
         if (!loading) viewModel.analyzePosition(settings.analysisLineCount)
