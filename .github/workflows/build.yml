@@ -15,10 +15,10 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/gradle-build-action@v3
-      - name: Setup NDK
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r26b
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install required NDK and CMake
+        run: sdkmanager --install "ndk;26.1.10909125" "cmake;3.22.1"
       - name: Verify SDK
         run: echo "ANDROID_HOME=$ANDROID_HOME"; ls $ANDROID_HOME/ndk 2>/dev/null || true
       - name: Build
