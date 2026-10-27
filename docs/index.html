@@ -740,7 +740,12 @@ function buildControls(){
       wasmEngine.FS.writeFile("/custom_weights.bin",new Uint8Array(await file.arrayBuffer()));
       const ok=wasmEngine.ccall("aetheris_load_nnue","number",["string"],["/custom_weights.bin"]);
       if(ok===1) {
-        status.textContent="Loaded "+file.name+" successfully. NNUE modes now use these weights.";
+        wasmEngine.ccall("aetheris_set_mode",null,["number"],[1]);
+        const startCp=wasmEngine.ccall("aetheris_eval","number",["string"],["rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]);
+        const warning=Math.abs(startCp)>100;
+        status.textContent=warning
+          ? "Loaded "+file.name+", but its starting-position score is "+(startCp>=0?"+":"")+(startCp/100).toFixed(2)+" pawns. Check target perspective/calibration."
+          : "Loaded "+file.name+"; starting-position score is "+(startCp>=0?"+":"")+(startCp/100).toFixed(2)+" pawns.";
       } else {
         wasmEngine.ccall("aetheris_load_nnue","number",["string"],["/weights.bin"]);
         status.textContent="Rejected file: expected AETHNNUE v1, 768 features, and 128 or 512 hidden units. Restored bundled weights.";
