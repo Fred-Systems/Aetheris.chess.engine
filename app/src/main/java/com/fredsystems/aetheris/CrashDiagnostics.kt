@@ -36,7 +36,7 @@ object CrashDiagnostics {
             appendLocked(app, "APP_START time=${Instant.now()} version=${app.packageManager.getPackageInfo(app.packageName, 0).versionName} package=${app.packageName} device=${Build.MANUFACTURER} ${Build.MODEL} android=${Build.VERSION.RELEASE} sdk=${Build.VERSION.SDK_INT} abi=${Build.SUPPORTED_ABIS.joinToString(",")}")
             appendLocked(app, "RUNTIME memoryMaxBytes=${Runtime.getRuntime().maxMemory()} memoryFreeBytes=${Runtime.getRuntime().freeMemory()} nativeHeapBytes=${Debug.getNativeHeapAllocatedSize()}")
             installUncaughtExceptionHandler(app)
-            runCatching { com.fredsystems.aetheris.engine.NativeEngine.installCrashHandler(file.absolutePath) }
+            if (app.packageName.endsWith(".crashreport")) {\n                runCatching { com.fredsystems.aetheris.engine.NativeEngine.installCrashHandler(file.absolutePath) }\n            }
             return crashPending
         }
     }
