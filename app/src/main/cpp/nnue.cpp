@@ -3,6 +3,7 @@
 #include <fstream>
 #include <cstring>
 #include <cmath>
+#include <limits>
 
 namespace aetheris {
 
@@ -11,41 +12,55 @@ static int NUM_FEATURES = 768;
 static int HIDDEN = 128;
 
 struct NNUE {
-    std::vector<float> w1; // HIDDEN x NUM_FEATURES
-    std::vector<float> b1; // HIDDEN
-    std::vector<float> w2; // HIDDEN
+    std::vector<float> w1;
+    std::vector<float> b1;
+    std::vector<float> w2;
     float b2 = 0.0f;
     bool loaded = false;
 } g_nnue;
 
 bool loadNNUE(const std::string& path) {
+    // Never leave a previously loaded network active after a failed reload.
+    g_nnue.loaded = false;
     std::ifstream f(path, std::ios::binary);
     if (!f) return false;
+
     char magic[9] = {0};
     f.read(magic, 8);
-    if (std::strcmp(magic, NNUE_MAGIC) != 0) return false;
+    if (!f || std::strcmp(magic, NNUE_MAGIC) != 0) return false;
+
     int version = 0, nf = 0, nh = 0;
-    f.read(reinterpret_cast<char*>(&version), sizeof(int));
-    f.read(reinterpret_cast<char*>(&nf), sizeof(int));
-    f.read(reinterpret_cast<char*>(&nh), sizeof(int));
-    // Reject malformed or truncated network files before allocating or evaluating.
-    // The bundled Aetheris network uses 768 piece-square features and 128 hidden units.
-    if (nf != 768 || nh != 128) {
-        g_nnue.loaded = false;
-        return false;
-    }
-    std::vector<float> w1((size_t)nh * nf, 0.0f);
-    std::vector<float> b1((size_t)nh, 0.0f);
-    std::vector<float> w2((size_t)nh, 0.0f);
+    f.read(reinterpret_cast<char*>(&version), sizeof(version));
+    f.read(reinterpret_cast<char*>(&nf), sizeof(nf));
+    f.read(reinterpret_cast<char*>(&nh), sizeof(nh));
+    // Training exports currently use 768 piece-square features and either 128
+    // (bundled legacy network) or 512 (the newer trained network) hidden units.
+    if (!f || version != 1 || nf != 768 || (nh != 128 && nh != 512)) return false;
+
+    const size_t expectedBytes = 8 + sizeof(int) * 3
+        + (static_cast<size_t>(nh) * nf + static_cast<size_t>(nh) * 2 + 1) * sizeof(float);
+    f.seekg(0, std::ios::end);
+    const auto actualBytes = f.tellg();
+    if (actualBytes < 0 || static_cast<size_t>(actualBytes) != expectedBytes) return false;
+    f.seekg(8 + sizeof(int) * 3, std::ios::beg);
+
+    std::vector<float> w1(static_cast<size_t>(nh) * nf);
+    std::vector<float> b1(static_cast<size_t>(nh));
+    std::vector<float> w2(static_cast<size_t>(nh));
     float b2 = 0.0f;
-    f.read(reinterpret_cast<char*>(w1.data()), w1.size() * sizeof(float));
-    f.read(reinterpret_cast<char*>(b1.data()), b1.size() * sizeof(float));
-    f.read(reinterpret_cast<char*>(w2.data()), w2.size() * sizeof(float));
-    f.read(reinterpret_cast<char*>(&b2), sizeof(float));
-    if (!f) {
-        g_nnue.loaded = false;
-        return false;
-    }
+    f.read(reinterpret_cast<char*>(w1.data()), static_cast<std::streamsize>(w1.size() * sizeof(float)));
+    f.read(reinterpret_cast<char*>(b1.data()), static_cast<std::streamsize>(b1.size() * sizeof(float)));
+    f.read(reinterpret_cast<char*>(w2.data()), static_cast<std::streamsize>(w2.size() * sizeof(float)));
+    f.read(reinterpret_cast<char*>(&b2), sizeof(b2));
+    if (!f) return false;
+
+    // A corrupt/NaN checkpoint can otherwise poison every evaluation and search.
+    const auto finite = [](float v) { return std::isfinite(v); };
+    for (float v : w1) if (!finite(v)) return false;
+    for (float v : b1) if (!finite(v)) return false;
+    for (float v : w2) if (!finite(v)) return false;
+    if (!finite(b2)) return false;
+
     NUM_FEATURES = nf;
     HIDDEN = nh;
     g_nnue.w1 = std::move(w1);
@@ -77,11 +92,10 @@ int nnueEvaluate(const Board& b) {
     if (!g_nnue.loaded) return 0;
     std::vector<float> feat;
     extractFeatures(b, feat);
-    // hidden
-    std::vector<float> hidden(HIDDEN, 0.0f);
+    std::vector<float> hidden(static_cast<size_t>(HIDDEN), 0.0f);
     for (int h = 0; h < HIDDEN; h++) {
         float sum = g_nnue.b1[h];
-        const float* w = &g_nnue.w1[h * NUM_FEATURES];
+        const float* w = &g_nnue.w1[static_cast<size_t>(h) * NUM_FEATURES];
         for (int i = 0; i < NUM_FEATURES; i++) {
             if (feat[i] != 0.0f) sum += w[i];
         }
@@ -89,7 +103,8 @@ int nnueEvaluate(const Board& b) {
     }
     float out = g_nnue.b2;
     for (int h = 0; h < HIDDEN; h++) out += g_nnue.w2[h] * hidden[h];
-    int cp = (int)(out * 100.0f);
+    if (!std::isfinite(out)) return 0;
+    int cp = static_cast<int>(out * 100.0f);
     return (b.side == 0) ? cp : -cp;
 }
 
