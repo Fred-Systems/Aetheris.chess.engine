@@ -298,6 +298,12 @@ fun SettingsScreen(
                 value = settings.boardScale,
                 range = 0.75f..3.0f
             ) { viewModel.updateSettings(settings.copy(boardScale = it)) }
+            LabeledSlider(
+                title = "Analysis autoplay interval",
+                valueText = "${settings.analysisAutoplaySeconds}s per move",
+                value = settings.analysisAutoplaySeconds.toFloat(),
+                range = 1f..15f
+            ) { viewModel.updateSettings(settings.copy(analysisAutoplaySeconds = it.toInt().coerceIn(1, 15))) }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(
                     onClick = { viewModel.updateSettings(settings.copy(uiScale = 1f, boardScale = 1.8f)) },
