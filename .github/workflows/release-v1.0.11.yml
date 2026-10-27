@@ -1,0 +1,98 @@
+name: Build and publish Aetheris 1.0.11 release
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: contains(github.event.head_commit.message, 'Release Aetheris version 1.0.11')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/gradle-build-action@v3
+      - name: Setup NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26b
+      - name: Build regular release APK
+        run: gradle assembleRelease
+      - name: Package standalone Android UCI engine binaries
+        run: |
+          set -euo pipefail
+          mkdir -p uci-package/arm64-v8a uci-package/armeabi-v7a
+          for abi in arm64-v8a armeabi-v7a; do
+            BIN="$(find app/build/intermediates/cxx -type f -path "*/obj/$abi/libaetheris_engine.so" | head -n 1)"
+            if [ -z "$BIN" ]; then
+              echo "::error::Missing standalone UCI executable for $abi"
+              find app/build/intermediates/cxx -type f -name '*aetheris*' -print || true
+              exit 1
+            fi
+            cp "$BIN" "uci-package/$abi/aetheris"
+            cp app/src/main/assets/nnue/weights.bin "uci-package/$abi/weights.bin"
+            LIBCXX="$(find "${ANDROID_NDK_HOME:-$ANDROID_HOME/ndk}" -type f -path "*/sysroot/usr/lib/$abi/libc++_shared.so" -print -quit 2>/dev/null || true)"
+            if [ -n "$LIBCXX" ]; then cp "$LIBCXX" "uci-package/$abi/libc++_shared.so"; fi
+            chmod 755 "uci-package/$abi/aetheris"
+          done
+          cat > uci-package/README.txt <<'EOF'
+          Aetheris UCI Engine for Android
+          =================================
+          This package contains native Android UCI executables:
+          - arm64-v8a/aetheris (most modern Android phones)
+          - armeabi-v7a/aetheris (32-bit ARM devices)
+
+          Extract the ZIP and import the executable matching the device ABI into a
+          chess GUI that supports external UCI engines. If the GUI asks for a path,
+          select the extracted aetheris executable, not this ZIP or the README.
+          Keep weights.bin beside the executable, or set the UCI option NNUEFile
+          to the full path of the weights file. If included, keep libc++_shared.so
+          beside the executable too. The executable speaks UCI.
+          EOF
+          (cd uci-package && zip -qr ../Aetheris-UCI-Engine-Android.zip .)
+      - name: Sign and verify APK with the production keystore
+        env:
+          ANDROID_SIGNING_KEY_BASE64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          APK_PATH="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)"
+          if [ -z "$APK_PATH" ]; then
+            find app/build/outputs/apk -maxdepth 4 -type f -print || true
+            echo "::error::No regular release APK was built"
+            exit 1
+          fi
+          if [ -z "${ANDROID_SIGNING_KEY_BASE64:-}" ] || [ -z "${ANDROID_KEYSTORE_PASSWORD:-}" ] || [ -z "${ANDROID_KEY_ALIAS:-}" ] || [ -z "${ANDROID_KEY_PASSWORD:-}" ]; then
+            echo "::error::Required production Android signing secrets are missing"
+            exit 1
+          fi
+          printf '%s' "$ANDROID_SIGNING_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/aetheris-release.jks"
+          SDK_BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          "$SDK_BUILD_TOOLS/zipalign" -f -p 4 "$APK_PATH" "$RUNNER_TEMP/aetheris-aligned.apk"
+          "$SDK_BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/aetheris-release.jks" --ks-key-alias "$ANDROID_KEY_ALIAS" --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD --out Aetheris-1.0.11.apk "$RUNNER_TEMP/aetheris-aligned.apk"
+          "$SDK_BUILD_TOOLS/apksigner" verify --verbose --print-certs Aetheris-1.0.11.apk
+          cp Aetheris-1.0.11.apk Aetheris.apk
+          rm -f "$RUNNER_TEMP/aetheris-release.jks" "$RUNNER_TEMP/aetheris-aligned.apk"
+      - name: Publish or update regular release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          NOTES="Regular production release of Aetheris 1.0.11. Includes the UCI move-square crash fix, NNUE v1 support for 128/512 hidden units, analysis principal variations and move navigation, and the WebAssembly browser engine. The APK is built and signed with the production keystore and its signature is verified before publication."
+          if gh release view v1.0.11 >/dev/null 2>&1; then
+            gh release upload v1.0.11 Aetheris-1.0.11.apk Aetheris.apk Aetheris-UCI-Engine-Android.zip --clobber
+            gh release edit v1.0.11 --title "Aetheris 1.0.11" --notes "$NOTES"
+          else
+            gh release create v1.0.11 Aetheris-1.0.11.apk Aetheris.apk Aetheris-UCI-Engine-Android.zip \
+              --target "${GITHUB_SHA}" \
+              --title "Aetheris 1.0.11" \
+              --notes "$NOTES"
+          fi
