@@ -437,20 +437,24 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val fen = board.fen
         viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {
+                val lineCount = if (settings.value.showThinkingArrows) 3 else 1
                 val raw = runCatching {
-                    NativeEngine.analyzeFen(fen, options.value.depth.coerceIn(4, 10), 900, 1)
+                    NativeEngine.analyzeFen(fen, options.value.depth.coerceIn(4, 10), 900, lineCount)
                 }.getOrDefault("")
-                val row = raw.lineSequence().firstOrNull().orEmpty()
-                val parts = row.split("|", limit = 2)
-                val moves = parts.firstOrNull().orEmpty().trim().split(Regex("\\s+")).filter { it.length >= 4 }
-                val score = parts.getOrNull(1)?.trim()?.toIntOrNull()
-                    ?: runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
-                val whitePerspective = if (fen.split(" ").getOrNull(1) == "b") -score else score
-                Pair(whitePerspective, moves.firstOrNull())
+                val parsed = raw.lineSequence().mapNotNull { row ->
+                    val parts = row.split("|", limit = 2)
+                    if (parts.size != 2) return@mapNotNull null
+                    val moves = parts[0].trim().split(Regex("\\s+")).filter { it.length >= 4 }
+                    val cp = parts[1].trim().toIntOrNull() ?: return@mapNotNull null
+                    if (moves.isEmpty()) null else EngineAnalysisLine(moves, if (fen.split(" ").getOrNull(1) == "b") -cp else cp)
+                }.toList()
+                val fallback = runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
+                Triple(parsed.firstOrNull()?.scoreCp ?: if (fen.split(" ").getOrNull(1) == "b") -fallback else fallback, parsed.firstOrNull()?.moves?.firstOrNull(), parsed)
             }
             if (board.fen == fen) {
                 evaluation.value = result.first
                 bestMoveUci.value = result.second
+                if (mode.value == PlayMode.PLAY) analysisLines.value = result.third
             }
         }
     }
