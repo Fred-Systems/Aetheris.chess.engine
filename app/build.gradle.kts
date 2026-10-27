@@ -14,10 +14,6 @@ android {
         targetSdk = 34
         versionCode = 7
         versionName = "1.0.6"
-        if (project.hasProperty("crashReport")) {
-            applicationIdSuffix = ".crashreport"
-            versionNameSuffix = "-crashreport"
-        }
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
@@ -31,6 +27,10 @@ android {
 
     buildTypes {
         release {
+            if (project.hasProperty("crashReport")) {
+                applicationIdSuffix = ".crashreport"
+                versionNameSuffix = "-crashreport"
+            }
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
