@@ -314,6 +314,18 @@ fun SettingsScreen(
                 value = settings.analysisLineCount.toFloat(),
                 range = 1f..5f
             ) { viewModel.updateSettings(settings.copy(analysisLineCount = it.toInt().coerceIn(1, 5))) }
+            SwitchRow("Show best-move arrow", settings.showEngineArrows) {
+                viewModel.updateSettings(settings.copy(showEngineArrows = it))
+            }
+            SwitchRow("Show multiple thinking arrows", settings.showThinkingArrows) {
+                viewModel.updateSettings(settings.copy(showThinkingArrows = it))
+            }
+            if (settings.showThinkingArrows) {
+                Text("Green = principal variation / best line; blue = second line; amber = third line; violet and red = additional candidate lines. Arrows are suggestions, not guaranteed moves.", style = MaterialTheme.typography.bodySmall)
+            }
+            SwitchRow("Show notation panel by default", settings.showPgnPanel) {
+                viewModel.updateSettings(settings.copy(showPgnPanel = it))
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(
                     onClick = { viewModel.updateSettings(settings.copy(uiScale = 1f, boardScale = 1.8f)) },
