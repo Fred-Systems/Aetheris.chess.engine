@@ -200,6 +200,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
     val mode by vm.mode
     val evalVisible by vm.evalVisible
     val bestMoveUci = vm.bestMoveUci.value
+    val liveAnalysisLines = vm.analysisLines.value
     val flipped by vm.flipped
     val settings by vm.settings
     val whiteTime by vm.whiteTimeMs
@@ -340,13 +341,15 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                             pieceSet = settings.pieceSet,
                             boardTheme = BoardThemes.byId(settings.boardTheme),
                             flipped = flipped,
-                            arrows = if ((settings.showBestMoveArrow || settings.showEngineThinkingArrows) && bestMoveUci != null && bestMoveUci.length >= 4) listOf(
-                                BoardArrow(
-                                    (bestMoveUci[1] - '1') * 8 + (bestMoveUci[0] - 'a'),
-                                    (bestMoveUci[3] - '1') * 8 + (bestMoveUci[2] - 'a'),
-                                    Color(0xFF35D07F)
-                                )
-                            ) else emptyList()
+                            arrows = if (!settings.showBestMoveArrow && !settings.showEngineThinkingArrows) emptyList() else {
+                                val candidates = if (settings.showEngineThinkingArrows) liveAnalysisLines.take(5) else liveAnalysisLines.take(1)
+                                val colors = listOf(Color(0xFF35D07F), Color(0xFF3399FF), Color(0xFFFFB020), Color(0xFFB56BFF), Color(0xFFFF5252))
+                                candidates.mapIndexedNotNull { lineIndex, line ->
+                                    val uci = line.moves.firstOrNull() ?: return@mapIndexedNotNull null
+                                    if (uci.length < 4) return@mapIndexedNotNull null
+                                    BoardArrow((uci[1] - '1') * 8 + (uci[0] - 'a'), (uci[3] - '1') * 8 + (uci[2] - 'a'), colors[lineIndex % colors.size])
+                                }
+                            }
                         )
                     }
                 }
