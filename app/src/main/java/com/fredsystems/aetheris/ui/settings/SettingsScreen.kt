@@ -45,7 +45,14 @@ fun SettingsScreen(
     var complexity by remember { mutableStateOf(opts.complexity.toFloat()) }
     var solidity by remember { mutableStateOf(opts.solidity.toFloat()) }
     var depth by remember { mutableStateOf(opts.depth.toFloat()) }
-    var selectedLevel by remember { mutableStateOf(6f) }
+    var selectedLevel by remember { mutableStateOf(
+        when (opts.depth) {
+            1 -> 2f; 2 -> 4f; 3 -> 6f; 4 -> 8f; 5 -> 10f
+            6 -> 11f; 7 -> 12f; 8 -> 13f; 9 -> 14f; 10 -> 15f
+            12 -> 16f; 14 -> 17f; 16 -> 18f; 18 -> 19f; 20 -> 20f
+            else -> 11f
+        }
+    ) }
     var exactDepthMode by remember { mutableStateOf(false) }
     var showAllLevels by remember { mutableStateOf(false) }
     var mode by remember { mutableStateOf(opts.mode) }
