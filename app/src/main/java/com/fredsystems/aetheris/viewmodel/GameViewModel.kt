@@ -213,9 +213,10 @@ class GameViewModel(private val context: Context) : ViewModel() {
             }
             engineThinking.value = false
             if (move.isNullOrBlank()) {
-                if (force) engineAvailable.value = false
-                val fallback = board.legalMoves().randomOrNull()
-                if (fallback != null) makeMove(fallback, allowEngineReply = false)
+                // Never substitute a random legal move for a failed engine search.
+                engineAvailable.value = false
+                nnueStatus.value = "Engine search failed. Switch to Classical mode or restart the app; no random move was played."
+                CrashDiagnostics.recordStage(context, "SEARCH_FAILED_NO_MOVE", "force=$force fen=$fen")
                 return@launch
             }
             if (generation != engineGeneration) {
@@ -437,7 +438,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
                 val raw = searched ?: runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
                 if (fen.split(" ").getOrNull(1) == "b") -raw else raw
             }
-            evaluation.value = score
+            if (board.fen == fen) evaluation.value = score
         }
     }
 
