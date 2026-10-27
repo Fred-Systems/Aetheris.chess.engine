@@ -6,6 +6,9 @@ object NativeEngine {
     }
 
     external fun nativeInit()
+
+    @Synchronized
+    fun initialize() = nativeInit()
     external fun nativeReset()
     external fun nativeSetPosition(fen: String)
     external fun nativeSetParams(
@@ -33,6 +36,14 @@ object NativeEngine {
 
     @Synchronized
     fun go(depth: Int, timeMs: Int): String = nativeGo(depth, timeMs)
+
+    // The native engine owns one process-global board. Keep position setup and
+    // search in one monitor transaction so evaluation cannot replace the board mid-search.
+    @Synchronized
+    fun searchPosition(fen: String, depth: Int, timeMs: Int): String {
+        nativeSetPosition(fen)
+        return nativeGo(depth, timeMs)
+    }
 
     @Synchronized
     fun evaluate(): Int = nativeEvaluate()
