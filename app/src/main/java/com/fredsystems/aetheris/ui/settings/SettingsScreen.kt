@@ -325,9 +325,6 @@ fun SettingsScreen(
                 value = settings.analysisLineCount.toFloat(),
                 range = 1f..5f
             ) { viewModel.updateSettings(settings.copy(analysisLineCount = it.toInt().coerceIn(1, 5))) }
-            SwitchRow("Show notation panel by default", settings.showPgnPanel) {
-                viewModel.updateSettings(settings.copy(showPgnPanel = it))
-            }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(
                     onClick = { viewModel.updateSettings(settings.copy(uiScale = 1f, boardScale = 1.8f)) },
