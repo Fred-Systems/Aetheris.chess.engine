@@ -5,7 +5,7 @@ object NativeEngine {
         System.loadLibrary("aetheris")
     }
 
-    external fun nativeInit()
+    external fun nativeInit()\n    external fun nativeSetCrashReportPath(path: String)\n\n    fun setCrashReportPath(path: String) = nativeSetCrashReportPath(path)
 
     @Synchronized
     fun initialize() = nativeInit()
