@@ -238,7 +238,7 @@ static void genMoves(Board& b, std::vector<Move>& ml, bool capturesOnly) {
             Bitboard att = 0;
             if (bishop) att |= bishopAttacks(sq, b.all);
             if (rook) att |= rookAttacks(sq, b.all);
-            Bitboard targets = capturesOnly ? (att & enemies) : (att & ~friends);
+            Bitboard targets = capturesOnly ? (att & enemies) : (att & ~friends & ~b.pieces[them][KING]);
             Bitboard t = targets;
             while (t) { int to = __builtin_ctzll(t); t &= t - 1; addMove(tmp, sq, to); }
         }
