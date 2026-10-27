@@ -50,3 +50,6 @@ Final release workflow hardening: runtime dependency discovery now tolerates NDK
 
 
 The NNUE import workflow now reports a warning if the imported network's starting-position evaluation is implausibly large, rather than equating file-load success with playing strength.
+
+
+Startup diagnostics now also flag a miscalibrated bundled NNUE network by checking its evaluation of the standard starting position.
