@@ -37,7 +37,7 @@ jobs:
             fi
             cp "$BIN" "uci-package/$abi/aetheris"
             cp app/src/main/assets/nnue/weights.bin "uci-package/$abi/weights.bin"
-            LIBCXX="$(find "$ANDROID_HOME/ndk" -type f -path "*/sysroot/usr/lib/$abi/libc++_shared.so" | head -n 1)"
+            LIBCXX="$(find "${ANDROID_NDK_HOME:-$ANDROID_HOME/ndk}" -type f -path "*/sysroot/usr/lib/$abi/libc++_shared.so" -print -quit 2>/dev/null || true)"
             if [ -n "$LIBCXX" ]; then cp "$LIBCXX" "uci-package/$abi/libc++_shared.so"; fi
             chmod 755 "uci-package/$abi/aetheris"
           done
