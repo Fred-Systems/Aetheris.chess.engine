@@ -31,6 +31,12 @@ fun AnalysisScreen(viewModel: GameViewModel) {
     val loading = viewModel.analysisLoading.value
     var autoplay by remember { mutableStateOf(false) }
 
+    // Populate real principal variations as soon as Analysis opens and refresh them
+    // whenever the user navigates to a different position.
+    LaunchedEffect(index, length) {
+        if (!loading) viewModel.analyzePosition(settings.analysisLineCount)
+    }
+
     LaunchedEffect(index, length) {\n        if (lines.isEmpty() && !loading) viewModel.analyzePosition(settings.analysisLineCount)\n    }\n\n    LaunchedEffect(autoplay, settings.analysisAutoplaySeconds, index, length) {
         if (autoplay) {
             if (index >= length - 1) autoplay = false
@@ -107,7 +113,7 @@ fun AnalysisScreen(viewModel: GameViewModel) {
         ) { Text(if (loading) "Analyzing position…" else "Analyze position") }
         if (lines.isEmpty() && !loading) {
             Spacer(Modifier.height(4.dp))
-            Text("Run analysis to calculate principal variations for this position.", style = MaterialTheme.typography.bodySmall)
+            Text("Calculating principal variations… or tap Analyze position to retry.", style = MaterialTheme.typography.bodySmall)
         }
         lines.forEachIndexed { i, line ->
             Card(Modifier.fillMaxWidth().padding(top = 6.dp)) {
