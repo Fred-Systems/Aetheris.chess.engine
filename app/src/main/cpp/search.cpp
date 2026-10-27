@@ -283,6 +283,40 @@ static void genMoves(Board& b, std::vector<Move>& ml, bool capturesOnly) {
     }
 }
 
+static int quiescence(Board& b, int alpha, int beta, int ply, int qply) {
+    if (timeUp()) { stopSearch = true; return 0; }
+    ++nodeCount;
+    const bool checked = inCheck(b, b.side);
+    if (qply >= 16) {
+        if (checked) {
+            std::vector<Move> evasions;
+            genMoves(b, evasions, false);
+            if (evasions.empty()) return -MATE + ply;
+        }
+        return evaluate(b);
+    }
+
+    int stand = checked ? -INF : evaluate(b);
+    if (!checked) {
+        if (stand >= beta) return stand;
+        if (stand > alpha) alpha = stand;
+    }
+
+    std::vector<Move> moves;
+    genMoves(b, moves, !checked);
+    if (checked && moves.empty()) return -MATE + ply;
+    for (Move m : moves) {
+        Undo u;
+        makeMove(b, m, u);
+        const int score = -quiescence(b, -beta, -alpha, ply + 1, qply + 1);
+        unmakeMove(b, m, u);
+        if (stopSearch) return 0;
+        if (score >= beta) return score;
+        if (score > alpha) alpha = score;
+    }
+    return alpha;
+}
+
 struct TTEntry2 { std::uint64_t key; int depth; int score; int flag; Move best; };
 static std::vector<TTEntry2> tt2(1 << 20);
 
@@ -333,26 +367,7 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode) {
         if (tt2[idx].flag == 2 && s < beta) beta = s;
         if (alpha >= beta) return s;
     }
-    if (depth <= 0) {
-        const bool checked = inCheck(b, b.side);
-        int stand = checked ? -INF : evaluate(b);
-        if (!checked) {
-            if (stand >= beta) return stand;
-            if (stand > alpha) alpha = stand;
-        }
-        std::vector<Move> caps;
-        genMoves(b, caps, !checked);
-        if (caps.empty() && checked) return -MATE;
-        for (Move m : caps) {
-            Undo u; makeMove(b, m, u);
-            int score = -alphaBeta(b, -1, -beta, -alpha, false);
-            unmakeMove(b, m, u);
-            if (stopSearch) return 0;
-            if (score >= beta) return score;
-            if (score > alpha) alpha = score;
-        }
-        return alpha;
-    }
+    if (depth <= 0) return quiescence(b, alpha, beta, 0, 0);
     std::vector<Move> moves;
     genMoves(b, moves, false);
     if (moves.empty()) {
