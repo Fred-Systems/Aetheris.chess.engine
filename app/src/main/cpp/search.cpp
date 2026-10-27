@@ -7,7 +7,7 @@
 namespace aetheris {
 
 struct MoveList { Move moves[256]; int count=0; };
-static void addMove(MoveList& ml, int from, int to, int promo=0){ ml.moves[ml.count++] = (from) | (to<<6) | (promo<<12); }
+static void addMove(MoveList& ml, int from, int to, int promo=0){ if (ml.count >= 256 || from < 0 || from >= 64 || to < 0 || to >= 64) return; ml.moves[ml.count++] = (from) | (to<<6) | (promo<<12); }
 
 static Bitboard knightAttacks(int sq){ Bitboard b=0; int f=sq&7,r=sq>>3; int df[8]={-2,-1,1,2,2,1,-1,-2}; int dr[8]={1,2,2,1,-1,-2,-2,-1}; for(int i=0;i<8;i++){int nf=f+df[i],nr=r+dr[i]; if(nf>=0&&nf<8&&nr>=0&&nr<8) b|=(1ULL<<(nr*8+nf));} return b;}
 static Bitboard kingAttacks(int sq){ Bitboard b=0; int f=sq&7,r=sq>>3; for(int df=-1;df<=1;df++) for(int dr=-1;dr<=1;dr++){ if(df==0&&dr==0) continue; int nf=f+df,nr=r+dr; if(nf>=0&&nf<8&&nr>=0&&nr<8) b|=(1ULL<<(nr*8+nf));} return b;}
