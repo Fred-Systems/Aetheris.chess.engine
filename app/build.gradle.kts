@@ -21,6 +21,7 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags += "-O3 -fno-exceptions -fno-rtti"
+                targets += listOf("aetheris", "aetheris_engine")
             }
         }
     }
