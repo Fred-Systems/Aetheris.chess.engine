@@ -73,16 +73,16 @@ bool loadNNUE(const std::string& path) {
 
 bool nnueLoaded() { return g_nnue.loaded; }
 
-static void extractFeatures(const Board& b, std::vector<float>& feat) {
-    feat.assign(NUM_FEATURES, 0.0f);
-    for (int c = 0; c < 2; c++) {
-        for (int p = 0; p < 6; p++) {
-            Bitboard bb = b.pieces[c][p];
+static void extractActiveFeatures(const Board& b, std::vector<int>& active) {
+    active.clear();
+    active.reserve(32);
+    for (int color = 0; color < 2; ++color) {
+        for (int piece = 0; piece < 6; ++piece) {
+            Bitboard bb = b.pieces[color][piece];
             while (bb) {
-                int sq = __builtin_ctzll(bb);
+                const int sq = __builtin_ctzll(bb);
                 bb &= bb - 1;
-                int idx = (c * 6 + p) * 64 + sq;
-                if (idx < NUM_FEATURES) feat[idx] = 1.0f;
+                active.push_back((color * 6 + piece) * 64 + sq);
             }
         }
     }
@@ -90,15 +90,13 @@ static void extractFeatures(const Board& b, std::vector<float>& feat) {
 
 int nnueEvaluate(const Board& b) {
     if (!g_nnue.loaded) return 0;
-    std::vector<float> feat;
-    extractFeatures(b, feat);
+    std::vector<int> active;
+    extractActiveFeatures(b, active);
     std::vector<float> hidden(static_cast<size_t>(HIDDEN), 0.0f);
     for (int h = 0; h < HIDDEN; h++) {
         float sum = g_nnue.b1[h];
         const float* w = &g_nnue.w1[static_cast<size_t>(h) * NUM_FEATURES];
-        for (int i = 0; i < NUM_FEATURES; i++) {
-            if (feat[i] != 0.0f) sum += w[i];
-        }
+        for (int feature : active) sum += w[feature];
         hidden[h] = sum > 0.0f ? sum : 0.0f;
     }
     float out = g_nnue.b2;
