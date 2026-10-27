@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <iostream>
+#include <android/log.h>
 
 namespace aetheris {
 
@@ -419,8 +420,12 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode) {
 }
 
 Move searchBestMove(Board& b, int depth, int timeMs) {
+    // Keep externally supplied values within safe, tested bounds.
+    depth = std::max(1, std::min(depth, 20));
+    timeMs = std::max(100, std::min(timeMs, 30000));
     maxDepth = depth;
     timeLimitMs = timeMs;
+    __android_log_print(ANDROID_LOG_INFO, "AetherisEngine", "SEARCH_BEGIN depth=%d timeMs=%d", depth, timeMs);
     startTime = std::chrono::steady_clock::now();
     stopSearch = false;
     nodeCount = 0;
@@ -432,6 +437,7 @@ Move searchBestMove(Board& b, int depth, int timeMs) {
         if (tt2[idx].key == key && tt2[idx].best) best = tt2[idx].best;
         if (stopSearch) break;
         std::cout << "info depth " << d << " score cp " << s << " nodes " << nodeCount << std::endl;
+        __android_log_print(ANDROID_LOG_INFO, "AetherisEngine", "SEARCH_DEPTH_DONE depth=%d score=%d nodes=%lld", d, s, nodeCount);
     }
     if (best == 0) {
         std::vector<Move> legal;
