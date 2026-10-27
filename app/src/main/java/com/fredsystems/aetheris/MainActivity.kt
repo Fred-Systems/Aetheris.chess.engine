@@ -343,7 +343,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                             pieceSet = settings.pieceSet,
                             boardTheme = BoardThemes.byId(settings.boardTheme),
                             flipped = flipped,
-                            arrows = if (settings.showEngineArrows && bestMoveUci != null && bestMoveUci.length >= 4) listOf(
+                            arrows = if ((settings.showBestMoveArrow || settings.showEngineThinkingArrows) && bestMoveUci != null && bestMoveUci.length >= 4) listOf(
                                 BoardArrow(
                                     (bestMoveUci[1] - '1') * 8 + (bestMoveUci[0] - 'a'),
                                     (bestMoveUci[3] - '1') * 8 + (bestMoveUci[2] - 'a'),
