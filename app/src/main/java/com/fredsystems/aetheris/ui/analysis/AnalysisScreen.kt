@@ -1,5 +1,6 @@
 package com.fredsystems.aetheris.ui.analysis
 
+import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
@@ -10,6 +11,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
@@ -32,6 +36,9 @@ fun AnalysisScreen(viewModel: GameViewModel) {
     val lines = viewModel.analysisLines.value
     val loading = viewModel.analysisLoading.value
     var autoplay by remember { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
+    var showPgn by remember { mutableStateOf(LocalConfiguration.current.screenWidthDp >= 600 && settings.showPgnPanel) }
+    val pgn = viewModel.pgnText.value
     var pgnExpanded by remember { mutableStateOf(false) }
 
     // Populate real principal variations as soon as Analysis opens and refresh them
@@ -168,5 +175,29 @@ fun AnalysisScreen(viewModel: GameViewModel) {
             "Playback interval: ${settings.analysisAutoplaySeconds}s per move (change it in Settings).",
             style = MaterialTheme.typography.bodySmall
         )
+        Spacer(Modifier.height(10.dp))
+        OutlinedButton(onClick = { showPgn = !showPgn }, modifier = Modifier.fillMaxWidth()) {
+            Text(if (showPgn) "Hide PGN / move notation" else "Show PGN / move notation")
+        }
+        if (showPgn) {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth().padding(10.dp)) {
+                    Text("Game PGN", style = MaterialTheme.typography.titleMedium)
+                    Text(pgn, style = MaterialTheme.typography.bodySmall, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { clipboard.setText(AnnotatedString(pgn)) }, modifier = Modifier.weight(1f)) { Text("Copy PGN") }
+                        Button(onClick = {
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "application/x-chess-pgn"
+                                putExtra(Intent.EXTRA_SUBJECT, "Aetheris game PGN")
+                                putExtra(Intent.EXTRA_TEXT, pgn)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "Save or share PGN"))
+                        }, modifier = Modifier.weight(1f)) { Text("Save / Export") }
+                    }
+                }
+            }
+        }
     }
 }
