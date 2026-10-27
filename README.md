@@ -44,3 +44,6 @@ Release verification note: this commit also includes custom trained-weight impor
 
 
 Release note: the final build also optimizes 512-unit NNUE inference and balances analysis time across all candidate lines; the release includes a stable Aetheris.apk download alias and the standalone Android UCI package.
+
+
+Final release workflow hardening: runtime dependency discovery now tolerates NDK installations outside ANDROID_HOME/ndk.
