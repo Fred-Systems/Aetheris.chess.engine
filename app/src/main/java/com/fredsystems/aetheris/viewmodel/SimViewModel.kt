@@ -32,6 +32,16 @@ class SimViewModel(private val context: Context) : ViewModel() {
     var games = 1
     var modeA = "DualCore"
     var modeB = "DualCore"
+    var personaA = "Balanced"
+    var personaB = "Balanced"
+    var aggressionA = 50
+    var positionalA = 50
+    var complexityA = 50
+    var solidityA = 50
+    var aggressionB = 50
+    var positionalB = 50
+    var complexityB = 50
+    var solidityB = 50
 
     init {
         runCatching {
@@ -57,7 +67,14 @@ class SimViewModel(private val context: Context) : ViewModel() {
                         val mode = if (white) modeA else modeB
                         val mv = withContext(Dispatchers.Default) {
                             runCatching {
-                                NativeEngine.setParams(50, 50, 50, 50, 50, modeOrdinal(mode))
+                                NativeEngine.setParams(
+                                    if (white) aggressionA else aggressionB,
+                                    if (white) positionalA else positionalB,
+                                    if (white) complexityA else complexityB,
+                                    if (white) solidityA else solidityB,
+                                    50,
+                                    modeOrdinal(mode)
+                                )
                                 NativeEngine.searchPosition(fen, depth, timeMs)
                             }.getOrNull()
                         }
