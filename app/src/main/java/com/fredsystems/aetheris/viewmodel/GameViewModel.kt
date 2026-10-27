@@ -437,7 +437,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val fen = board.fen
         viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {
-                val lineCount = if (settings.value.showThinkingArrows) 3 else 1
+                val lineCount = if (settings.value.showEngineThinkingArrows) 3 else 1
                 val raw = runCatching {
                     NativeEngine.analyzeFen(fen, options.value.depth.coerceIn(4, 10), 900, lineCount)
                 }.getOrDefault("")
