@@ -2,6 +2,8 @@
 package com.fredsystems.aetheris.ui.settings
 
 import android.graphics.BitmapFactory
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -388,6 +390,14 @@ fun SettingsScreen(
                 }
                 if (url != null) updater.downloadAndInstall(url)
             }
+        })
+        MenuRow("Download UCI Engine Package", {
+            context.startActivity(
+                Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://github.com/Fred-Systems/Aetheris.chess.engine/releases/latest/download/Aetheris-UCI-Engine-Android.zip")
+                )
+            )
         })
 
         Spacer(Modifier.height(30.dp))
