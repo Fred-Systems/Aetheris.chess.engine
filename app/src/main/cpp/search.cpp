@@ -16,6 +16,7 @@ static Bitboard rookAttacks(int sq, Bitboard occ){ Bitboard b=0; int f=sq&7,r=sq
 
 static const int INF = 1000000;
 static const int MATE = 90000;
+static const int ORDER_VALUE[6] = {100, 320, 335, 500, 950, 20000};
 
 struct Undo {
     int captured;
@@ -243,13 +244,27 @@ static void genMoves(Board& b, std::vector<Move>& ml, bool capturesOnly) {
     slide(ROOK, false, true);
     slide(QUEEN, true, true);
     if (!capturesOnly) {
-        int rights = b.castleRights;
-        if (us == 0) {
-            if ((rights & 1) && !(b.all & (0x60ULL))) addMove(tmp, 4, 6);
-            if ((rights & 2) && !(b.all & (0x0EULL))) addMove(tmp, 4, 2);
+        const int rights = b.castleRights;
+        // Castling is legal only when the king is not in check, crosses no attacked
+        // square, the path is empty, and the corresponding rook is still present.
+        if (us == WHITE) {
+            if ((rights & 1) && (b.pieces[WHITE][KING] & (1ULL << 4)) &&
+                (b.pieces[WHITE][ROOK] & (1ULL << 7)) && !(b.all & 0x60ULL) &&
+                !squareAttacked(b, 4, BLACK) && !squareAttacked(b, 5, BLACK) && !squareAttacked(b, 6, BLACK))
+                addMove(tmp, 4, 6);
+            if ((rights & 2) && (b.pieces[WHITE][KING] & (1ULL << 4)) &&
+                (b.pieces[WHITE][ROOK] & (1ULL << 0)) && !(b.all & 0x0EULL) &&
+                !squareAttacked(b, 4, BLACK) && !squareAttacked(b, 3, BLACK) && !squareAttacked(b, 2, BLACK))
+                addMove(tmp, 4, 2);
         } else {
-            if ((rights & 4) && !(b.all & (0x6000000000000000ULL))) addMove(tmp, 60, 62);
-            if ((rights & 8) && !(b.all & (0x0E00000000000000ULL))) addMove(tmp, 60, 58);
+            if ((rights & 4) && (b.pieces[BLACK][KING] & (1ULL << 60)) &&
+                (b.pieces[BLACK][ROOK] & (1ULL << 63)) && !(b.all & 0x6000000000000000ULL) &&
+                !squareAttacked(b, 60, WHITE) && !squareAttacked(b, 61, WHITE) && !squareAttacked(b, 62, WHITE))
+                addMove(tmp, 60, 62);
+            if ((rights & 8) && (b.pieces[BLACK][KING] & (1ULL << 60)) &&
+                (b.pieces[BLACK][ROOK] & (1ULL << 56)) && !(b.all & 0x0E00000000000000ULL) &&
+                !squareAttacked(b, 60, WHITE) && !squareAttacked(b, 59, WHITE) && !squareAttacked(b, 58, WHITE))
+                addMove(tmp, 60, 58);
         }
     }
     // Generate pseudo-legal moves above, then discard moves that leave our king attacked.
@@ -340,6 +355,21 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode) {
     if (moves.empty()) {
         return inCheck(b, b.side) ? -MATE : 0;
     }
+    // Put the transposition-table move first, then winning captures/promotions.
+    const Move ttMove = (tt2[idx].key == key) ? tt2[idx].best : 0;
+    auto orderingScore = [&](Move m) {
+        if (m == ttMove) return 1000000;
+        const int from = m & 63, to = (m >> 6) & 63, promo = (m >> 12) & 7;
+        const int attacker = pieceAt(b, from, b.side);
+        int victim = pieceAt(b, to, b.side ^ 1);
+        if (victim < 0 && attacker == PAWN && to == b.epSquare) victim = PAWN;
+        int score = promo ? 80000 + ORDER_VALUE[promo] : 0;
+        if (victim >= 0) score += 50000 + ORDER_VALUE[victim] * 10 - ORDER_VALUE[std::max(0, std::min(5, attacker))];
+        return score;
+    };
+    std::stable_sort(moves.begin(), moves.end(), [&](Move a, Move bmove) {
+        return orderingScore(a) > orderingScore(bmove);
+    });
     Move bestMove = 0;
     int bestScore = -INF;
     int origAlpha = alpha;
