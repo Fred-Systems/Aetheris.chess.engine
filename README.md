@@ -38,3 +38,6 @@ Developed by [Fred-Systems](https://github.com/Fred-Systems).
 ## Aetheris 1.0.9 analysis and engine updates
 
 The 1.0.9 production release includes support for 128- and 512-hidden-unit AETHNNUE v1 weight files, engine principal-variation analysis, selectable lines, move-by-move navigation and timed analysis playback. The website build compiles the same C++ engine to WebAssembly so browser moves and evaluations use Aetheris rather than a random-move placeholder. The release workflow also packages Android UCI executables for arm64-v8a and armeabi-v7a.
+
+
+Release verification note: this commit also includes custom trained-weight import on Android and the browser, multi-PV analysis controls, corrected evaluation perspective, and the downloadable standalone UCI engine package.
