@@ -35,7 +35,7 @@ class SimViewModel(private val context: Context) : ViewModel() {
 
     init {
         runCatching {
-            NativeEngine.nativeInit()
+            NativeEngine.initialize()
             ensureNnue()?.let { NativeEngine.setNnue(it) }
         }
     }
@@ -58,8 +58,7 @@ class SimViewModel(private val context: Context) : ViewModel() {
                         val mv = withContext(Dispatchers.Default) {
                             runCatching {
                                 NativeEngine.setParams(50, 50, 50, 50, 50, modeOrdinal(mode))
-                                NativeEngine.setPosition(fen)
-                                NativeEngine.go(depth, timeMs)
+                                NativeEngine.searchPosition(fen, depth, timeMs)
                             }.getOrNull()
                         }
                         if (mv.isNullOrBlank() || mv.length < 4) break
