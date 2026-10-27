@@ -61,6 +61,20 @@ object NativeEngine {
     }
 
     @Synchronized
+    fun searchPositionConfigured(
+        fen: String, depth: Int, timeMs: Int,
+        aggression: Int, positional: Int, complexity: Int, solidity: Int,
+        materialWeight: Int, mode: Int
+    ): String {
+        // Keep engine options, board setup, and search in one monitor transaction.
+        // The engine uses process-global native state, so separate calls can race
+        // when an engine-vs-engine match runs beside the main game ViewModel.
+        nativeSetParams(aggression, positional, complexity, solidity, materialWeight, mode)
+        nativeSetPosition(fen)
+        return nativeGo(depth, timeMs)
+    }
+
+    @Synchronized
     fun analyzeFen(fen: String, depth: Int, timeMs: Int, count: Int): String = nativeAnalyzeFen(fen, depth, timeMs, count)
 
     @Synchronized
