@@ -1,0 +1,58 @@
+name: Build and publish Aetheris 1.0.8 release
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: contains(github.event.head_commit.message, 'Release Aetheris version 1.0.8')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/gradle-build-action@v3
+      - name: Setup NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26b
+      - name: Build release APK
+        run: gradle assembleRelease
+      - name: Sign and verify APK
+        env:
+          ANDROID_SIGNING_KEY_BASE64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          APK_PATH="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)"
+          if [ -z "$APK_PATH" ]; then
+            find app/build/outputs/apk -maxdepth 4 -type f -print || true
+            echo "::error::No release APK was built"
+            exit 1
+          fi
+          if [ -z "${ANDROID_SIGNING_KEY_BASE64:-}" ] || [ -z "${ANDROID_KEYSTORE_PASSWORD:-}" ] || [ -z "${ANDROID_KEY_ALIAS:-}" ] || [ -z "${ANDROID_KEY_PASSWORD:-}" ]; then
+            echo "::error::Required Android signing secrets are missing"
+            exit 1
+          fi
+          printf '%s' "$ANDROID_SIGNING_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/aetheris-release.jks"
+          SDK_BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          "$SDK_BUILD_TOOLS/zipalign" -f -p 4 "$APK_PATH" "$RUNNER_TEMP/aetheris-aligned.apk"
+          "$SDK_BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/aetheris-release.jks" --ks-key-alias "$ANDROID_KEY_ALIAS" --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD --out Aetheris-1.0.8.apk "$RUNNER_TEMP/aetheris-aligned.apk"
+          "$SDK_BUILD_TOOLS/apksigner" verify --verbose --print-certs Aetheris-1.0.8.apk
+          rm -f "$RUNNER_TEMP/aetheris-release.jks" "$RUNNER_TEMP/aetheris-aligned.apk"
+      - name: Publish signed release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v1.0.8 Aetheris-1.0.8.apk \
+            --target "${GITHUB_SHA}" \
+            --title "Aetheris 1.0.8" \
+            --notes "Aetheris 1.0.8 bug-investigation release. Adds durable diagnostic stages around native-search return and UCI move application so any remaining crash can be localized. The supplied v1.0.7 report showed a successful search (b8c6) and did not itself capture a crash; this release records whether a failure occurs after search completion. Signed APK verified before publication."
