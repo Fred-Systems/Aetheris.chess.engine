@@ -1,0 +1,39 @@
+name: Build and publish Aetheris v1.0.4
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # Publish only from the dedicated version bump commit, after all feature commits.
+    if: contains(github.event.head_commit.message, 'Set Aetheris version 1.0.4')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/gradle-build-action@v3
+      - name: Setup NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26b
+      - name: Build release APK
+        run: gradle assembleRelease
+      - name: Name release APK
+        run: cp app/build/outputs/apk/release/app-release.apk Aetheris-1.0.4.apk
+      - name: Publish GitHub release and attach APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v1.0.4 Aetheris-1.0.4.apk \
+            --target "${GITHUB_SHA}" \
+            --title "Aetheris v1.0.4" \
+            --notes "Aetheris v1.0.4 includes adjustable engine strength and exact search depth, improved engine-vs-engine personas and per-engine style sliders, relocated game controls, and release-version/update handling."
