@@ -175,6 +175,17 @@ fun SettingsScreen(
             SwitchRow("Show eval in Analysis", settings.showEvalAnalysis) {
                 viewModel.updateSettings(settings.copy(showEvalAnalysis = it))
             }
+            SwitchRow("Show best-move arrow in Analysis", settings.showBestMoveArrow) {
+                viewModel.updateSettings(settings.copy(showBestMoveArrow = it))
+            }
+            SwitchRow("Show multiple engine-thinking arrows", settings.showEngineThinkingArrows) {
+                viewModel.updateSettings(settings.copy(showEngineThinkingArrows = it))
+            }
+            Text("Arrow legend", color = Color(0xFFB9B2CE), fontSize = 12.sp)
+            Text("Green = engine's top line; blue = second candidate; amber = third candidate. Multi-arrow mode shows the engine's leading candidate moves, not a promise that every arrow is equally strong.", color = Color(0xFF9B93B8), fontSize = 11.sp)
+            SwitchRow("Show PGN panel by default on large screens", settings.showPgnPanel) {
+                viewModel.updateSettings(settings.copy(showPgnPanel = it))
+            }
         }
 
         Spacer(Modifier.height(12.dp))
