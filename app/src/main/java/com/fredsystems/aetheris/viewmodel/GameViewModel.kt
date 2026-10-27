@@ -275,8 +275,11 @@ class GameViewModel(private val context: Context) : ViewModel() {
 
     private fun applyUciMove(uci: String) {
         if (uci.length < 4) return
-        val from = LibSquare.fromValue(uci.substring(0, 2))
-        val to = LibSquare.fromValue(uci.substring(2, 4))
+        // chesslib's Square enum constants are uppercase (A1..H8), while UCI moves are lowercase.
+        // fromValue() passes lowercase UCI coordinates to Enum.valueOf() on this dependency version,
+        // causing a fatal IllegalArgumentException such as "No enum constant ... b8".
+        val from = runCatching { LibSquare.valueOf(uci.substring(0, 2).uppercase()) }.getOrNull() ?: return
+        val to = runCatching { LibSquare.valueOf(uci.substring(2, 4).uppercase()) }.getOrNull() ?: return
         val candidates = board.legalMoves().filter { it.from == from && it.to == to }
         if (candidates.isEmpty()) return
         val promoChar = if (uci.length > 4) uci[4].lowercaseChar() else 'q'
