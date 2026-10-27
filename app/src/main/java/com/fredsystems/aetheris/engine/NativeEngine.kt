@@ -23,6 +23,7 @@ object NativeEngine {
     )
     external fun nativeSetNnue(path: String)
     external fun nativeGo(depth: Int, timeMs: Int): String
+    external fun nativeAnalyzeFen(fen: String, depth: Int, timeMs: Int, count: Int): String
     external fun nativeEvaluate(): Int
     external fun nativeEvaluateFen(fen: String): Int
 
@@ -46,6 +47,9 @@ object NativeEngine {
         nativeSetPosition(fen)
         return nativeGo(depth, timeMs)
     }
+
+    @Synchronized
+    fun analyzeFen(fen: String, depth: Int, timeMs: Int, count: Int): String = nativeAnalyzeFen(fen, depth, timeMs, count)
 
     @Synchronized
     fun evaluate(): Int = nativeEvaluate()
