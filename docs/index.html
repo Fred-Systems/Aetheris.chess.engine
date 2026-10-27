@@ -7,6 +7,7 @@
 <meta name="description" content="Aetheris Chess — a beautiful open-source chess engine and board for Android and the web." />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♞</text></svg>" />
 <script src="https://cdn.jsdelivr.net/npm/chess.js@0.12.0/chess.min.js"></script>
+<script src="aetheris.js"></script>
 <style>
 :root{
   --bg1:#0e0c14;--bg2:#141020;--bg3:#0a0910;--card:#1a1626;--card2:#1e1930;
@@ -129,6 +130,20 @@ select{background:#241e34;border:1px solid #352c4a;color:var(--text);padding:10p
         <button class="btn" id="undoBtn">Undo</button>
         <button class="btn primary" id="forceBtn">Force Move</button>
       </div>
+      <div id="analysisControls" class="card" style="display:none;width:var(--board-size);max-width:100%;margin-top:10px">
+        <div class="controls" style="margin-top:0">
+          <button class="btn" id="firstMoveBtn">|◀</button>
+          <button class="btn" id="prevMoveBtn">◀</button>
+          <button class="btn" id="playMovesBtn">▶ Play</button>
+          <button class="btn" id="nextMoveBtn">▶</button>
+          <button class="btn" id="lastMoveBtn">▶|</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:9px">
+          <button class="btn primary" id="analyzeBtn" style="flex:1">Analyze position</button>
+          <span id="analysisPosition" style="align-self:center;font-size:12px;color:var(--muted)">Start position</span>
+        </div>
+        <div id="engineLines" style="display:grid;gap:7px;margin-top:9px"></div>
+      </div>
     </div>
 
     <aside class="side">
@@ -233,6 +248,31 @@ select{background:#241e34;border:1px solid #352c4a;color:var(--text);padding:10p
         <option value="30">30 min</option>
       </select>
     </div>
+    <div class="field">
+      <label>Engine evaluation mode</label>
+      <select id="engineMode">
+        <option value="0">Dual Core (Classical + NNUE)</option>
+        <option value="1">Pure NNUE</option>
+        <option value="2">Classical</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Search depth <span class="rangeval" id="depthLabel">8</span></label>
+      <input type="range" id="depthRange" min="1" max="16" step="1" />
+    </div>
+    <div class="field">
+      <label>Analysis lines</label>
+      <select id="analysisLineCount">
+        <option value="1">1 line</option><option value="2">2 lines</option><option value="3">3 lines</option><option value="4">4 lines</option><option value="5">5 lines</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Analysis autoplay interval <span class="rangeval" id="autoplayLabel">2s</span></label>
+      <input type="range" id="autoplayRange" min="1" max="15" step="1" />
+    </div>
+    <div class="field">
+      <a class="download" style="display:block;text-align:center" href="https://github.com/Fred-Systems/Aetheris.chess.engine/releases/latest/download/Aetheris-UCI-Engine-Android.zip">Download UCI engine package</a>
+    </div>
     <div class="switch"><span>Show eval in Play</span><input type="checkbox" id="evalPlay" /></div>
     <div class="switch"><span>Show eval in Analysis</span><input type="checkbox" id="evalAnalysis" /></div>
     <div class="actions">
@@ -267,12 +307,15 @@ const THEMES = [
 ];
 const DEFAULT_SETTINGS = {
   pieceSet:"cburnett", boardTheme:"brown", density:1, boardScale:1,
-  showEvalPlay:false, showEvalAnalysis:true, playerColor:"white", timeControl:"unlimited"
+  showEvalPlay:false, showEvalAnalysis:true, playerColor:"white", timeControl:"unlimited",
+  engineMode:0, depth:8, analysisLineCount:3, analysisAutoplaySeconds:2
 };
 let settings = Object.assign({}, DEFAULT_SETTINGS, JSON.parse(localStorage.getItem("aetheris-web-settings") || "{}"));
 let game = new Chess();
 let selected = null, legal = [], lastMove = null, flipped = false;
 let mode = "play", evalVisible = false, thinking = false, playerColor = "w";
+let wasmEngine = null, wasmReady = false, wasmFailed = false;
+let historyMoves = [], historyIndex = 0, analysisPlaybackTimer = null;
 let timeSeconds = 0, whiteMs = 0, blackMs = 0, clockTimer = null, timeoutText = "";
 const boardEl = document.getElementById("board");
 const statusText = document.getElementById("statusText");
