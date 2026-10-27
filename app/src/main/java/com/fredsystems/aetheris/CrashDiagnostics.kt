@@ -36,6 +36,7 @@ object CrashDiagnostics {
             appendLocked(app, "APP_START time=${Instant.now()} version=${app.packageManager.getPackageInfo(app.packageName, 0).versionName} package=${app.packageName} device=${Build.MANUFACTURER} ${Build.MODEL} android=${Build.VERSION.RELEASE} sdk=${Build.VERSION.SDK_INT} abi=${Build.SUPPORTED_ABIS.joinToString(",")}")
             appendLocked(app, "RUNTIME memoryMaxBytes=${Runtime.getRuntime().maxMemory()} memoryFreeBytes=${Runtime.getRuntime().freeMemory()} nativeHeapBytes=${Debug.getNativeHeapAllocatedSize()}")
             installUncaughtExceptionHandler(app)
+            runCatching { com.fredsystems.aetheris.engine.NativeEngine.installCrashHandler(file.absolutePath) }
             return crashPending
         }
     }
@@ -73,7 +74,7 @@ object CrashDiagnostics {
 
     fun recordStage(context: Context, stage: String, details: String = "") {
         synchronized(lock) {
-            appendLocked(context.applicationContext, "STAGE time=${Instant.now()} name=$stage details=${details.replace('\\n', ' ')}")
+            appendLocked(context.applicationContext, "STAGE time=${Instant.now()} name=$stage details=${details.replace('\n', ' ')}")
         }
     }
 
@@ -94,7 +95,8 @@ object CrashDiagnostics {
             appendLine("App version: ${runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrDefault("unknown")}")
             appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}; Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
             appendLine("ABIs: ${Build.SUPPORTED_ABIS.joinToString()}")
-            appendLine("Java VM: ${System.getProperty("java.vm.name")} ${System.getProperty("java.vm.version")}")\n            appendLine("Native crash handler: ${if (report.contains("NATIVE_CRASH_HANDLER_INSTALLED")) "installed" else "not confirmed"}")
+            appendLine("Java VM: ${System.getProperty(\"java.vm.name\")} ${System.getProperty(\"java.vm.version\")}")
+            appendLine("Native crash handler: ${if (report.contains(\"NATIVE_CRASH_HANDLER_INSTALLED\")) \"installed\" else \"not confirmed\"}")
             appendLine()
             append(report)
         }
