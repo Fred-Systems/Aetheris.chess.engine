@@ -12,6 +12,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import com.fredsystems.aetheris.ui.board.BoardArrow
 import com.fredsystems.aetheris.domain.model.SettingsStore
 import com.fredsystems.aetheris.ui.board.ChessBoard
 import com.fredsystems.aetheris.ui.board.EvaluationBar
