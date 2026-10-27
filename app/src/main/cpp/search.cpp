@@ -283,6 +283,34 @@ static void genMoves(Board& b, std::vector<Move>& ml, bool capturesOnly) {
     }
 }
 
+struct TTEntry2 { std::uint64_t key; int depth; int score; int flag; Move best; };
+static std::vector<TTEntry2> tt2(1 << 20);
+
+static int maxDepth = 6;
+static long long nodeCount = 0;
+static std::chrono::steady_clock::time_point startTime;
+static int timeLimitMs = 0;
+static bool stopSearch = false;
+
+static bool timeUp() {
+    if (timeLimitMs <= 0) return false;
+    auto now = std::chrono::steady_clock::now();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count() >= timeLimitMs;
+}
+
+static std::uint64_t positionKey(const Board& b) {
+    std::uint64_t key = 0x9e3779b97f4a7c15ULL;
+    for (int c = 0; c < 2; c++) {
+        for (int p = 0; p < 6; p++) {
+            key ^= b.pieces[c][p] + 0x9e3779b97f4a7c15ULL + (key << 6) + (key >> 2);
+        }
+    }
+    key ^= static_cast<std::uint64_t>(b.side) * 0xbf58476d1ce4e5b9ULL;
+    key ^= static_cast<std::uint64_t>(b.castleRights) * 0x94d049bb133111ebULL;
+    key ^= static_cast<std::uint64_t>(b.epSquare + 1) * 0xd6e8feb86659fd93ULL;
+    return key;
+}
+
 static int quiescence(Board& b, int alpha, int beta, int ply, int qply) {
     if (timeUp()) { stopSearch = true; return 0; }
     ++nodeCount;
@@ -315,34 +343,6 @@ static int quiescence(Board& b, int alpha, int beta, int ply, int qply) {
         if (score > alpha) alpha = score;
     }
     return alpha;
-}
-
-struct TTEntry2 { std::uint64_t key; int depth; int score; int flag; Move best; };
-static std::vector<TTEntry2> tt2(1 << 20);
-
-static int maxDepth = 6;
-static long long nodeCount = 0;
-static std::chrono::steady_clock::time_point startTime;
-static int timeLimitMs = 0;
-static bool stopSearch = false;
-
-static bool timeUp() {
-    if (timeLimitMs <= 0) return false;
-    auto now = std::chrono::steady_clock::now();
-    return std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count() >= timeLimitMs;
-}
-
-static std::uint64_t positionKey(const Board& b) {
-    std::uint64_t key = 0x9e3779b97f4a7c15ULL;
-    for (int c = 0; c < 2; c++) {
-        for (int p = 0; p < 6; p++) {
-            key ^= b.pieces[c][p] + 0x9e3779b97f4a7c15ULL + (key << 6) + (key >> 2);
-        }
-    }
-    key ^= static_cast<std::uint64_t>(b.side) * 0xbf58476d1ce4e5b9ULL;
-    key ^= static_cast<std::uint64_t>(b.castleRights) * 0x94d049bb133111ebULL;
-    key ^= static_cast<std::uint64_t>(b.epSquare + 1) * 0xd6e8feb86659fd93ULL;
-    return key;
 }
 
 static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode) {
