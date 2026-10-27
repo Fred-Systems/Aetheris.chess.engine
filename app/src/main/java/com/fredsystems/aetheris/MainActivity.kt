@@ -210,7 +210,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 BoxWithConstraints(Modifier.fillMaxWidth().heightIn(min = 160.dp), contentAlignment = Alignment.Center) {
                     // This screen is scrollable, so a larger board pushes the controls down
                     // instead of drawing over them. Keep the board inside the device width.
-                    val widthLimit = (maxWidth - 22.dp).coerceAtLeast(160.dp)
+                    val widthLimit = (maxWidth - if (evalVisible) 52.dp else 22.dp).coerceAtLeast(160.dp)
                     val heightLimit = (LocalConfiguration.current.screenHeightDp.dp - 440.dp).coerceAtLeast(160.dp)
                     val baseSize = minOf(widthLimit, heightLimit)
                     val boardSize = (baseSize * settings.boardScale.coerceIn(0.55f, 2f)).coerceAtMost(widthLimit)
