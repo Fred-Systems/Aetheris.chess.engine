@@ -37,7 +37,11 @@ fun AnalysisScreen(viewModel: GameViewModel) {
         if (!loading) viewModel.analyzePosition(settings.analysisLineCount)
     }
 
-    LaunchedEffect(index, length) {\n        if (lines.isEmpty() && !loading) viewModel.analyzePosition(settings.analysisLineCount)\n    }\n\n    LaunchedEffect(autoplay, settings.analysisAutoplaySeconds, index, length) {
+    LaunchedEffect(index, length) {
+        if (lines.isEmpty() && !loading) viewModel.analyzePosition(settings.analysisLineCount)
+    }
+
+    LaunchedEffect(autoplay, settings.analysisAutoplaySeconds, index, length) {
         if (autoplay) {
             if (index >= length - 1) autoplay = false
             else {
