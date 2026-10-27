@@ -4,6 +4,8 @@ package com.fredsystems.aetheris
 import android.os.Bundle
 import android.content.Intent
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -58,6 +60,7 @@ import com.fredsystems.aetheris.updater.GitHubUpdater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.io.File
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,6 +71,19 @@ class MainActivity : ComponentActivity() {
             AetherisTheme {
                 val navController = rememberNavController()
                 val vm: GameViewModel = viewModel(factory = GameViewModelFactory(this))
+                val nnueImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                    uri?.let { selectedUri ->
+                        runCatching {
+                            val pending = File(filesDir, "nnue/import_pending.bin")
+                            pending.parentFile?.mkdirs()
+                            contentResolver.openInputStream(selectedUri)?.use { input ->
+                                pending.outputStream().use { output -> input.copyTo(output) }
+                            } ?: error("Could not open the selected file")
+                            vm.loadCustomNnue(pending.absolutePath)
+                            pending.delete()
+                        }
+                    }
+                }
                 val simVm: SimViewModel = viewModel(factory = SimViewModelFactory(this))
                 val notebookVm: GameNotebookViewModel = viewModel(factory = NotebookViewModelFactory(this))
                 val updater = remember { GitHubUpdater(this) }
@@ -93,6 +109,7 @@ class MainActivity : ComponentActivity() {
                                 onOpenSim = { navController.navigate("sim") },
                                 onOpenNotebook = { navController.navigate("notebook") },
                                 onOpenExternal = { navController.navigate("external") },
+                                onImportNnue = { nnueImportLauncher.launch(arrayOf("application/octet-stream", "application/x-binary", "*/*")) },
                                 onExportCrashReport = {
                                     val share = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
