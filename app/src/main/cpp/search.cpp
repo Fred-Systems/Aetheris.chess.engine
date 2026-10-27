@@ -166,7 +166,7 @@ static void genMoves(Board& b, std::vector<Move>& ml, bool capturesOnly) {
     MoveList tmp; tmp.count = 0;
     int us = b.side, them = us ^ 1;
     Bitboard friends = b.occupied[us];
-    Bitboard enemies = b.occupied[them];
+    Bitboard enemies = b.occupied[them] & ~b.pieces[them][KING];
     Bitboard pawns = b.pieces[us][PAWN];
     int pawnDir = (us == 0) ? 8 : -8;
     int startRank = (us == 0) ? 1 : 6;
@@ -198,7 +198,7 @@ static void genMoves(Board& b, std::vector<Move>& ml, bool capturesOnly) {
             int nf = f + df, nr = r + dr;
             if (nf < 0 || nf > 7 || nr < 0 || nr > 7) continue;
             int to = nr * 8 + nf;
-            bool isEnemy = (b.occupied[them] & (1ULL << to)) != 0;
+            bool isEnemy = (enemies & (1ULL << to)) != 0;
             bool isEp = (b.epSquare == to);
             if (capturesOnly && !isEnemy && !isEp) continue;
             if (!isEnemy && !isEp) continue;
@@ -215,17 +215,20 @@ static void genMoves(Board& b, std::vector<Move>& ml, bool capturesOnly) {
     while (bb) {
         int sq = __builtin_ctzll(bb); bb &= bb - 1;
         Bitboard att = knightAttacks(sq);
-        Bitboard targets = capturesOnly ? (att & enemies) : (att & ~friends);
+        Bitboard targets = capturesOnly ? (att & enemies) : (att & ~friends & ~b.pieces[them][KING]);
         Bitboard t = targets;
         while (t) { int to = __builtin_ctzll(t); t &= t - 1; addMove(tmp, sq, to); }
     }
     // king
     {
-        int sq = __builtin_ctzll(b.pieces[us][KING]);
-        Bitboard att = kingAttacks(sq);
-        Bitboard targets = capturesOnly ? (att & enemies) : (att & ~friends);
-        Bitboard t = targets;
-        while (t) { int to = __builtin_ctzll(t); t &= t - 1; addMove(tmp, sq, to); }
+        Bitboard king = b.pieces[us][KING];
+        if (king) {
+            int sq = __builtin_ctzll(king);
+            Bitboard att = kingAttacks(sq);
+            Bitboard targets = capturesOnly ? (att & enemies) : (att & ~friends & ~b.pieces[them][KING]);
+            Bitboard t = targets;
+            while (t) { int to = __builtin_ctzll(t); t &= t - 1; addMove(tmp, sq, to); }
+        }
     }
     auto slide = [&](Piece pc, bool bishop, bool rook) {
         Bitboard pcs = b.pieces[us][pc];
