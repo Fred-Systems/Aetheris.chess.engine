@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <chrono>
 #include <iostream>
+#include <sstream>
+#include <string>
 #include <android/log.h>
 
 namespace aetheris {
@@ -446,6 +448,77 @@ Move searchBestMove(Board& b, int depth, int timeMs) {
         if (!legal.empty()) best = legal[0];
     }
     return best;
+}
+
+
+static std::string moveToUci(Move m) {
+    const int from = m & 63, to = (m >> 6) & 63, promo = (m >> 12) & 7;
+    std::string s;
+    s += static_cast<char>('a' + (from & 7));
+    s += static_cast<char>('1' + (from >> 3));
+    s += static_cast<char>('a' + (to & 7));
+    s += static_cast<char>('1' + (to >> 3));
+    if (promo == KNIGHT) s += 'n';
+    else if (promo == BISHOP) s += 'b';
+    else if (promo == ROOK) s += 'r';
+    else if (promo == QUEEN) s += 'q';
+    return s;
+}
+
+// Multi-PV analysis: search each legal root move, then follow the transposition
+// table's best replies to return a genuine principal-variation line per candidate.
+std::string searchTopLines(Board& b, int depth, int timeMs, int count) {
+    depth = std::max(1, std::min(depth, 12));
+    timeMs = std::max(100, std::min(timeMs, 15000));
+    count = std::max(1, std::min(count, 5));
+    timeLimitMs = timeMs;
+    startTime = std::chrono::steady_clock::now();
+    stopSearch = false;
+    nodeCount = 0;
+
+    std::vector<Move> legal;
+    genMoves(b, legal, false);
+    struct Candidate { Move move; int score; std::vector<Move> pv; };
+    std::vector<Candidate> candidates;
+    for (Move m : legal) {
+        if (timeUp()) break;
+        Undo rootUndo;
+        makeMove(b, m, rootUndo);
+        int score = -alphaBeta(b, depth - 1, -INF, INF, true);
+        Candidate candidate{m, score, {m}};
+        std::vector<Undo> tailUndo;
+        for (int ply = 1; ply < depth && !stopSearch; ++ply) {
+            const std::uint64_t key = positionKey(b);
+            const TTEntry2& entry = tt2[key & (tt2.size() - 1)];
+            if (entry.key != key || entry.best == 0) break;
+            std::vector<Move> continuations;
+            genMoves(b, continuations, false);
+            if (std::find(continuations.begin(), continuations.end(), entry.best) == continuations.end()) break;
+            Undo u;
+            makeMove(b, entry.best, u);
+            tailUndo.push_back(u);
+            candidate.pv.push_back(entry.best);
+        }
+        for (int j = static_cast<int>(tailUndo.size()) - 1; j >= 0; --j)
+            unmakeMove(b, candidate.pv[static_cast<size_t>(j) + 1], tailUndo[static_cast<size_t>(j)]);
+        unmakeMove(b, m, rootUndo);
+        candidates.push_back(std::move(candidate));
+        if (stopSearch) break;
+    }
+    std::stable_sort(candidates.begin(), candidates.end(), [](const Candidate& a, const Candidate& b2) {
+        return a.score > b2.score;
+    });
+    std::ostringstream out;
+    const int limit = std::min(count, static_cast<int>(candidates.size()));
+    for (int i = 0; i < limit; ++i) {
+        if (i) out << '\\n';
+        for (size_t j = 0; j < candidates[i].pv.size(); ++j) {
+            if (j) out << ' ';
+            out << moveToUci(candidates[i].pv[j]);
+        }
+        out << '|' << candidates[i].score;
+    }
+    return out.str();
 }
 
 } // namespace aetheris
