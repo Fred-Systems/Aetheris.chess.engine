@@ -45,6 +45,7 @@ import com.fredsystems.aetheris.domain.model.PieceColor
 import com.fredsystems.aetheris.domain.model.TimeControl
 import com.fredsystems.aetheris.ui.analysis.AnalysisScreen
 import com.fredsystems.aetheris.ui.board.ChessBoard
+import com.fredsystems.aetheris.ui.board.BoardArrow
 import com.fredsystems.aetheris.ui.board.EvaluationBar
 import com.fredsystems.aetheris.ui.notebook.NotebookScreen
 import com.fredsystems.aetheris.ui.settings.ExternalEnginesScreen
@@ -198,6 +199,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
     val opts by vm.options
     val mode by vm.mode
     val evalVisible by vm.evalVisible
+    val bestMoveUci = vm.bestMoveUci.value
     val flipped by vm.flipped
     val settings by vm.settings
     val whiteTime by vm.whiteTimeMs
@@ -335,7 +337,14 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                             modifier = Modifier.size(boardSize),
                             pieceSet = settings.pieceSet,
                             boardTheme = BoardThemes.byId(settings.boardTheme),
-                            flipped = flipped
+                            flipped = flipped,
+                            arrows = if (settings.showEngineArrows && bestMoveUci != null && bestMoveUci.length >= 4) listOf(
+                                BoardArrow(
+                                    (bestMoveUci[1] - '1') * 8 + (bestMoveUci[0] - 'a'),
+                                    (bestMoveUci[3] - '1') * 8 + (bestMoveUci[2] - 'a'),
+                                    Color(0xFF35D07F)
+                                )
+                            ) else emptyList()
                         )
                     }
                 }
