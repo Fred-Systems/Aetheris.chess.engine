@@ -271,6 +271,11 @@ select{background:#241e34;border:1px solid #352c4a;color:var(--text);padding:10p
       <input type="range" id="autoplayRange" min="1" max="15" step="1" />
     </div>
     <div class="field">
+      <label>Load trained NNUE weights (.bin)</label>
+      <input type="file" id="nnueFile" accept=".bin,application/octet-stream" />
+      <p id="nnueStatus" style="margin-top:6px">Using the bundled Aetheris network when available.</p>
+    </div>
+    <div class="field">
       <a class="download" style="display:block;text-align:center" href="https://github.com/Fred-Systems/Aetheris.chess.engine/releases/latest/download/Aetheris-UCI-Engine-Android.zip">Download UCI engine package</a>
     </div>
     <div class="switch"><span>Show eval in Play</span><input type="checkbox" id="evalPlay" /></div>
@@ -725,6 +730,24 @@ function buildControls(){
   document.getElementById("depthRange").oninput = (e)=>{ settings.depth = Number(e.target.value); saveSettings(); syncSettingsUI(); renderStatus(); };
   document.getElementById("analysisLineCount").onchange = (e)=>{ settings.analysisLineCount = Number(e.target.value); saveSettings(); syncSettingsUI(); };
   document.getElementById("autoplayRange").oninput = (e)=>{ settings.analysisAutoplaySeconds = Number(e.target.value); saveSettings(); syncSettingsUI(); };
+  document.getElementById("nnueFile").onchange = async (e)=>{
+    const file=e.target.files?.[0];
+    if(!file) return;
+    const status=document.getElementById("nnueStatus");
+    if(!wasmReady || !wasmEngine){ status.textContent="Engine is still loading; try again shortly."; return; }
+    status.textContent="Loading "+file.name+"…";
+    try {
+      wasmEngine.FS.writeFile("/custom_weights.bin",new Uint8Array(await file.arrayBuffer()));
+      const ok=wasmEngine.ccall("aetheris_load_nnue","number",["string"],["/custom_weights.bin"]);
+      if(ok===1) {
+        status.textContent="Loaded "+file.name+" successfully. NNUE modes now use these weights.";
+      } else {
+        wasmEngine.ccall("aetheris_load_nnue","number",["string"],["/weights.bin"]);
+        status.textContent="Rejected file: expected AETHNNUE v1, 768 features, and 128 or 512 hidden units. Restored bundled weights.";
+      }
+      applyEngineMode(); renderBoard(); renderStatus();
+    } catch(err) { status.textContent="Could not load weights: "+(err?.message||"unknown error"); }
+  };
 
   document.getElementById("evalPlay").onchange = (e)=>{ settings.showEvalPlay = e.target.checked; saveSettings(); if(mode==="play"){ evalVisible = e.target.checked; renderBoard(); } };
   document.getElementById("evalAnalysis").onchange = (e)=>{ settings.showEvalAnalysis = e.target.checked; saveSettings(); if(mode==="analysis"){ evalVisible = e.target.checked; renderBoard(); } };
