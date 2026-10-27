@@ -13,6 +13,7 @@ add_library(aetheris SHARED
 )
 
 target_include_directories(aetheris PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(aetheris log)
 
 # UCI executable for subprocess? Android runs binary; build as executable too
 add_executable(aetheris_engine
