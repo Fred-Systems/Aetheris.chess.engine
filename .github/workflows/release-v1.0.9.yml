@@ -37,6 +37,8 @@ jobs:
             fi
             cp "$BIN" "uci-package/$abi/aetheris"
             cp app/src/main/assets/nnue/weights.bin "uci-package/$abi/weights.bin"
+            LIBCXX="$(find "$ANDROID_HOME/ndk" -type f -path "*/sysroot/usr/lib/$abi/libc++_shared.so" | head -n 1)"
+            if [ -n "$LIBCXX" ]; then cp "$LIBCXX" "uci-package/$abi/libc++_shared.so"; fi
             chmod 755 "uci-package/$abi/aetheris"
           done
           cat > uci-package/README.txt <<'EOF'
@@ -50,7 +52,8 @@ jobs:
           chess GUI that supports external UCI engines. If the GUI asks for a path,
           select the extracted aetheris executable, not this ZIP or the README.
           Keep weights.bin beside the executable, or set the UCI option NNUEFile
-          to the full path of the weights file. The executable speaks UCI.
+          to the full path of the weights file. If included, keep libc++_shared.so
+          beside the executable too. The executable speaks UCI.
           EOF
           (cd uci-package && zip -qr ../Aetheris-UCI-Engine-Android.zip .)
       - name: Sign and verify APK with the production keystore
