@@ -36,7 +36,8 @@ fun SettingsScreen(
     onCheckUpdate: () -> Unit,
     onOpenSim: () -> Unit,
     onOpenNotebook: () -> Unit,
-    onOpenExternal: () -> Unit
+    onOpenExternal: () -> Unit,
+    onExportCrashReport: () -> Unit = {}
 ) {
     val opts by viewModel.options
     val settings by viewModel.settings
@@ -359,6 +360,9 @@ fun SettingsScreen(
         MenuRow("Engine vs Engine Simulation", onOpenSim)
         MenuRow("Game Notebook", onOpenNotebook)
         MenuRow("External Engines", onOpenExternal)
+        if (com.fredsystems.aetheris.BuildConfig.APPLICATION_ID.endsWith(".crashreport")) {
+            MenuRow("Export crash report", onExportCrashReport)
+        }
         MenuRow(if (checkingUpdate) "Checking..." else "Check for Updates", { checkUpdate() })
         MenuRow("Download Latest APK", {
             scope.launch {
