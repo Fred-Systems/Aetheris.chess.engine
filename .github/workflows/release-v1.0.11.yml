@@ -1,4 +1,5 @@
 name: Build and publish Aetheris 1.0.11 release
+# v1.0.11 includes atomic native engine transactions, calibrated evaluation fallback, analysis PV arrows and PGN save/copy UI.
 
 on:
   push:
