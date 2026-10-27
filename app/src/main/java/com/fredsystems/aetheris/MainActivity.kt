@@ -220,9 +220,10 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                     // This screen is scrollable, so a larger board pushes the controls down
                     // instead of drawing over them. Keep the board inside the device width.
                     val widthLimit = (maxWidth - if (evalVisible) 52.dp else 22.dp).coerceAtLeast(160.dp)
-                    val heightLimit = (LocalConfiguration.current.screenHeightDp.dp - 440.dp).coerceAtLeast(160.dp)
-                    val baseSize = minOf(widthLimit, heightLimit) * 0.72f
-                    val boardSize = (baseSize * settings.boardScale.coerceIn(0.55f, 2f)).coerceIn(160.dp, widthLimit)
+                    // Prioritize a large, readable board. The screen scrolls vertically,
+                    // so the board does not need to be shrunk to leave room for controls.
+                    val boardSize = (widthLimit * settings.boardScale.coerceIn(0.75f, 3f))
+                        .coerceIn(200.dp, widthLimit)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (evalVisible) {
                             EvaluationBar(score = eval, modifier = Modifier.height(boardSize).width(20.dp))
