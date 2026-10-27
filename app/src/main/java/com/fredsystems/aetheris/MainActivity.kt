@@ -59,8 +59,9 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        CrashDiagnostics.initialize(this)
+        val crashReportPending = CrashDiagnostics.initialize(this) && packageName.endsWith(".crashreport")
         setContent {
+            var showCrashReportPrompt by remember { mutableStateOf(crashReportPending) }
             AetherisTheme {
                 val navController = rememberNavController()
                 val vm: GameViewModel = viewModel(factory = GameViewModelFactory(this))
@@ -103,6 +104,36 @@ class MainActivity : ComponentActivity() {
                         composable("sim") { SimScreen(simVm) { navController.popBackStack() } }
                         composable("notebook") { NotebookScreen(notebookVm) { navController.popBackStack() } }
                         composable("external") { ExternalEnginesScreen() }
+                    }
+                    if (showCrashReportPrompt) {
+                        AlertDialog(
+                            onDismissRequest = {
+                                CrashDiagnostics.acknowledgeCrashReport(this@MainActivity)
+                                showCrashReportPrompt = false
+                            },
+                            title = { Text("Aetheris may have crashed") },
+                            text = {
+                                Text("The previous engine search started but did not finish. The diagnostic report was saved before the engine ran. Please export it now so the engine crash can be investigated.")
+                            },
+                            confirmButton = {
+                                Button(onClick = {
+                                    val share = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_SUBJECT, "Aetheris crash report")
+                                        putExtra(Intent.EXTRA_TEXT, CrashDiagnostics.readReport(this@MainActivity))
+                                    }
+                                    CrashDiagnostics.acknowledgeCrashReport(this@MainActivity)
+                                    showCrashReportPrompt = false
+                                    startActivity(Intent.createChooser(share, "Send Aetheris crash report"))
+                                }) { Text("Export report") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = {
+                                    CrashDiagnostics.acknowledgeCrashReport(this@MainActivity)
+                                    showCrashReportPrompt = false
+                                }) { Text("Later") }
+                            }
+                        )
                     }
                 }
             }
