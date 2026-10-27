@@ -32,6 +32,8 @@ import kotlin.random.Random
 
 enum class PlayMode { PLAY, ANALYSIS }
 
+data class EngineAnalysisLine(val moves: List<String>, val scoreCp: Int)
+
 class GameViewModel(private val context: Context) : ViewModel() {
     private val store = SettingsStore(context)
     private var board = Board()
@@ -44,6 +46,8 @@ class GameViewModel(private val context: Context) : ViewModel() {
 
     val boardState = mutableStateOf(toUi(board))
     val evaluation = mutableStateOf(0)
+    val analysisLines = mutableStateOf<List<EngineAnalysisLine>>(emptyList())
+    val analysisLoading = mutableStateOf(false)
     val options = mutableStateOf(EngineOptions())
     val engineThinking = mutableStateOf(false)
     val engineAvailable = mutableStateOf(true)
@@ -310,6 +314,38 @@ class GameViewModel(private val context: Context) : ViewModel() {
             ?: candidates.firstOrNull { it.promotion.pieceType == desired }
             ?: candidates.first()
         makeMove(move, allowEngineReply = false)
+    }
+
+    fun analyzePosition(count: Int = settings.value.analysisLineCount) {
+        if (analysisLoading.value) return
+        val fen = board.fen
+        analysisLoading.value = true
+        viewModelScope.launch {
+            val raw = withContext(Dispatchers.Default) {
+                runCatching {
+                    NativeEngine.analyzeFen(fen, options.value.depth.coerceIn(4, 12), 5000, count.coerceIn(1, 5))
+                }.getOrDefault("")
+            }
+            val whiteToMove = fen.split(" ").getOrNull(1) != "b"
+            analysisLines.value = raw.lineSequence().mapNotNull { row ->
+                val parts = row.split("|", limit = 2)
+                if (parts.size != 2) return@mapNotNull null
+                val moves = parts[0].trim().split(Regex("\\s+")).filter { it.length >= 4 }
+                val score = parts[1].toIntOrNull() ?: return@mapNotNull null
+                if (moves.isEmpty()) null else EngineAnalysisLine(moves, if (whiteToMove) score else -score)
+            }.toList()
+            analysisLoading.value = false
+        }
+    }
+
+    fun playAnalysisLine(line: EngineAnalysisLine) {
+        if (mode.value != PlayMode.ANALYSIS || line.moves.isEmpty()) return
+        engineGeneration++
+        engineThinking.value = false
+        line.moves.forEach { uci ->
+            if (!boardState.value.gameOver) applyUciMove(uci)
+        }
+        analysisLines.value = emptyList()
     }
 
     fun updateOptions(o: EngineOptions) {
