@@ -176,7 +176,10 @@ int evaluate(const Board& b) {
     if (engineMode == ENGINE_DUAL_CORE && loaded) {
         const int nn = nnueEvaluate(b);
         const int classical = classicalWhiteScore(b) * (b.side == WHITE ? 1 : -1);
-        // The current compact AETHNNUE model is experimental; keep classical\n        // tactical/material evaluation dominant until a trained model passes\n        // a proper suite, rather than letting a weak net swamp recapture logic.\n        return (nn + classical * 3) / 4;
+        // The current compact AETHNNUE model is experimental; keep classical
+        // tactical/material evaluation dominant until a trained model passes
+        // a proper suite, rather than letting a weak net swamp recapture logic.
+        return (nn + classical * 3) / 4;
     }
     const int whiteScore = classicalWhiteScore(b);
     return b.side == WHITE ? whiteScore : -whiteScore;
