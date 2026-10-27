@@ -326,6 +326,31 @@ const clocksEl = document.getElementById("clocks");
 const whiteClock = document.getElementById("whiteClock");
 const blackClock = document.getElementById("blackClock");
 
+function applyEngineMode(){
+  if(wasmReady && wasmEngine) {
+    try { wasmEngine.ccall("aetheris_set_mode", null, ["number"], [Number(settings.engineMode)||0]); } catch(e) {}
+  }
+}
+if(typeof AetherisModule === "function") {
+  AetherisModule().then(mod=>{
+    wasmEngine=mod;
+    const loaded=wasmEngine.ccall("aetheris_init","number",[],[]);
+    wasmReady=true;
+    wasmFailed=false;
+    applyEngineMode();
+    if(loaded!==1) statusSub.textContent="Engine loaded; bundled NNUE unavailable, using Classical fallback";
+    renderBoard(); renderStatus();
+    if(mode==="play" && game.turn()!==playerColor) engineMove(false);
+  }).catch(err=>{
+    wasmFailed=true;
+    wasmReady=false;
+    statusSub.textContent="Could not load Aetheris engine: "+(err?.message||"WebAssembly error");
+    renderStatus();
+  });
+} else {
+  wasmFailed=true;
+}
+
 function saveSettings(){ localStorage.setItem("aetheris-web-settings", JSON.stringify(settings)); }
 function theme(){ return THEMES.find(t=>t[0]===settings.boardTheme) || THEMES[0]; }
 function setDensity(){ document.documentElement.style.setProperty("--density", settings.density); }
@@ -378,7 +403,9 @@ function statusLine(){
 }
 function renderStatus(){
   statusText.textContent = statusLine();
-  statusSub.textContent = thinking ? "Aetheris is thinking..." : (mode === "play" ? "Depth 6 · Aetheris Dual-Core" : "Free analysis board");
+  const modes = ["Dual Core","Pure NNUE","Classical"];
+  statusSub.textContent = !wasmReady ? (wasmFailed ? "Aetheris engine unavailable — use the hosted website" : "Loading Aetheris WebAssembly engine…") :
+    (thinking ? "Aetheris is thinking…" : (mode === "play" ? "Depth " + settings.depth + " · Aetheris " + (modes[settings.engineMode] || modes[0]) : "Analysis · depth " + settings.depth));
   updateClocks();
 }
 function evalScore(){
@@ -546,8 +573,8 @@ function stopAnalysisPlayback(){
   const b = document.getElementById("playMovesBtn");
   if(b) b.textContent = "▶ Play";
 }
-function rebuildAt(target){
-  stopAnalysisPlayback();
+function rebuildAt(target, preservePlayback=false){
+  if(!preservePlayback) stopAnalysisPlayback();
   const index = Math.max(0, Math.min(historyMoves.length, target));
   game = new Chess();
   for(let i=0;i<index;i++){
@@ -665,8 +692,7 @@ function buildControls(){
     const btn=document.getElementById("playMovesBtn"); btn.textContent="Ⅱ Pause";
     analysisPlaybackTimer=setInterval(()=>{
       if(historyIndex>=historyMoves.length){ stopAnalysisPlayback(); return; }
-      rebuildAt(historyIndex+1);
-      // rebuildAt stops playback, so keep the interval alive explicitly below.
+      rebuildAt(historyIndex+1,true);
     },settings.analysisAutoplaySeconds*1000);
   };
   document.getElementById("analyzeBtn").onclick = analyzePosition;
@@ -695,6 +721,11 @@ function buildControls(){
   document.getElementById("densityRange").oninput = (e)=>{ settings.density = parseFloat(e.target.value); saveSettings(); syncSettingsUI(); };
   document.getElementById("boardSizeRange").oninput = (e)=>{ settings.boardScale = parseFloat(e.target.value); saveSettings(); syncSettingsUI(); };
   document.getElementById("defaultTime").onchange = (e)=>{ settings.timeControl = e.target.value; saveSettings(); resetClocks(); updateClocks(); };
+  document.getElementById("engineMode").onchange = (e)=>{ settings.engineMode = Number(e.target.value); saveSettings(); applyEngineMode(); renderStatus(); renderBoard(); };
+  document.getElementById("depthRange").oninput = (e)=>{ settings.depth = Number(e.target.value); saveSettings(); syncSettingsUI(); renderStatus(); };
+  document.getElementById("analysisLineCount").onchange = (e)=>{ settings.analysisLineCount = Number(e.target.value); saveSettings(); syncSettingsUI(); };
+  document.getElementById("autoplayRange").oninput = (e)=>{ settings.analysisAutoplaySeconds = Number(e.target.value); saveSettings(); syncSettingsUI(); };
+
   document.getElementById("evalPlay").onchange = (e)=>{ settings.showEvalPlay = e.target.checked; saveSettings(); if(mode==="play"){ evalVisible = e.target.checked; renderBoard(); } };
   document.getElementById("evalAnalysis").onchange = (e)=>{ settings.showEvalAnalysis = e.target.checked; saveSettings(); if(mode==="analysis"){ evalVisible = e.target.checked; renderBoard(); } };
   document.querySelectorAll("#defaultColors .chip").forEach(c=> c.onclick = ()=>{ settings.playerColor = c.dataset.color; saveSettings(); syncSettingsUI(); });
@@ -712,6 +743,13 @@ function syncSettingsUI(){
   document.getElementById("boardSizeRange").value = settings.boardScale;
   document.getElementById("boardSizeLabel").textContent = Math.round(settings.boardScale*100) + "%";
   document.getElementById("defaultTime").value = settings.timeControl;
+  document.getElementById("engineMode").value = String(settings.engineMode);
+  document.getElementById("depthRange").value = settings.depth;
+  document.getElementById("depthLabel").textContent = settings.depth;
+  document.getElementById("analysisLineCount").value = settings.analysisLineCount;
+  document.getElementById("autoplayRange").value = settings.analysisAutoplaySeconds;
+  document.getElementById("autoplayLabel").textContent = settings.analysisAutoplaySeconds + "s";
+
   document.getElementById("evalPlay").checked = settings.showEvalPlay;
   document.getElementById("evalAnalysis").checked = settings.showEvalAnalysis;
   document.querySelectorAll("#defaultColors .chip").forEach(c=>c.classList.toggle("active", c.dataset.color===settings.playerColor));
