@@ -170,7 +170,11 @@ class GameViewModel(private val context: Context) : ViewModel() {
                     }
                 }.onFailure { error -> CrashDiagnostics.recordException(context, "NativeEngine.searchPosition", error) }.getOrNull()
             }
-            if (generation != engineGeneration) return@launch
+            CrashDiagnostics.recordStage(context, "SEARCH_RESULT_HANDOFF", "generation=$generation currentGeneration=$engineGeneration move=${move ?: "<null>"}")
+            if (generation != engineGeneration) {
+                CrashDiagnostics.recordStage(context, "SEARCH_RESULT_DISCARDED", "stale generation")
+                return@launch
+            }
             engineThinking.value = false
             if (move.isNullOrBlank()) {
                 if (force) engineAvailable.value = false
@@ -178,8 +182,18 @@ class GameViewModel(private val context: Context) : ViewModel() {
                 if (fallback != null) makeMove(fallback, allowEngineReply = false)
                 return@launch
             }
-            if (generation != engineGeneration) return@launch
-            applyUciMove(move)
+            if (generation != engineGeneration) {
+                CrashDiagnostics.recordStage(context, "MOVE_APPLICATION_DISCARDED", "stale generation")
+                return@launch
+            }
+            CrashDiagnostics.recordStage(context, "MOVE_APPLICATION_START", "uci=$move fen=${board.fen}")
+            try {
+                applyUciMove(move)
+                CrashDiagnostics.recordStage(context, "MOVE_APPLICATION_COMPLETE", "uci=$move fen=${board.fen}")
+            } catch (error: Throwable) {
+                CrashDiagnostics.recordException(context, "applyUciMove uci=$move", error)
+                throw error
+            }
         }
     }
 
