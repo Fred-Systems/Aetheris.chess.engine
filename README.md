@@ -41,3 +41,6 @@ The 1.0.9 production release includes support for 128- and 512-hidden-unit AETHN
 
 
 Release verification note: this commit also includes custom trained-weight import on Android and the browser, multi-PV analysis controls, corrected evaluation perspective, and the downloadable standalone UCI engine package.
+
+
+Release note: the final build also optimizes 512-unit NNUE inference and balances analysis time across all candidate lines; the release includes a stable Aetheris.apk download alias and the standalone Android UCI package.
