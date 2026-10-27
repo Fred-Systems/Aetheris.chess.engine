@@ -385,8 +385,13 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     fun updateOptions(o: EngineOptions) {
-        options.value = o
-        applyNativeOptions(o)
+        val nnueRejected = nnueStatus.value.contains("rejected", ignoreCase = true) || nnueStatus.value.contains("failed calibration", ignoreCase = true)
+        val safe = if (o.mode == EngineMode.PURE_NNUE && nnueRejected) o.copy(mode = EngineMode.PURE_CLASSICAL) else o
+        options.value = safe
+        applyNativeOptions(safe)
+        if (safe.mode != o.mode) {
+            nnueStatus.value = "Pure NNUE mode blocked because these weights failed calibration; Classical evaluation remains active. Import a validated trained network to enable Pure NNUE."
+        }
     }
 
     private fun applyNativeOptions(o: EngineOptions) {
