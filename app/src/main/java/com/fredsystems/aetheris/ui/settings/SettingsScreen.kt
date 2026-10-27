@@ -39,10 +39,12 @@ fun SettingsScreen(
     onOpenSim: () -> Unit,
     onOpenNotebook: () -> Unit,
     onOpenExternal: () -> Unit,
-    onExportCrashReport: () -> Unit = {}
+    onExportCrashReport: () -> Unit = {},
+    onImportNnue: () -> Unit = {}
 ) {
     val opts by viewModel.options
     val settings by viewModel.settings
+    val nnueStatus by viewModel.nnueStatus
     var aggression by remember { mutableStateOf(opts.aggression.toFloat()) }
     var positional by remember { mutableStateOf(opts.positional.toFloat()) }
     var complexity by remember { mutableStateOf(opts.complexity.toFloat()) }
@@ -374,6 +376,8 @@ fun SettingsScreen(
         MenuRow("Engine vs Engine Simulation", onOpenSim)
         MenuRow("Game Notebook", onOpenNotebook)
         MenuRow("External Engines", onOpenExternal)
+        Text("Neural network: $nnueStatus", color = Color(0xFF9B93B8), fontSize = 11.sp)
+        MenuRow("Import trained NNUE weights", onImportNnue)
         if (context.packageName.endsWith(".crashreport")) {
             MenuRow("Export crash report", onExportCrashReport)
         }
