@@ -285,7 +285,8 @@ static void genMoves(Board& b, std::vector<Move>& ml, bool capturesOnly) {
 }
 
 struct TTEntry2 { std::uint64_t key; int depth; int score; int flag; Move best; };
-static std::vector<TTEntry2> tt2(1 << 20);
+// Keep the transposition table modest on memory-constrained Android devices.
+static std::vector<TTEntry2> tt2(1 << 18);
 
 static int maxDepth = 6;
 static long long nodeCount = 0;
