@@ -206,9 +206,6 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
     val blackTime by vm.blackTimeMs
     val timeControl = vm.timeControlSeconds.value
     var showNewGame by remember { mutableStateOf(false) }
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val pgn = vm.pgnText.value
-    var showPgn by remember { mutableStateOf(LocalConfiguration.current.screenWidthDp >= 600 && settings.showPgnPanel) }
     val configuration = LocalConfiguration.current
     var pgnExpanded by remember { mutableStateOf(configuration.screenWidthDp >= 600 && settings.showPgnPanel) }
 
@@ -374,28 +371,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 }
             }
             Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { showPgn = !showPgn }, modifier = Modifier.weight(1f)) {
-                    Text(if (showPgn) "Hide notation" else "Show notation / PGN")
-                }
-                OutlinedButton(onClick = {
-                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Aetheris PGN", pgn))
-                }, modifier = Modifier.weight(1f)) { Text("Copy PGN") }
-                Button(onClick = {
-                    val intent = Intent(Intent.ACTION_SEND).apply {
-                        type = "application/x-chess-pgn"
-                        putExtra(Intent.EXTRA_SUBJECT, "Aetheris game PGN")
-                        putExtra(Intent.EXTRA_TEXT, pgn)
-                    }
-                    context.startActivity(Intent.createChooser(intent, "Save or share PGN"))
-                }, modifier = Modifier.weight(1f)) { Text("Save PGN") }
-            }
-            if (showPgn) {
-                Surface(Modifier.fillMaxWidth(), color = Color(0xFF1A1626), shape = RoundedCornerShape(12.dp)) {
-                    Text(pgn, modifier = Modifier.padding(10.dp), color = Color(0xFFEDE8FF), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                }
-            }
+
         }
     }
 
