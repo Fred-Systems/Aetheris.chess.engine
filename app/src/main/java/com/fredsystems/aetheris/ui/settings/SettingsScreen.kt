@@ -45,6 +45,9 @@ fun SettingsScreen(
     var complexity by remember { mutableStateOf(opts.complexity.toFloat()) }
     var solidity by remember { mutableStateOf(opts.solidity.toFloat()) }
     var depth by remember { mutableStateOf(opts.depth.toFloat()) }
+    var selectedLevel by remember { mutableStateOf(6f) }
+    var exactDepthMode by remember { mutableStateOf(false) }
+    var showAllLevels by remember { mutableStateOf(false) }
     var mode by remember { mutableStateOf(opts.mode) }
     var presetExpanded by remember { mutableStateOf(false) }
     var pieceSetExpanded by remember { mutableStateOf(false) }
@@ -180,22 +183,69 @@ fun SettingsScreen(
                 ModeChip("Classical", mode == EngineMode.PURE_CLASSICAL, Modifier.weight(1f)) { mode = EngineMode.PURE_CLASSICAL }
             }
             Spacer(Modifier.height(10.dp))
-            SettingsCard("Playing level: ${depth.toInt()} / 20") {
-                Text(
-                    when {
-                        depth < 4f -> "Beginner — quick, shallow searches"
-                        depth < 7f -> "Casual — good for relaxed games"
-                        depth < 11f -> "Club — deeper tactical calculation"
-                        depth < 16f -> "Expert — stronger calculation, more thinking time"
-                        else -> "Maximum — deepest search; can take several seconds"
-                    },
-                    color = Color(0xFF9B93B8),
-                    fontSize = 12.sp
-                )
-                Slider(value = depth, onValueChange = { depth = it }, valueRange = 1f..20f, steps = 18)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Beginner", color = Color(0xFF9B93B8), fontSize = 10.sp)
-                    Text("Strongest", color = Color(0xFF9B93B8), fontSize = 10.sp)
+            val depthForLevel: (Int) -> Int = { level ->
+                when (level) {
+                    1 -> 1; 2 -> 1; 3 -> 2; 4 -> 2; 5 -> 3
+                    6 -> 3; 7 -> 4; 8 -> 4; 9 -> 5; 10 -> 5
+                    11 -> 6; 12 -> 7; 13 -> 8; 14 -> 9; 15 -> 10
+                    16 -> 12; 17 -> 14; 18 -> 16; 19 -> 18; else -> 20
+                }
+            }
+            val timeForDepth: (Int) -> Long = { d ->
+                (250L + d.toLong() * d.toLong() * 35L).coerceIn(500L, 8000L)
+            }
+            SettingsCard(if (exactDepthMode) "Exact search depth: ${depth.toInt()}" else "Playing level: ${selectedLevel.toInt()} / 20") {
+                SwitchRow("Adjust exact search depth instead", exactDepthMode) {
+                    exactDepthMode = it
+                    if (!it) {
+                        selectedLevel = (1..20).minByOrNull { level -> kotlin.math.abs(depthForLevel(level) - depth.toInt()) }?.toFloat() ?: 6f
+                        depth = depthForLevel(selectedLevel.toInt()).toFloat()
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                if (exactDepthMode) {
+                    Text("Directly sets the engine's requested search depth.", color = Color(0xFF9B93B8), fontSize = 12.sp)
+                    Slider(value = depth.coerceIn(1f, 24f), onValueChange = { depth = it }, valueRange = 1f..24f, steps = 22)
+                    Text("Depth ${depth.toInt()} · suggested budget ~${timeForDepth(depth.toInt())} ms per move", color = Color(0xFFEDE8FF), fontSize = 12.sp)
+                } else {
+                    Text(
+                        when {
+                            selectedLevel < 4f -> "Beginner — quick, shallow searches"
+                            selectedLevel < 7f -> "Casual — relaxed games"
+                            selectedLevel < 11f -> "Club — deeper tactical calculation"
+                            selectedLevel < 16f -> "Expert — stronger calculation"
+                            else -> "Maximum — deepest available search; may take several seconds"
+                        },
+                        color = Color(0xFF9B93B8), fontSize = 12.sp
+                    )
+                    Slider(
+                        value = selectedLevel,
+                        onValueChange = { selectedLevel = it; depth = depthForLevel(it.toInt()).toFloat() },
+                        valueRange = 1f..20f, steps = 18
+                    )
+                    Text("Selected parameters: search depth ${depth.toInt()} · nominal think budget ~${timeForDepth(depth.toInt())} ms per move",
+                        color = Color(0xFFEDE8FF), fontSize = 12.sp)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Beginner", color = Color(0xFF9B93B8), fontSize = 10.sp)
+                        Text("Strongest", color = Color(0xFF9B93B8), fontSize = 10.sp)
+                    }
+                    TextButton(onClick = { showAllLevels = !showAllLevels }) {
+                        Text(if (showAllLevels) "Hide level parameters" else "Show all 20 level parameters")
+                    }
+                    if (showAllLevels) {
+                        Column(Modifier.fillMaxWidth().background(Color(0xFF171322), RoundedCornerShape(10.dp)).padding(9.dp)) {
+                            (1..20).forEach { level ->
+                                val d = depthForLevel(level)
+                                Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Level %02d".format(level), color = Color(0xFFB9B2CE), fontSize = 11.sp)
+                                    Text("Depth $d", color = Color(0xFFEDE8FF), fontSize = 11.sp)
+                                    Text("~${timeForDepth(d)} ms", color = Color(0xFFB9A8FF), fontSize = 11.sp)
+                                }
+                            }
+                            Text("Think time is a budget, not a guarantee. Clock settings and device speed can change actual search time.",
+                                color = Color(0xFF9B93B8), fontSize = 10.sp)
+                        }
+                    }
                 }
             }
             Spacer(Modifier.height(10.dp))
