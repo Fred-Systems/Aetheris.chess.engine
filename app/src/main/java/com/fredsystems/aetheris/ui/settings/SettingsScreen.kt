@@ -180,8 +180,23 @@ fun SettingsScreen(
                 ModeChip("Classical", mode == EngineMode.PURE_CLASSICAL, Modifier.weight(1f)) { mode = EngineMode.PURE_CLASSICAL }
             }
             Spacer(Modifier.height(10.dp))
-            SettingsCard("Search Depth: ${depth.toInt()}") {
-                Slider(value = depth, onValueChange = { depth = it }, valueRange = 1f..24f)
+            SettingsCard("Playing level: ${depth.toInt()} / 20") {
+                Text(
+                    when {
+                        depth < 4f -> "Beginner — quick, shallow searches"
+                        depth < 7f -> "Casual — good for relaxed games"
+                        depth < 11f -> "Club — deeper tactical calculation"
+                        depth < 16f -> "Expert — stronger calculation, more thinking time"
+                        else -> "Maximum — deepest search; can take several seconds"
+                    },
+                    color = Color(0xFF9B93B8),
+                    fontSize = 12.sp
+                )
+                Slider(value = depth, onValueChange = { depth = it }, valueRange = 1f..20f, steps = 18)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Beginner", color = Color(0xFF9B93B8), fontSize = 10.sp)
+                    Text("Strongest", color = Color(0xFF9B93B8), fontSize = 10.sp)
+                }
             }
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
