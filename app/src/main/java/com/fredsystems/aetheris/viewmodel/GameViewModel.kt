@@ -5,6 +5,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fredsystems.aetheris.CrashDiagnostics
+import com.fredsystems.aetheris.data.GameRepository
+import com.fredsystems.aetheris.domain.model.GameRecord
+import android.content.ClipData
+import android.content.ClipboardManager
 import com.fredsystems.aetheris.domain.model.AppSettings
 import com.fredsystems.aetheris.domain.model.BoardState
 import com.fredsystems.aetheris.domain.model.EngineMode
@@ -51,6 +55,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     val bestMoveUci = mutableStateOf<String?>(null)
     val analysisLoading = mutableStateOf(false)
     val nnueStatus = mutableStateOf("Checking neural network…")
+    val pgnStatus = mutableStateOf("")
     val options = mutableStateOf(EngineOptions())
     val engineThinking = mutableStateOf(false)
     val engineAvailable = mutableStateOf(true)
@@ -448,6 +453,95 @@ class GameViewModel(private val context: Context) : ViewModel() {
                 bestMoveUci.value = result.second
             }
         }
+    }
+
+    fun currentPgn(): String {
+        val replay = Board()
+        val sanMoves = mutableListOf<String>()
+        moveList.forEach { uci ->
+            if (uci.length < 4) return@forEach
+            val from = runCatching { LibSquare.valueOf(uci.substring(0, 2).uppercase()) }.getOrNull() ?: return@forEach
+            val to = runCatching { LibSquare.valueOf(uci.substring(2, 4).uppercase()) }.getOrNull() ?: return@forEach
+            val legal = replay.legalMoves().filter { it.from == from && it.to == to }
+            if (legal.isEmpty()) return@forEach
+            val promo = if (uci.length > 4) uci[4].lowercaseChar() else 'q'
+            val desired = when (promo) {
+                'n' -> LibPieceType.KNIGHT
+                'b' -> LibPieceType.BISHOP
+                'r' -> LibPieceType.ROOK
+                else -> LibPieceType.QUEEN
+            }
+            val move = legal.firstOrNull { it.promotion != LibPiece.NONE && it.promotion.pieceType == desired }
+                ?: legal.firstOrNull { it.promotion == LibPiece.NONE } ?: legal.first()
+            val piece = replay.getPiece(from)
+            val capture = replay.getPiece(to) != LibPiece.NONE ||
+                (piece.pieceType == LibPieceType.PAWN && from.file != to.file && replay.enPassantTarget == to)
+            val alternatives = replay.legalMoves().filter {
+                it.from != from && it.to == to && replay.getPiece(it.from).pieceType == piece.pieceType
+            }
+            val san = buildString {
+                when (piece.pieceType) {
+                    LibPieceType.KING -> append("K")
+                    LibPieceType.QUEEN -> append("Q")
+                    LibPieceType.ROOK -> append("R")
+                    LibPieceType.BISHOP -> append("B")
+                    LibPieceType.KNIGHT -> append("N")
+                    else -> if (capture) append(from.toString().first())
+                }
+                if (piece.pieceType != LibPieceType.PAWN && alternatives.isNotEmpty()) {
+                    val sameFile = alternatives.any { it.from.file == from.file }
+                    val sameRank = alternatives.any { it.from.rank == from.rank }
+                    if (!sameFile) append(from.toString().first())
+                    else if (!sameRank) append(from.toString().last())
+                    else append(from.toString())
+                }
+                if (capture) append("x")
+                append(to.toString().lowercase())
+                if (move.promotion != LibPiece.NONE) {
+                    append("=")
+                    append(when (move.promotion.pieceType) {
+                        LibPieceType.KNIGHT -> "N"
+                        LibPieceType.BISHOP -> "B"
+                        LibPieceType.ROOK -> "R"
+                        else -> "Q"
+                    })
+                }
+            }
+            if (!replay.doMove(move)) return@forEach
+            val suffix = when {
+                replay.isMated() -> "#"
+                replay.isKingAttacked() -> "+"
+                else -> ""
+            }
+            sanMoves.add(san + suffix)
+        }
+        val body = sanMoves.mapIndexed { i, san ->
+            if (i % 2 == 0) "${i / 2 + 1}. $san" else san
+        }.joinToString(" ")
+        val result = when {
+            board.isMated() && board.sideToMove == Side.WHITE -> "0-1"
+            board.isMated() && board.sideToMove == Side.BLACK -> "1-0"
+            board.isDraw() || board.isStaleMate() -> "1/2-1/2"
+            else -> "*"
+        }
+        return "[Event \"Aetheris Game\"]\n[Site \"Aetheris Android\"]\n[Result \"$result\"]\n\n$body $result".trim()
+    }
+
+    fun copyPgn() {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("Aetheris PGN", currentPgn()))
+        pgnStatus.value = "PGN copied to clipboard"
+    }
+
+    fun saveCurrentGame() {
+        runCatching {
+            val repository = GameRepository(context)
+            val games = repository.load()
+            val stamp = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date())
+            games.add(0, GameRecord(title = "Aetheris game $stamp", pgn = currentPgn(), moves = moveList.toList()))
+            repository.save(games)
+            pgnStatus.value = "Game saved to Notebook"
+        }.onFailure { pgnStatus.value = "Could not save game: ${it.message ?: "unknown error"}" }
     }
 
     private fun resetClocks() {
