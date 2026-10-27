@@ -1,21 +1,17 @@
 package com.fredsystems.aetheris.ui.analysis
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
-import com.fredsystems.aetheris.ui.board.BoardArrow
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import com.fredsystems.aetheris.domain.model.SettingsStore
+import com.fredsystems.aetheris.ui.board.BoardArrow
 import com.fredsystems.aetheris.ui.board.ChessBoard
 import com.fredsystems.aetheris.ui.board.EvaluationBar
 import com.fredsystems.aetheris.ui.theme.BoardThemes
@@ -24,7 +20,7 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun AnalysisScreen(viewModel: GameViewModel) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val settings = SettingsStore(context).load()
     val board = viewModel.boardState.value
     val index = viewModel.historyIndex.value
@@ -33,20 +29,11 @@ fun AnalysisScreen(viewModel: GameViewModel) {
     val lines = viewModel.analysisLines.value
     val loading = viewModel.analysisLoading.value
     var autoplay by remember { mutableStateOf(false) }
-    var showPgn by remember { mutableStateOf(LocalConfiguration.current.screenWidthDp >= 600 && settings.showPgnPanel) }
-    val pgn = viewModel.currentPgn()
-    var pgnExpanded by remember { mutableStateOf(false) }
+    var pgnExpanded by remember { mutableStateOf(LocalConfiguration.current.screenWidthDp >= 600 && settings.showPgnPanel) }
 
-    // Populate real principal variations as soon as Analysis opens and refresh them
-    // whenever the user navigates to a different position.
     LaunchedEffect(index, length) {
         if (!loading) viewModel.analyzePosition(settings.analysisLineCount)
     }
-
-    LaunchedEffect(index, length) {
-        if (lines.isEmpty() && !loading) viewModel.analyzePosition(settings.analysisLineCount)
-    }
-
     LaunchedEffect(autoplay, settings.analysisAutoplaySeconds, index, length) {
         if (autoplay) {
             if (index >= length - 1) autoplay = false
@@ -57,13 +44,10 @@ fun AnalysisScreen(viewModel: GameViewModel) {
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(8.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(8.dp)) {
         Text("Game Analysis", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(4.dp))
-        Text(
-            "Position ${index + 1} of $length · Evaluation ${if (evaluation >= 0) "+" else ""}${"%.2f".format(evaluation / 100.0)}",
-            style = MaterialTheme.typography.bodyMedium
-        )
+        Text("Position ${index + 1} of $length · Evaluation ${if (evaluation >= 0) "+" else ""}${"%.2f".format(evaluation / 100.0)}", style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             OutlinedButton(onClick = { autoplay = false; viewModel.goToStart() }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 2.dp)) { Text("|◀") }
@@ -74,47 +58,24 @@ fun AnalysisScreen(viewModel: GameViewModel) {
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.weight(1f).height(280.dp)) {
-                ChessBoard(
-                    board = board,
-                    onSquareClick = { viewModel.onSquareClick(it) },
-                    modifier = Modifier.fillMaxSize(),
-                    pieceSet = settings.pieceSet,
-                    boardTheme = BoardThemes.byId(settings.boardTheme),
-                    flipped = viewModel.flipped.value
-                )
-                val bestMove = lines.firstOrNull()?.moves?.firstOrNull()
-                if (settings.showEngineArrows && bestMove != null && bestMove.length >= 4) {
-                    Canvas(Modifier.fillMaxSize()) {
-                        fun center(square: String): Offset {
-                            val file = square[0].lowercaseChar() - 'a'
-                            val rank = square[1].digitToInt() - 1
-                            val flipped = viewModel.flipped.value
-                            val col = if (flipped) 7 - file else file
-                            val row = if (flipped) rank else 7 - rank
-                            val cell = size.width / 8f
-                            return Offset((col + 0.5f) * cell, (row + 0.5f) * cell)
-                        }
-                        val start = center(bestMove.substring(0, 2))
-                        val end = center(bestMove.substring(2, 4))
-                        val color = Color(0xFF35D07F)
-                        drawLine(color, start, end, strokeWidth = size.width * 0.018f, cap = StrokeCap.Round)
-                        val angle = kotlin.math.atan2(end.y - start.y, end.x - start.x)
-                        val head = size.width * 0.075f
-                        val p1 = Offset(end.x - head * kotlin.math.cos(angle - 0.55f), end.y - head * kotlin.math.sin(angle - 0.55f))
-                        val p2 = Offset(end.x - head * kotlin.math.cos(angle + 0.55f), end.y - head * kotlin.math.sin(angle + 0.55f))
-                        val path = Path().apply { moveTo(end.x, end.y); lineTo(p1.x, p1.y); lineTo(p2.x, p2.y); close() }
-                        drawPath(path, color)
-                        if (settings.showThinkingArrows) {
-                            val colors = listOf(Color(0xFF3399FF), Color(0xFFFFB020), Color(0xFFB56BFF), Color(0xFFFF5252))
-                            lines.drop(1).take(4).forEachIndexed { lineIndex, line ->
-                                val uci = line.moves.firstOrNull() ?: return@forEachIndexed
-                                if (uci.length >= 4) drawLine(colors[lineIndex % colors.size].copy(alpha = 0.88f), center(uci.substring(0, 2)), center(uci.substring(2, 4)), strokeWidth = size.width * 0.014f, cap = StrokeCap.Round)
-                            }
-                        }
+            ChessBoard(
+                board = board,
+                onSquareClick = { viewModel.onSquareClick(it) },
+                modifier = Modifier.weight(1f),
+                pieceSet = settings.pieceSet,
+                boardTheme = BoardThemes.byId(settings.boardTheme),
+                flipped = viewModel.flipped.value,
+                arrows = if (settings.showBestMoveArrow || settings.showEngineThinkingArrows) {
+                    lines.take(if (settings.showEngineThinkingArrows) 3 else 1).mapIndexedNotNull { arrowIndex, line ->
+                        val move = line.moves.firstOrNull() ?: return@mapIndexedNotNull null
+                        if (move.length < 4) return@mapIndexedNotNull null
+                        val from = (move[0] - 'a') + (move[1] - '1') * 8
+                        val to = (move[2] - 'a') + (move[3] - '1') * 8
+                        val color = listOf(Color(0xFF42D66B), Color(0xFF42B8FF), Color(0xFFFFB547))[arrowIndex % 3]
+                        BoardArrow(from, to, color)
                     }
-                }
-            }
+                } else emptyList()
+            )
             EvaluationBar(score = evaluation, modifier = Modifier.height(280.dp).width(22.dp))
         }
         Spacer(Modifier.height(12.dp))
@@ -123,15 +84,11 @@ fun AnalysisScreen(viewModel: GameViewModel) {
             Text("${settings.analysisLineCount} lines · depth ${viewModel.options.value.depth.coerceIn(4, 12)}", style = MaterialTheme.typography.bodySmall)
         }
         Spacer(Modifier.height(4.dp))
-        Button(
-            onClick = { viewModel.analyzePosition(settings.analysisLineCount) },
-            enabled = !loading,
-            modifier = Modifier.fillMaxWidth()
-        ) { Text(if (loading) "Analyzing position…" else "Analyze position") }
-        if (lines.isEmpty() && !loading) {
-            Spacer(Modifier.height(4.dp))
-            Text("Calculating principal variations… or tap Analyze position to retry.", style = MaterialTheme.typography.bodySmall)
+        Button(onClick = { viewModel.analyzePosition(settings.analysisLineCount) }, enabled = !loading, modifier = Modifier.fillMaxWidth()) {
+            Text(if (loading) "Analyzing position…" else "Analyze position")
         }
+        if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (lines.isEmpty() && !loading) Text("No lines returned. Tap Analyze position to retry.", style = MaterialTheme.typography.bodySmall)
         lines.forEachIndexed { i, line ->
             Card(Modifier.fillMaxWidth().padding(top = 6.dp)) {
                 Column(Modifier.fillMaxWidth().padding(10.dp)) {
@@ -144,9 +101,7 @@ fun AnalysisScreen(viewModel: GameViewModel) {
                         if (pair.size == 2) "${moveIndex + 1}. ${pair[0]} ${pair[1]}" else "${moveIndex + 1}. ${pair[0]}"
                     }.joinToString("  "), style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(6.dp))
-                    OutlinedButton(onClick = { autoplay = false; viewModel.playAnalysisLine(line) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Play out this line")
-                    }
+                    OutlinedButton(onClick = { autoplay = false; viewModel.playAnalysisLine(line) }, modifier = Modifier.fillMaxWidth()) { Text("Play out this line") }
                 }
             }
         }
@@ -167,26 +122,6 @@ fun AnalysisScreen(viewModel: GameViewModel) {
                 }
             }
         }
-        Text(
-            "Playback interval: ${settings.analysisAutoplaySeconds}s per move (change it in Settings).",
-            style = MaterialTheme.typography.bodySmall
-        )
-        Spacer(Modifier.height(10.dp))
-        OutlinedButton(onClick = { showPgn = !showPgn }, modifier = Modifier.fillMaxWidth()) {
-            Text(if (showPgn) "Hide PGN / move notation" else "Show PGN / move notation")
-        }
-        if (showPgn) {
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.fillMaxWidth().padding(10.dp)) {
-                    Text("Game PGN", style = MaterialTheme.typography.titleMedium)
-                    Text(pgn, style = MaterialTheme.typography.bodySmall, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
-                    Spacer(Modifier.height(8.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { viewModel.copyPgn() }, modifier = Modifier.weight(1f)) { Text("Copy PGN") }
-                        Button(onClick = { viewModel.saveCurrentGame() }, modifier = Modifier.weight(1f)) { Text("Save game") }
-                    }
-                }
-            }
-        }
+        Text("Playback interval: ${settings.analysisAutoplaySeconds}s per move (change it in Settings).", style = MaterialTheme.typography.bodySmall)
     }
 }
