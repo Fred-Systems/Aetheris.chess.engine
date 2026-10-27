@@ -94,9 +94,6 @@ static int classicalWhiteScore(const Board& b) {
                         break;
                     case BISHOP:
                         positionalBonus += (7 - cd) * (positional / 12 + 1);
-                        // Reward bishops with open diagonals / mobility.
-                        positionalBonus += __builtin_popcountll(
-                            (side == WHITE ? b.occupied[BLACK] : b.occupied[WHITE]) & 0ULL);
                         break;
                     case ROOK:
                         if (!fileHasPawn(b, file, side)) positionalBonus += 10 + positional / 8;
