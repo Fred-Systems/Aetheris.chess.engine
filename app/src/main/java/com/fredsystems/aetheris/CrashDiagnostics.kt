@@ -53,6 +53,12 @@ object CrashDiagnostics {
         }
     }
 
+    fun recordStage(context: Context, stage: String, details: String = "") {
+        synchronized(lock) {
+            appendLocked(context.applicationContext, "STAGE time=${Instant.now()} name=$stage details=${details.replace('\\n', ' ')}")
+        }
+    }
+
     fun recordException(context: Context, where: String, error: Throwable) {
         val sw = StringWriter()
         error.printStackTrace(PrintWriter(sw))
