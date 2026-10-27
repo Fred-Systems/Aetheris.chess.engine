@@ -67,16 +67,22 @@ class SimViewModel(private val context: Context) : ViewModel() {
                         val mode = if (white) modeA else modeB
                         val mv = withContext(Dispatchers.Default) {
                             runCatching {
-                                NativeEngine.setParams(
-                                    if (white) aggressionA else aggressionB,
-                                    if (white) positionalA else positionalB,
-                                    if (white) complexityA else complexityB,
-                                    if (white) solidityA else solidityB,
-                                    50,
-                                    modeOrdinal(mode)
+                                NativeEngine.searchConfiguredPosition(
+                                    fen = fen,
+                                    depth = depth.coerceIn(1, 24),
+                                    timeMs = timeMs.coerceIn(100, 30000),
+                                    aggression = if (white) aggressionA else aggressionB,
+                                    positional = if (white) positionalA else positionalB,
+                                    complexity = if (white) complexityA else complexityB,
+                                    solidity = if (white) solidityA else solidityB,
+                                    materialWeight = 50,
+                                    mode = modeOrdinal(mode)
                                 )
-                                NativeEngine.searchPosition(fen, depth, timeMs)
-                            }.getOrNull()
+                            }.getOrElse { error ->
+                                android.util.Log.e("AetherisSim", "Engine search failed at ply $plies", error)
+                                status.value = "Engine error at ply $plies: " + (error.message ?: error.javaClass.simpleName)
+                                null
+                            }
                         }
                         if (mv.isNullOrBlank() || mv.length < 4) break
                         val from = runCatching { LibSquare.valueOf(mv.substring(0, 2).uppercase()) }.getOrNull() ?: break
@@ -104,7 +110,7 @@ class SimViewModel(private val context: Context) : ViewModel() {
                     if (g < games) delay(400)
                 }
             } finally {
-                status.value = "Finished"
+                if (running.value && status.value.startsWith("Game ")) status.value = "Finished"
                 running.value = false
             }
         }
