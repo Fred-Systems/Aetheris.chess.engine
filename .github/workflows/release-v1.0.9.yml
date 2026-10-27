@@ -36,6 +36,7 @@ jobs:
               exit 1
             fi
             cp "$BIN" "uci-package/$abi/aetheris"
+            cp app/src/main/assets/nnue/weights.bin "uci-package/$abi/weights.bin"
             chmod 755 "uci-package/$abi/aetheris"
           done
           cat > uci-package/README.txt <<'EOF'
@@ -48,7 +49,8 @@ jobs:
           Extract the ZIP and import the executable matching the device ABI into a
           chess GUI that supports external UCI engines. If the GUI asks for a path,
           select the extracted aetheris executable, not this ZIP or the README.
-          The executable speaks the Universal Chess Interface (UCI) protocol.
+          Keep weights.bin beside the executable, or set the UCI option NNUEFile
+          to the full path of the weights file. The executable speaks UCI.
           EOF
           (cd uci-package && zip -qr ../Aetheris-UCI-Engine-Android.zip .)
       - name: Sign and verify APK with the production keystore
