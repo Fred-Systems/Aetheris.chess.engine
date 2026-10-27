@@ -48,6 +48,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     val evaluation = mutableStateOf(0)
     val analysisLines = mutableStateOf<List<EngineAnalysisLine>>(emptyList())
     val analysisLoading = mutableStateOf(false)
+    val nnueStatus = mutableStateOf("Checking neural network…")
     val options = mutableStateOf(EngineOptions())
     val engineThinking = mutableStateOf(false)
     val engineAvailable = mutableStateOf(true)
@@ -68,7 +69,10 @@ class GameViewModel(private val context: Context) : ViewModel() {
         runCatching {
             NativeEngine.initialize()
             applyNativeOptions(options.value)
-            ensureNnueAsset()?.let { NativeEngine.setNnue(it) }
+            val bundledNnue = ensureNnueAsset()
+            val customNnue = java.io.File(context.filesDir, "nnue/custom_weights.bin")
+            (if (customNnue.isFile) customNnue.absolutePath else bundledNnue)?.let { NativeEngine.setNnue(it) }
+            nnueStatus.value = if (NativeEngine.isNnueLoaded()) "NNUE loaded" else "NNUE unavailable — Classical fallback active"
         }.onFailure { engineAvailable.value = false }
         evalVisible.value = settings.value.showEvalPlay
         moveTimeSeconds.value = settings.value.moveTimeSeconds
@@ -438,6 +442,25 @@ class GameViewModel(private val context: Context) : ViewModel() {
         engineThinking.value = false
         val winner = if (side == PieceColor.WHITE) "Black" else "White"
         boardState.value = boardState.value.copy(gameOver = true, statusText = "$winner wins on time")
+    }
+
+    fun loadCustomNnue(sourcePath: String) {
+        val custom = java.io.File(context.filesDir, "nnue/custom_weights.bin")
+        runCatching {
+            custom.parentFile?.mkdirs()
+            val source = java.io.File(sourcePath)
+            if (source.absolutePath != custom.absolutePath) source.copyTo(custom, overwrite = true)
+            NativeEngine.setNnue(custom.absolutePath)
+            if (NativeEngine.isNnueLoaded()) {
+                nnueStatus.value = "Custom NNUE loaded successfully"
+            } else {
+                custom.delete()
+                ensureNnueAsset()?.let { NativeEngine.setNnue(it) }
+                nnueStatus.value = "That weights file was rejected; restored the bundled network"
+            }
+        }.onFailure {
+            nnueStatus.value = "Could not load NNUE weights: ${it.message ?: "unknown error"}"
+        }
     }
 
     private fun ensureNnueAsset(): String? {
