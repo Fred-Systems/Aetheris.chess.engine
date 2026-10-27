@@ -78,6 +78,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         moveTimeSeconds.value = settings.value.moveTimeSeconds
         resetClocks()
         startClockLoop()
+        updateEvaluationAsync()
         maybeEngineMove()
     }
 
