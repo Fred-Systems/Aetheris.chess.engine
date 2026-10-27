@@ -78,7 +78,7 @@ fun AnalysisScreen(viewModel: GameViewModel) {
                     flipped = viewModel.flipped.value
                 )
                 val bestMove = lines.firstOrNull()?.moves?.firstOrNull()
-                if (bestMove != null && bestMove.length >= 4) {
+                if (settings.showEngineArrows && bestMove != null && bestMove.length >= 4) {
                     Canvas(Modifier.fillMaxSize()) {
                         fun center(square: String): Offset {
                             val file = square[0].lowercaseChar() - 'a'
@@ -99,6 +99,13 @@ fun AnalysisScreen(viewModel: GameViewModel) {
                         val p2 = Offset(end.x - head * kotlin.math.cos(angle + 0.55f), end.y - head * kotlin.math.sin(angle + 0.55f))
                         val path = Path().apply { moveTo(end.x, end.y); lineTo(p1.x, p1.y); lineTo(p2.x, p2.y); close() }
                         drawPath(path, color)
+                        if (settings.showThinkingArrows) {
+                            val colors = listOf(Color(0xFF3399FF), Color(0xFFFFB020), Color(0xFFB56BFF), Color(0xFFFF5252))
+                            lines.drop(1).take(4).forEachIndexed { lineIndex, line ->
+                                val uci = line.moves.firstOrNull() ?: return@forEachIndexed
+                                if (uci.length >= 4) drawLine(colors[lineIndex % colors.size].copy(alpha = 0.88f), center(uci.substring(0, 2)), center(uci.substring(2, 4)), strokeWidth = size.width * 0.014f, cap = StrokeCap.Round)
+                            }
+                        }
                     }
                 }
             }
