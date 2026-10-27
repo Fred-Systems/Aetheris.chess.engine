@@ -293,12 +293,16 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     fun updateSettings(s: AppSettings) {
+        val playerColorChanged = s.playerColor != settings.value.playerColor
         saveSettings(s)
         if (s.flipped != flipped.value) flipped.value = s.flipped
         timeControlSeconds.value = TimeControl.byId(s.timeControl).seconds
         moveTimeSeconds.value = s.moveTimeSeconds
         evalVisible.value = if (mode.value == PlayMode.ANALYSIS) s.showEvalAnalysis else s.showEvalPlay
         resetClocks()
+        // Changing the default side is an immediate gameplay choice, not just a
+        // preference for the next manually-started game.
+        if (playerColorChanged) newGame(s.playerColor)
     }
 
     fun resetAllSettings() {
