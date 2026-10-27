@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fredsystems.aetheris.CrashDiagnostics
 import com.fredsystems.aetheris.domain.model.AppSettings
 import com.fredsystems.aetheris.domain.model.BoardState
 import com.fredsystems.aetheris.domain.model.EngineMode
@@ -162,9 +163,12 @@ class GameViewModel(private val context: Context) : ViewModel() {
         engineThinking.value = true
         viewModelScope.launch {
             val move = withContext(Dispatchers.Default) {
+                CrashDiagnostics.searchStarted(context, fen, depth, timeMs.toInt())
                 runCatching {
-                    NativeEngine.searchPosition(fen, depth, timeMs.toInt())
-                }.getOrNull()
+                    NativeEngine.searchPosition(fen, depth, timeMs.toInt()).also { move ->
+                        CrashDiagnostics.searchCompleted(context, move)
+                    }
+                }.onFailure { error -> CrashDiagnostics.recordException(context, "NativeEngine.searchPosition", error) }.getOrNull()
             }
             if (generation != engineGeneration) return@launch
             engineThinking.value = false
