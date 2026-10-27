@@ -43,8 +43,6 @@ class GameViewModel(private val context: Context) : ViewModel() {
     private val store = SettingsStore(context)
     private var board = Board()
     private val moveList = mutableListOf<String>()
-    private val sanMoveList = mutableListOf<String>()
-    val pgnText = mutableStateOf("")
     private val positionHistory = mutableListOf<String>()
     val historyIndex = mutableStateOf(0)
     val historyLength = mutableStateOf(1)
@@ -156,15 +154,11 @@ class GameViewModel(private val context: Context) : ViewModel() {
     private fun makeMove(move: LibMove, allowEngineReply: Boolean) {
         val from = move.from.ordinal
         val to = move.to.ordinal
-        val san = sanForMove(move)
         if (!board.doMove(move)) return
         val currentIndex = historyIndex.value.coerceIn(0, positionHistory.lastIndex)
         while (positionHistory.size > currentIndex + 1) positionHistory.removeAt(positionHistory.lastIndex)
         while (moveList.size > currentIndex) moveList.removeAt(moveList.lastIndex)
-        while (sanMoveList.size > currentIndex) sanMoveList.removeAt(sanMoveList.lastIndex)
         moveList.add(move.toString())
-        sanMoveList.add(san)
-        refreshPgn()
         positionHistory.add(board.fen)
         historyIndex.value = positionHistory.lastIndex
         historyLength.value = positionHistory.size
@@ -179,57 +173,6 @@ class GameViewModel(private val context: Context) : ViewModel() {
         if (moveTimeSeconds.value > 0) resetClocks()
         updateEvaluationAsync()
         if (allowEngineReply) maybeEngineMove()
-    }
-
-    private fun sanForMove(move: LibMove): String {
-        val piece = board.getPiece(move.from)
-        val type = piece.pieceType
-        val fromText = move.from.toString().lowercase()
-        val toText = move.to.toString().lowercase()
-        if (type == LibPieceType.KING && kotlin.math.abs(move.from.ordinal % 8 - move.to.ordinal % 8) == 2) {
-            return if (move.to.ordinal % 8 > move.from.ordinal % 8) "O-O" else "O-O-O"
-        }
-        val letter = when (type) {
-            LibPieceType.KNIGHT -> "N"
-            LibPieceType.BISHOP -> "B"
-            LibPieceType.ROOK -> "R"
-            LibPieceType.QUEEN -> "Q"
-            LibPieceType.KING -> "K"
-            else -> ""
-        }
-        val isCapture = board.getPiece(move.to) != LibPiece.NONE || (type == LibPieceType.PAWN && move.from.ordinal % 8 != move.to.ordinal % 8)
-        val rivals = board.legalMoves().filter { it.to == move.to && it.from != move.from && board.getPiece(it.from).pieceType == type }
-        var disambiguation = ""
-        if (letter.isNotEmpty() && rivals.isNotEmpty()) {
-            val sameFile = rivals.any { it.from.ordinal % 8 == move.from.ordinal % 8 }
-            val sameRank = rivals.any { it.from.ordinal / 8 == move.from.ordinal / 8 }
-            disambiguation = when {
-                !sameFile -> fromText.take(1)
-                !sameRank -> fromText.takeLast(1)
-                else -> fromText
-            }
-        }
-        val pawnFile = if (type == LibPieceType.PAWN && isCapture) fromText.take(1) else ""
-        val promotion = if (move.promotion != LibPiece.NONE) "=" + when (move.promotion.pieceType) {
-            LibPieceType.KNIGHT -> "N"
-            LibPieceType.BISHOP -> "B"
-            LibPieceType.ROOK -> "R"
-            else -> "Q"
-        } else ""
-        return letter + disambiguation + pawnFile + (if (isCapture) "x" else "") + toText + promotion
-    }
-
-    private fun refreshPgn() {
-        val result = when {
-            board.isMated -> if (board.sideToMove == Side.WHITE) "0-1" else "1-0"
-            board.isDraw || board.isStaleMate() -> "1/2-1/2"
-            else -> "*"
-        }
-        val date = java.text.SimpleDateFormat("yyyy.MM.dd", java.util.Locale.US).format(java.util.Date())
-        val movetext = sanMoveList.mapIndexed { i, san ->
-            if (i % 2 == 0) "${i / 2 + 1}. $san" else san
-        }.joinToString(" ")
-        pgnText.value = "[Event \"Aetheris Game\"]\\n[Site \"Aetheris\"]\\n[Date \"$date\"]\\n[Round \"-\"]\\n[White \"Player\"]\\n[Black \"Aetheris\"]\\n[Result \"$result\"]\\n\\n" + movetext + (if (movetext.isNotEmpty()) " " else "") + result
     }
 
     private fun maybeEngineMove() {
@@ -318,8 +261,6 @@ class GameViewModel(private val context: Context) : ViewModel() {
         engineGeneration++
         board = Board()
         moveList.clear()
-        sanMoveList.clear()
-        refreshPgn()
         analysisLines.value = emptyList()
         positionHistory.clear()
         positionHistory.add(board.fen)
