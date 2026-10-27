@@ -36,6 +36,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
     private val store = SettingsStore(context)
     private var board = Board()
     private val moveList = mutableListOf<String>()
+    private val positionHistory = mutableListOf<String>()
+    val historyIndex = mutableStateOf(0)
+    val historyLength = mutableStateOf(1)
     private val settingsStore = store
     val settings = mutableStateOf(store.load())
 
@@ -57,6 +60,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     private var clockJob: Job? = null
 
     init {
+        positionHistory.add(board.fen)
         runCatching {
             NativeEngine.initialize()
             applyNativeOptions(options.value)
@@ -119,13 +123,19 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val from = move.from.ordinal
         val to = move.to.ordinal
         if (!board.doMove(move)) return
+        val currentIndex = historyIndex.value.coerceIn(0, positionHistory.lastIndex)
+        while (positionHistory.size > currentIndex + 1) positionHistory.removeAt(positionHistory.lastIndex)
+        while (moveList.size > currentIndex) moveList.removeAt(moveList.lastIndex)
         moveList.add(move.toString())
+        positionHistory.add(board.fen)
+        historyIndex.value = positionHistory.lastIndex
+        historyLength.value = positionHistory.size
         val next = toUi(board).copy(
             selectedSquare = null,
             legalTargets = emptySet(),
             lastMoveFrom = from,
             lastMoveTo = to,
-            moveNumber = boardState.value.moveNumber + 1
+            moveNumber = historyIndex.value
         )
         boardState.value = next
         if (moveTimeSeconds.value > 0) resetClocks()
@@ -215,6 +225,10 @@ class GameViewModel(private val context: Context) : ViewModel() {
         engineGeneration++
         board = Board()
         moveList.clear()
+        positionHistory.clear()
+        positionHistory.add(board.fen)
+        historyIndex.value = 0
+        historyLength.value = 1
         engineThinking.value = false
         boardState.value = toUi(board)
         evaluation.value = 0
@@ -252,25 +266,28 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     fun undoMove() {
-        if (board.backup.isEmpty() && moveList.isEmpty()) return
+        val stepBack = if (mode.value == PlayMode.PLAY) 2 else 1
+        goToHistoryIndex((historyIndex.value - stepBack).coerceAtLeast(0))
+        maybeEngineMove()
+    }
+
+    fun goToStart() = goToHistoryIndex(0)
+    fun goBack() = goToHistoryIndex(historyIndex.value - 1)
+    fun goForward() = goToHistoryIndex(historyIndex.value + 1)
+    fun goToEnd() = goToHistoryIndex(historyLength.value - 1)
+
+    fun goToHistoryIndex(targetIndex: Int) {
+        if (positionHistory.isEmpty()) return
+        val target = targetIndex.coerceIn(0, positionHistory.lastIndex)
         engineGeneration++
         engineThinking.value = false
-        if (mode.value == PlayMode.PLAY) {
-            var guard = 0
-            do {
-                if (board.backup.isEmpty()) break
-                board.undoMove()
-                if (moveList.isNotEmpty()) moveList.removeAt(moveList.size - 1)
-                guard++
-            } while (guard < 4 && board.sideToMove != (if (playerColor.value == PieceColor.WHITE) Side.WHITE else Side.BLACK) && board.backup.isNotEmpty())
-        } else {
-            if (board.backup.isEmpty()) return
-            board.undoMove()
-            if (moveList.isNotEmpty()) moveList.removeAt(moveList.size - 1)
+        runCatching {
+            board.loadFromFen(positionHistory[target])
+            historyIndex.value = target
+            boardState.value = toUi(board).copy(moveNumber = target)
+            evaluation.value = 0
+            updateEvaluationAsync()
         }
-        boardState.value = toUi(board).copy(moveNumber = boardState.value.moveNumber + 1)
-        updateEvaluationAsync()
-        maybeEngineMove()
     }
 
     private fun applyUciMove(uci: String) {
@@ -348,7 +365,8 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val fen = board.fen
         viewModelScope.launch {
             val score = withContext(Dispatchers.Default) {
-                runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
+                val raw = runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
+                if (fen.split(" ").getOrNull(1) == "b") -raw else raw
             }
             evaluation.value = score
         }
