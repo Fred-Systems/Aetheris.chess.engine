@@ -24,6 +24,33 @@ jobs:
           ndk-version: r26b
       - name: Build regular release APK
         run: gradle assembleRelease
+      - name: Package standalone Android UCI engine binaries
+        run: |
+          set -euo pipefail
+          mkdir -p uci-package/arm64-v8a uci-package/armeabi-v7a
+          for abi in arm64-v8a armeabi-v7a; do
+            BIN="$(find app/build/intermediates/cxx -type f -path "*/obj/$abi/libaetheris_engine.so" | head -n 1)"
+            if [ -z "$BIN" ]; then
+              echo "::error::Missing standalone UCI executable for $abi"
+              find app/build/intermediates/cxx -type f -name '*aetheris*' -print || true
+              exit 1
+            fi
+            cp "$BIN" "uci-package/$abi/aetheris"
+            chmod 755 "uci-package/$abi/aetheris"
+          done
+          cat > uci-package/README.txt <<'EOF'
+          Aetheris UCI Engine for Android
+          =================================
+          This package contains native Android UCI executables:
+          - arm64-v8a/aetheris (most modern Android phones)
+          - armeabi-v7a/aetheris (32-bit ARM devices)
+
+          Extract the ZIP and import the executable matching the device ABI into a
+          chess GUI that supports external UCI engines. If the GUI asks for a path,
+          select the extracted aetheris executable, not this ZIP or the README.
+          The executable speaks the Universal Chess Interface (UCI) protocol.
+          EOF
+          (cd uci-package && zip -qr ../Aetheris-UCI-Engine-Android.zip .)
       - name: Sign and verify APK with the production keystore
         env:
           ANDROID_SIGNING_KEY_BASE64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
@@ -52,7 +79,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create v1.0.9 Aetheris-1.0.9.apk \
+          gh release create v1.0.9 Aetheris-1.0.9.apk Aetheris-UCI-Engine-Android.zip \
             --target "${GITHUB_SHA}" \
             --title "Aetheris 1.0.9" \
             --notes "Regular production release of Aetheris 1.0.9. Fixes the crash when applying engine moves by normalizing lowercase UCI square coordinates (for example b8c6) to the uppercase square names expected by chesslib before looking up the squares. Built and signed with the existing production release keystore; APK signature is verified before publication."
