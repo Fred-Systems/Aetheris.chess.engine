@@ -29,7 +29,10 @@ data class AppSettings(
     val timeControl: String = "unlimited",
     val moveTimeSeconds: Int = 0,
     val analysisAutoplaySeconds: Int = 2,
-    val analysisLineCount: Int = 3
+    val analysisLineCount: Int = 3,
+    val showBestMoveArrow: Boolean = true,
+    val showEngineThinkingArrows: Boolean = false,
+    val showPgnPanel: Boolean = true
 )
 
 class SettingsStore(context: Context) {
@@ -47,7 +50,10 @@ class SettingsStore(context: Context) {
         timeControl = prefs.getString("timeControl", "unlimited") ?: "unlimited",
         moveTimeSeconds = prefs.getInt("moveTimeSeconds", 0),
         analysisAutoplaySeconds = prefs.getInt("analysisAutoplaySeconds", 2).coerceIn(1, 15),
-        analysisLineCount = prefs.getInt("analysisLineCount", 3).coerceIn(1, 5)
+        analysisLineCount = prefs.getInt("analysisLineCount", 3).coerceIn(1, 5),
+        showBestMoveArrow = prefs.getBoolean("showBestMoveArrow", true),
+        showEngineThinkingArrows = prefs.getBoolean("showEngineThinkingArrows", false),
+        showPgnPanel = prefs.getBoolean("showPgnPanel", true)
     )
 
     fun save(s: AppSettings) {
@@ -64,6 +70,9 @@ class SettingsStore(context: Context) {
             .putInt("moveTimeSeconds", s.moveTimeSeconds)
             .putInt("analysisAutoplaySeconds", s.analysisAutoplaySeconds.coerceIn(1, 15))
             .putInt("analysisLineCount", s.analysisLineCount.coerceIn(1, 5))
+            .putBoolean("showBestMoveArrow", s.showBestMoveArrow)
+            .putBoolean("showEngineThinkingArrows", s.showEngineThinkingArrows)
+            .putBoolean("showPgnPanel", s.showPgnPanel)
             .apply()
     }
 }
