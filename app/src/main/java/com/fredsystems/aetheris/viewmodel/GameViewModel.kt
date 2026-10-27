@@ -227,8 +227,11 @@ class GameViewModel(private val context: Context) : ViewModel() {
                 applyUciMove(move)
                 CrashDiagnostics.recordStage(context, "MOVE_APPLICATION_COMPLETE", "uci=$move fen=${board.fen}")
             } catch (error: Throwable) {
+                // A malformed/stale engine move must never crash the Activity.
+                // Keep the current board intact and surface a diagnostic instead.
                 CrashDiagnostics.recordException(context, "applyUciMove uci=$move", error)
-                throw error
+                engineAvailable.value = false
+                engineThinking.value = false
             }
         }
     }
