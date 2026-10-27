@@ -476,23 +476,29 @@ std::string searchTopLines(Board& b, int depth, int timeMs, int count) {
     depth = std::max(1, std::min(depth, 12));
     timeMs = std::max(100, std::min(timeMs, 15000));
     count = std::max(1, std::min(count, 5));
-    timeLimitMs = timeMs;
-    startTime = std::chrono::steady_clock::now();
-    stopSearch = false;
-    nodeCount = 0;
-
     std::vector<Move> legal;
     genMoves(b, legal, false);
     struct Candidate { Move move; int score; std::vector<Move> pv; };
     std::vector<Candidate> candidates;
+    const int perMoveMs = std::max(100, timeMs / std::max(1, static_cast<int>(legal.size())));
     for (Move m : legal) {
-        if (timeUp()) break;
+        // Give every legal root move a bounded share of the analysis budget so
+        // later moves are not omitted just because the first candidate was expensive.
+        timeLimitMs = perMoveMs;
+        startTime = std::chrono::steady_clock::now();
+        stopSearch = false;
+        nodeCount = 0;
         Undo rootUndo;
         makeMove(b, m, rootUndo);
-        int score = -alphaBeta(b, depth - 1, -INF, INF, true);
+        int score = 0;
+        for (int d = 1; d <= depth; ++d) {
+            const int candidateScore = -alphaBeta(b, d - 1, -INF, INF, true);
+            if (stopSearch) break;
+            score = candidateScore;
+        }
         Candidate candidate{m, score, {m}};
         std::vector<Undo> tailUndo;
-        for (int ply = 1; ply < depth && !stopSearch; ++ply) {
+        for (int ply = 1; ply < depth; ++ply) {
             const std::uint64_t key = positionKey(b);
             const TTEntry2& entry = tt2[key & (tt2.size() - 1)];
             if (entry.key != key || entry.best == 0) break;
@@ -508,7 +514,6 @@ std::string searchTopLines(Board& b, int depth, int timeMs, int count) {
             unmakeMove(b, candidate.pv[static_cast<size_t>(j) + 1], tailUndo[static_cast<size_t>(j)]);
         unmakeMove(b, m, rootUndo);
         candidates.push_back(std::move(candidate));
-        if (stopSearch) break;
     }
     std::stable_sort(candidates.begin(), candidates.end(), [](const Candidate& a, const Candidate& b2) {
         return a.score > b2.score;
