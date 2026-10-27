@@ -22,6 +22,7 @@ object NativeEngine {
         mode: Int
     )
     external fun nativeSetNnue(path: String)
+    external fun nativeNnueLoaded(): Boolean
     external fun nativeGo(depth: Int, timeMs: Int): String
     external fun nativeAnalyzeFen(fen: String, depth: Int, timeMs: Int, count: Int): String
     external fun nativeEvaluate(): Int
@@ -36,6 +37,9 @@ object NativeEngine {
 
     @Synchronized
     fun setNnue(path: String) = nativeSetNnue(path)
+
+    @Synchronized
+    fun isNnueLoaded(): Boolean = nativeNnueLoaded()
 
     @Synchronized
     fun go(depth: Int, timeMs: Int): String = nativeGo(depth, timeMs)
