@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'docs/**'
+      - 'app/src/main/cpp/**'
+      - 'app/src/main/assets/nnue/weights.bin'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -25,6 +27,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.64
+      - name: Compile the real Aetheris engine to WebAssembly
+        run: |
+          em++ \
+            app/src/main/cpp/wasm_bindings.cpp \
+            app/src/main/cpp/engine.cpp \
+            app/src/main/cpp/search.cpp \
+            app/src/main/cpp/evaluate.cpp \
+            app/src/main/cpp/nnue.cpp \
+            -std=c++17 -O3 \
+            -s WASM=1 \
+            -s MODULARIZE=1 \
+            -s EXPORT_NAME=AetherisModule \
+            -s ALLOW_MEMORY_GROWTH=1 \
+            -s ENVIRONMENT=web \
+            -s EXPORTED_FUNCTIONS='["_aetheris_init","_aetheris_set_mode","_aetheris_best_move","_aetheris_eval","_aetheris_analyze","_malloc","_free"]' \
+            -s EXPORTED_RUNTIME_METHODS='["ccall","UTF8ToString","stringToUTF8","lengthBytesUTF8"]' \
+            --preload-file app/src/main/assets/nnue/weights.bin@/weights.bin \
+            -o docs/aetheris.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
