@@ -3,6 +3,12 @@
 #include <string>
 #include <sstream>
 #include <android/log.h>
+#include <csignal>
+#include <cstdint>
+#include <cstring>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 #define AETH_LOGI(...) __android_log_print(ANDROID_LOG_INFO, "AetherisEngine", __VA_ARGS__)
 #define AETH_LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "AetherisEngine", __VA_ARGS__)
@@ -10,6 +16,62 @@
 using namespace aetheris;
 
 namespace aetheris { Move searchBestMove(Board& b, int depth, int timeMs); }
+
+namespace {
+char g_crash_report_path[1024] = {0};
+
+void appendLiteral(char* out, size_t& pos, const char* s) {
+    while (*s && pos < 1000) out[pos++] = *s++;
+}
+void appendUnsigned(char* out, size_t& pos, unsigned long value) {
+    char digits[24]; size_t n = 0;
+    do { digits[n++] = static_cast<char>('0' + (value % 10)); value /= 10; } while (value && n < sizeof(digits));
+    while (n && pos < 1000) out[pos++] = digits[--n];
+}
+void appendHex(char* out, size_t& pos, uintptr_t value) {
+    static const char hex[] = "0123456789abcdef";
+    char digits[2 * sizeof(uintptr_t)]; size_t n = 0;
+    do { digits[n++] = hex[value & 0xf]; value >>= 4; } while (value && n < sizeof(digits));
+    appendLiteral(out, pos, "0x");
+    while (n && pos < 1000) out[pos++] = digits[--n];
+}
+
+// Keep this handler deliberately small and use low-level file operations so a
+// fatal native signal leaves a durable marker before Android terminates the process.
+void fatalSignalHandler(int signalNumber, siginfo_t* info, void*) {
+    const char* path = g_crash_report_path;
+    if (path[0]) {
+        char line[1024]; size_t pos = 0;
+        appendLiteral(line, pos, "NATIVE_FATAL_SIGNAL signal=");
+        appendUnsigned(line, pos, static_cast<unsigned long>(signalNumber));
+        appendLiteral(line, pos, " faultAddress=");
+        appendHex(line, pos, reinterpret_cast<uintptr_t>(info ? info->si_addr : nullptr));
+        appendLiteral(line, pos, " pid=");
+        appendUnsigned(line, pos, static_cast<unsigned long>(getpid()));
+        if (pos < sizeof(line) - 1) line[pos++] = '\\n';
+        int fd = open(path, O_WRONLY | O_CREAT | O_APPEND, 0600);
+        if (fd >= 0) {
+            (void)write(fd, line, pos);
+            (void)fsync(fd);
+            (void)close(fd);
+        }
+    }
+    // SA_RESETHAND restores the platform handler. Returning lets the original
+    // fault be delivered again so Android still generates its native tombstone.
+}
+
+void installFatalSignalHandlers() {
+    struct sigaction action{};
+    action.sa_sigaction = fatalSignalHandler;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = SA_SIGINFO | SA_RESETHAND;
+    sigaction(SIGSEGV, &action, nullptr);
+    sigaction(SIGABRT, &action, nullptr);
+    sigaction(SIGBUS, &action, nullptr);
+    sigaction(SIGILL, &action, nullptr);
+    sigaction(SIGFPE, &action, nullptr);
+}
+}
 
 extern "C" {
 
