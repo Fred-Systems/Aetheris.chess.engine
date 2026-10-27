@@ -19,6 +19,7 @@ int main() {
     using namespace aetheris;
     initBitboards();
     resetBoard();
+    setNNUEPath("weights.bin");
     std::string line;
     int depthLimit = 6;
     int nodesLimit = 0;
@@ -36,8 +37,8 @@ int main() {
             std::cout << "option name MaterialWeight type spin default 50 min 0 max 100" << std::endl;
             std::cout << "option name UseOpeningBook type check default false" << std::endl;
             std::cout << "option name Depth type spin default 6 min 1 max 64" << std::endl;
-            std::cout << "option name EngineMode type combo default NNUE var NNUE var Classical" << std::endl;
-            std::cout << "option name NNUEFile type string default " << std::endl;
+            std::cout << "option name EngineMode type combo default DualCore var DualCore var PureNNUE var PureClassical" << std::endl;
+            std::cout << "option name NNUEFile type string default weights.bin" << std::endl;
             std::cout << "uciok" << std::endl;
         } else if (cmd == "isready") {
             std::cout << "readyok" << std::endl;
