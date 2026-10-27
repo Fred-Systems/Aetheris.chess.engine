@@ -295,11 +295,11 @@ fun SettingsScreen(
                 title = "Board size",
                 valueText = "${(settings.boardScale * 100).toInt()}%",
                 value = settings.boardScale,
-                range = 0.55f..2.0f
+                range = 0.75f..3.0f
             ) { viewModel.updateSettings(settings.copy(boardScale = it)) }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(
-                    onClick = { viewModel.updateSettings(settings.copy(uiScale = 1f, boardScale = 1.25f)) },
+                    onClick = { viewModel.updateSettings(settings.copy(uiScale = 1f, boardScale = 1.8f)) },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp)
                 ) { Text("Reset layout") }
