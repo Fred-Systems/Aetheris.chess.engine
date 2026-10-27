@@ -206,6 +206,8 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
     val blackTime by vm.blackTimeMs
     val timeControl = vm.timeControlSeconds.value
     var showNewGame by remember { mutableStateOf(false) }
+    val configuration = LocalConfiguration.current
+    var pgnExpanded by remember { mutableStateOf(configuration.screenWidthDp >= 600 && settings.showPgnPanel) }
 
     Box(
         Modifier
@@ -350,6 +352,24 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 }
             }
 
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { pgnExpanded = !pgnExpanded }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (pgnExpanded) "Hide PGN / move notebook" else "Show PGN / move notebook")
+            }
+            if (pgnExpanded) {
+                Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = Color(0xFF1A1626)) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text("Game notation (PGN)", color = Color(0xFFF2EEFF), fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        Text(vm.currentPgn(), color = Color(0xFFB9B2CE), fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { vm.copyPgn() }, modifier = Modifier.weight(1f)) { Text("Copy PGN") }
+                            Button(onClick = { vm.saveCurrentGame() }, modifier = Modifier.weight(1f)) { Text("Save game") }
+                        }
+                        if (vm.pgnStatus.value.isNotBlank()) Text(vm.pgnStatus.value, color = Color(0xFFB9A8FF), fontSize = 12.sp)
+                    }
+                }
+            }
             Spacer(Modifier.height(8.dp))
         }
     }
