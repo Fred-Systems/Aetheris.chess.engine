@@ -2,6 +2,10 @@
 #include <jni.h>
 #include <string>
 #include <sstream>
+#include <android/log.h>
+
+#define AETH_LOGI(...) __android_log_print(ANDROID_LOG_INFO, "AetherisEngine", __VA_ARGS__)
+#define AETH_LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "AetherisEngine", __VA_ARGS__)
 
 using namespace aetheris;
 
@@ -52,8 +56,10 @@ Java_com_fredsystems_aetheris_engine_NativeEngine_nativeSetNnue(JNIEnv* env, job
 
 JNIEXPORT jstring JNICALL
 Java_com_fredsystems_aetheris_engine_NativeEngine_nativeGo(JNIEnv* env, jobject, jint depth, jint timeMs) {
+    AETH_LOGI("nativeGo ENTER depth=%d timeMs=%d", (int)depth, (int)timeMs);
     Board& b = getBoard();
     Move m = searchBestMove(b, depth, timeMs);
+    AETH_LOGI("nativeGo SEARCH_RETURN move=%u", (unsigned int)m);
     if (m == 0) return env->NewStringUTF("");
     int from = m & 63;
     int to = (m >> 6) & 63;
