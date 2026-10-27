@@ -28,7 +28,8 @@ data class AppSettings(
     val playerColor: String = "white",
     val timeControl: String = "unlimited",
     val moveTimeSeconds: Int = 0,
-    val analysisAutoplaySeconds: Int = 2
+    val analysisAutoplaySeconds: Int = 2,
+    val analysisLineCount: Int = 3
 )
 
 class SettingsStore(context: Context) {
@@ -45,7 +46,8 @@ class SettingsStore(context: Context) {
         playerColor = prefs.getString("playerColor", "white") ?: "white",
         timeControl = prefs.getString("timeControl", "unlimited") ?: "unlimited",
         moveTimeSeconds = prefs.getInt("moveTimeSeconds", 0),
-        analysisAutoplaySeconds = prefs.getInt("analysisAutoplaySeconds", 2).coerceIn(1, 15)
+        analysisAutoplaySeconds = prefs.getInt("analysisAutoplaySeconds", 2).coerceIn(1, 15),
+        analysisLineCount = prefs.getInt("analysisLineCount", 3).coerceIn(1, 5)
     )
 
     fun save(s: AppSettings) {
@@ -61,6 +63,7 @@ class SettingsStore(context: Context) {
             .putString("timeControl", s.timeControl)
             .putInt("moveTimeSeconds", s.moveTimeSeconds)
             .putInt("analysisAutoplaySeconds", s.analysisAutoplaySeconds.coerceIn(1, 15))
+            .putInt("analysisLineCount", s.analysisLineCount.coerceIn(1, 5))
             .apply()
     }
 }
