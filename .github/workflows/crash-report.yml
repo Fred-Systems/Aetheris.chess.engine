@@ -1,4 +1,4 @@
-name: Build and publish Aetheris crash-report APK
+name: Build and publish Aetheris 1.0.9 full crash-diagnostics APK
 
 on:
   push:
