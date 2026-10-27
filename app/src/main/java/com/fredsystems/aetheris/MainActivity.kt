@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Density
@@ -122,7 +123,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 )
             )
     ) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 14.dp)) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 14.dp).verticalScroll(rememberScrollState())) {
             Row(
                 Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -205,11 +206,14 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
 
             Spacer(Modifier.height(10.dp))
 
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    val maxBoard = if (maxWidth < maxHeight) maxWidth else maxHeight
-                    val available = (maxBoard - 22.dp).coerceAtLeast(160.dp)
-                    val boardSize = available * settings.boardScale.coerceIn(0.55f, 2f)
+            Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                BoxWithConstraints(Modifier.fillMaxWidth().heightIn(min = 160.dp), contentAlignment = Alignment.Center) {
+                    // This screen is scrollable, so a larger board pushes the controls down
+                    // instead of drawing over them. Keep the board inside the device width.
+                    val widthLimit = (maxWidth - 22.dp).coerceAtLeast(160.dp)
+                    val heightLimit = (LocalConfiguration.current.screenHeightDp.dp - 440.dp).coerceAtLeast(160.dp)
+                    val baseSize = minOf(widthLimit, heightLimit)
+                    val boardSize = (baseSize * settings.boardScale.coerceIn(0.55f, 2f)).coerceAtMost(widthLimit)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (evalVisible) {
                             EvaluationBar(score = eval, modifier = Modifier.height(boardSize).width(20.dp))
