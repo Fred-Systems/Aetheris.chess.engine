@@ -96,3 +96,5 @@ jobs:
               --title "Aetheris 1.0.11" \
               --notes "$NOTES"
           fi
+
+# Release Aetheris 1.0.11 includes the engine calibration and analysis UI fixes.
