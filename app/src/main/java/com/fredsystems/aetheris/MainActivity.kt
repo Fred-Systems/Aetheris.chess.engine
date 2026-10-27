@@ -125,32 +125,40 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
     ) {
         Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 14.dp).verticalScroll(rememberScrollState())) {
             Row(
-                Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
+                Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                Column {
-                    Text("Aetheris", fontSize = 25.sp, fontWeight = FontWeight.Black, color = Color(0xFFF2EEFF))
+                Column(Modifier.weight(1f)) {
+                    Text("Aetheris", fontSize = 23.sp, fontWeight = FontWeight.Black, color = Color(0xFFF2EEFF))
                     Text(
                         if (mode == PlayMode.PLAY) "Play vs Engine" else "Analysis Board",
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
                         color = Color(0xFF9B93B8)
                     )
                 }
-                Row {
-                    IconButton(onClick = { vm.toggleFlip() }) {
-                        Icon(Icons.Outlined.SwapVert, "Flip board", tint = if (flipped) Color(0xFFB9A8FF) else Color(0xFFC9C1E5))
-                    }
-                    IconButton(onClick = { vm.toggleEval() }) {
-                        Icon(
-                            if (evalVisible) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
-                            "Toggle evaluation bar",
-                            tint = if (evalVisible) Color(0xFFB9A8FF) else Color(0xFFC9C1E5)
-                        )
-                    }
-                    IconButton(onClick = { navController.navigate("settings") }) {
-                        Icon(Icons.Outlined.Settings, null, tint = Color(0xFFC9C1E5))
-                    }
+                IconButton(onClick = { showNewGame = true }, modifier = Modifier.size(34.dp)) {
+                    Icon(Icons.Outlined.Refresh, "New game", tint = Color(0xFFB9A8FF), modifier = Modifier.size(19.dp))
+                }
+                IconButton(onClick = { vm.undoMove() }, modifier = Modifier.size(34.dp)) {
+                    Icon(Icons.Outlined.Undo, "Undo move", tint = Color(0xFFB9A8FF), modifier = Modifier.size(19.dp))
+                }
+                IconButton(onClick = { vm.forceEngineMove() }, modifier = Modifier.size(34.dp)) {
+                    Icon(Icons.Outlined.AutoAwesome, "Force engine move", tint = Color(0xFFB9A8FF), modifier = Modifier.size(19.dp))
+                }
+                IconButton(onClick = { vm.toggleFlip() }, modifier = Modifier.size(34.dp)) {
+                    Icon(Icons.Outlined.SwapVert, "Flip board", tint = if (flipped) Color(0xFFB9A8FF) else Color(0xFFC9C1E5), modifier = Modifier.size(19.dp))
+                }
+                IconButton(onClick = { vm.toggleEval() }, modifier = Modifier.size(34.dp)) {
+                    Icon(
+                        if (evalVisible) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
+                        "Toggle evaluation bar",
+                        tint = if (evalVisible) Color(0xFFB9A8FF) else Color(0xFFC9C1E5),
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
+                IconButton(onClick = { navController.navigate("settings") }, modifier = Modifier.size(34.dp)) {
+                    Icon(Icons.Outlined.Settings, "Settings", tint = Color(0xFFC9C1E5), modifier = Modifier.size(19.dp))
                 }
             }
 
@@ -232,15 +240,6 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
             }
 
             Spacer(Modifier.height(8.dp))
-
-            Row(
-                Modifier.fillMaxWidth().padding(bottom = 14.dp),
-                horizontalArrangement = Arrangement.spacedBy(9.dp)
-            ) {
-                ControlButton(Icons.Outlined.Refresh, "New", Modifier.weight(1f)) { showNewGame = true }
-                ControlButton(Icons.Outlined.Undo, "Undo", Modifier.weight(1f)) { vm.undoMove() }
-                ControlButton(Icons.Outlined.AutoAwesome, "Force", Modifier.weight(1.15f)) { vm.forceEngineMove() }
-            }
         }
     }
 
