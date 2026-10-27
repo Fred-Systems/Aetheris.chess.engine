@@ -137,6 +137,30 @@ static void unmakeMove(Board& b, Move m, const Undo& u) {
     rebuildOccupied(b);
 }
 
+static bool squareAttacked(const Board& b, int sq, int bySide) {
+    const int f = sq & 7, r = sq >> 3;
+    // Pawn attacks are directional and independent of occupancy.
+    const Bitboard pawns = b.pieces[bySide][PAWN];
+    const int pawnSourceRank = r + (bySide == WHITE ? -1 : 1);
+    if (pawnSourceRank >= 0 && pawnSourceRank < 8) {
+        for (int df : {-1, 1}) {
+            const int sf = f + df;
+            if (sf >= 0 && sf < 8 && (pawns & (1ULL << (pawnSourceRank * 8 + sf)))) return true;
+        }
+    }
+    if (knightAttacks(sq) & b.pieces[bySide][KNIGHT]) return true;
+    if (kingAttacks(sq) & b.pieces[bySide][KING]) return true;
+    if (bishopAttacks(sq, b.all) & (b.pieces[bySide][BISHOP] | b.pieces[bySide][QUEEN])) return true;
+    if (rookAttacks(sq, b.all) & (b.pieces[bySide][ROOK] | b.pieces[bySide][QUEEN])) return true;
+    return false;
+}
+
+static bool inCheck(const Board& b, int side) {
+    Bitboard king = b.pieces[side][KING];
+    if (!king) return true; // malformed positions are treated as unsafe
+    return squareAttacked(b, __builtin_ctzll(king), side ^ 1);
+}
+
 static void genMoves(const Board& b, std::vector<Move>& ml, bool capturesOnly) {
     MoveList tmp; tmp.count = 0;
     int us = b.side, them = us ^ 1;
@@ -228,7 +252,18 @@ static void genMoves(const Board& b, std::vector<Move>& ml, bool capturesOnly) {
             if ((rights & 8) && !(b.all & (0x0E00000000000000ULL))) addMove(tmp, 60, 58);
         }
     }
-    for (int i = 0; i < tmp.count; i++) ml.push_back(tmp.moves[i]);
+    // Generate pseudo-legal moves above, then discard moves that leave our king attacked.
+    // This is essential: searching illegal king moves or ignoring check evasions can make
+    // the engine choose completely invalid moves and badly mis-evaluate tactical positions.
+    for (int i = 0; i < tmp.count; i++) {
+        const Move m = tmp.moves[i];
+        Undo u;
+        Board& mutableBoard = const_cast<Board&>(b);
+        makeMove(mutableBoard, m, u);
+        const bool legal = !inCheck(mutableBoard, us);
+        unmakeMove(mutableBoard, m, u);
+        if (legal) ml.push_back(m);
+    }
 }
 
 struct TTEntry2 { std::uint64_t key; int depth; int score; int flag; Move best; };
@@ -272,11 +307,15 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode) {
         if (alpha >= beta) return s;
     }
     if (depth <= 0) {
-        int stand = evaluate(b);
-        if (stand >= beta) return stand;
-        if (stand > alpha) alpha = stand;
+        const bool checked = inCheck(b, b.side);
+        int stand = checked ? -INF : evaluate(b);
+        if (!checked) {
+            if (stand >= beta) return stand;
+            if (stand > alpha) alpha = stand;
+        }
         std::vector<Move> caps;
-        genMoves(b, caps, true);
+        genMoves(b, caps, !checked);
+        if (caps.empty() && checked) return -MATE;
         for (Move m : caps) {
             Undo u; makeMove(b, m, u);
             int score = -alphaBeta(b, 0, -beta, -alpha, false);
@@ -290,7 +329,7 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode) {
     std::vector<Move> moves;
     genMoves(b, moves, false);
     if (moves.empty()) {
-        return 0;
+        return inCheck(b, b.side) ? -MATE : 0;
     }
     Move bestMove = 0;
     int bestScore = -INF;
