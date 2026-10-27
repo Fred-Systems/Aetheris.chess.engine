@@ -453,6 +453,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
             NativeEngine.setNnue(custom.absolutePath)
             if (NativeEngine.isNnueLoaded()) {
                 nnueStatus.value = "Custom NNUE loaded successfully"
+                updateEvaluationAsync()
             } else {
                 custom.delete()
                 ensureNnueAsset()?.let { NativeEngine.setNnue(it) }
