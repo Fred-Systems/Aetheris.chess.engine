@@ -158,7 +158,6 @@ static int classicalWhiteScore(const Board& b) {
                         }
                     }
                 }
-                positionalBonusDummy: ;
                 score += sign * mobility * (positional + 25) / 40;
             }
         }
