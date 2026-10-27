@@ -5,7 +5,12 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#ifdef __ANDROID__
 #include <android/log.h>
+#else
+#define ANDROID_LOG_INFO 0
+#define __android_log_print(...) ((void)0)
+#endif
 
 namespace aetheris {
 
