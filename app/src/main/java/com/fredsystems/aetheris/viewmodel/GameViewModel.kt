@@ -77,11 +77,15 @@ class GameViewModel(private val context: Context) : ViewModel() {
                 val configuredOptions = options.value
                 applyNativeOptions(configuredOptions.copy(mode = EngineMode.PURE_NNUE))
                 val startPositionCp = NativeEngine.evaluateFen(Board().fen)
-                applyNativeOptions(configuredOptions)
-                nnueStatus.value = if (abs(startPositionCp) > 100) {
-                    "NNUE loaded, but starting position scores ${if (startPositionCp >= 0) "+" else ""}$startPositionCp cp — network may be miscalibrated"
+                if (abs(startPositionCp) > 100) {
+                    // A materially non-zero score in the symmetric starting position is a strong
+                    // calibration warning. Do not let a suspect network drive move selection.
+                    options.value = configuredOptions.copy(mode = EngineMode.PURE_CLASSICAL)
+                    applyNativeOptions(options.value)
+                    nnueStatus.value = "NNUE rejected for play: start position scores $startPositionCp cp. Classical evaluation enabled; retrain/calibrate the network."
                 } else {
-                    "NNUE loaded; starting-position score ${if (startPositionCp >= 0) "+" else ""}$startPositionCp cp"
+                    applyNativeOptions(configuredOptions)
+                    nnueStatus.value = "NNUE loaded; starting-position score $startPositionCp cp"
                 }
             } else {
                 nnueStatus.value = "NNUE unavailable — Classical fallback active"
@@ -421,7 +425,13 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val fen = board.fen
         viewModelScope.launch {
             val score = withContext(Dispatchers.Default) {
-                val raw = runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
+                // Use a short search, not a single static leaf evaluation. This sees forcing
+                // recaptures and reduces the misleading material swings after temporarily hanging a piece.
+                val searched = runCatching {
+                    NativeEngine.analyzeFen(fen, options.value.depth.coerceIn(4, 10), 900, 1)
+                        .lineSequence().firstOrNull()?.substringAfter("|")?.trim()?.toIntOrNull()
+                }.getOrNull()
+                val raw = searched ?: runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
                 if (fen.split(" ").getOrNull(1) == "b") -raw else raw
             }
             evaluation.value = score
