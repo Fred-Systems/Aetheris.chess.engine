@@ -23,6 +23,8 @@ static Board g_board;
 
 void resetBoard() {
     std::memset(&g_board, 0, sizeof(g_board));
+    g_board.epSquare = -1;
+    g_board.fullmove = 1;
     g_board.pieces[WHITE][ROOK] = 0x81ULL;
     g_board.pieces[WHITE][KNIGHT] = 0x42ULL;
     g_board.pieces[WHITE][BISHOP] = 0x24ULL;
@@ -66,6 +68,8 @@ static int parseIntOr(const std::string& text, int fallback) {
 
 void setPosition(const std::string& fen) {
     std::memset(&g_board, 0, sizeof(g_board));
+    g_board.epSquare = -1;
+    g_board.fullmove = 1;
     size_t first = fen.find_first_not_of(" \t\r\n");
     if (first == std::string::npos) return;
     std::string f = fen.substr(first);
