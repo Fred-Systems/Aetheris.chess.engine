@@ -73,7 +73,19 @@ class GameViewModel(private val context: Context) : ViewModel() {
             val bundledNnue = ensureNnueAsset()
             val customNnue = java.io.File(context.filesDir, "nnue/custom_weights.bin")
             (if (customNnue.isFile) customNnue.absolutePath else bundledNnue)?.let { NativeEngine.setNnue(it) }
-            nnueStatus.value = if (NativeEngine.isNnueLoaded()) "NNUE loaded" else "NNUE unavailable — Classical fallback active"
+            if (NativeEngine.isNnueLoaded()) {
+                val configuredOptions = options.value
+                applyNativeOptions(configuredOptions.copy(mode = EngineMode.PURE_NNUE))
+                val startPositionCp = NativeEngine.evaluateFen(Board().fen)
+                applyNativeOptions(configuredOptions)
+                nnueStatus.value = if (abs(startPositionCp) > 100) {
+                    "NNUE loaded, but starting position scores ${if (startPositionCp >= 0) "+" else ""}$startPositionCp cp — network may be miscalibrated"
+                } else {
+                    "NNUE loaded; starting-position score ${if (startPositionCp >= 0) "+" else ""}$startPositionCp cp"
+                }
+            } else {
+                nnueStatus.value = "NNUE unavailable — Classical fallback active"
+            }
         }.onFailure { engineAvailable.value = false }
         evalVisible.value = settings.value.showEvalPlay
         moveTimeSeconds.value = settings.value.moveTimeSeconds
