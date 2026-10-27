@@ -17,10 +17,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
+import kotlin.math.tanh
 
 @Composable
 fun EvaluationBar(score: Int, modifier: Modifier = Modifier) {
-    val whiteFraction = ((score.coerceIn(-1200, 1200) + 1200) / 2400f)
+    // Logistic-like mapping keeps small advantages visible without saturating too early.
+    val whiteFraction = (0.5 + 0.5 * tanh(score.coerceIn(-4000, 4000) / 400.0)).toFloat().coerceIn(0.01f, 0.99f)
     val fraction by animateFloatAsState(targetValue = whiteFraction, animationSpec = tween(350), label = "eval")
     val label = when {
         abs(score) >= 90000 -> if (score > 0) "M+" else "M-"
