@@ -1,6 +1,6 @@
 # Aetheris crash-report build instructions
 
-This is a diagnostic-only APK, installed as a separate app from the regular Aetheris release.
+This is a diagnostic-only APK, installed as a separate app from the regular Aetheris release. Download only the signed `Aetheris-CrashReport-1.0.7.apk` from the GitHub prerelease page; the generic `Build Aetheris` workflow artifact may be an unsigned build and should not be installed.
 
 1. Install **Aetheris-CrashReport-1.0.7.apk**. Do not uninstall the regular app.
 2. Open the crash-report app and reproduce the crash once: start a game, make a move, and let Aetheris think until it crashes.
@@ -9,3 +9,6 @@ This is a diagnostic-only APK, installed as a separate app from the regular Aeth
 5. If possible, also capture Android's system crash details from the device's bug report. The report includes device/Android version, the exact FEN, search depth/time, and whether native search returned. The app will automatically prompt to export it on the next launch after an unfinished search; the prompt stays pending until you export or dismiss it. Native progress is also logged under the Android logcat tag `AetherisEngine`.
 
 The report does not include accounts, passwords, or network data. It can include the chess position (FEN) and engine settings. This build is for diagnosis, not regular play.
+
+
+Signed release page: https://github.com/Fred-Systems/Aetheris.chess.engine/releases/tag/v1.0.7-crashreport
