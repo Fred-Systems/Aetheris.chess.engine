@@ -1,4 +1,5 @@
 #include "bitboard.h"
+#include "nnue.h"
 #include <jni.h>
 #include <string>
 #include <android/log.h>
@@ -96,6 +97,11 @@ Java_com_fredsystems_aetheris_engine_NativeEngine_nativeSetParams(
     setSolidity(solidity);
     setMaterialWeight(materialWeight);
     setEngineMode(mode);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_fredsystems_aetheris_engine_NativeEngine_nativeNnueLoaded(JNIEnv*, jobject) {
+    return nnueLoaded() ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL
