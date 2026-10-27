@@ -1,6 +1,11 @@
 package com.fredsystems.aetheris.ui.analysis
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -26,7 +31,7 @@ fun AnalysisScreen(viewModel: GameViewModel) {
     val loading = viewModel.analysisLoading.value
     var autoplay by remember { mutableStateOf(false) }
 
-    LaunchedEffect(autoplay, settings.analysisAutoplaySeconds, index, length) {
+    LaunchedEffect(index, length) {\n        if (lines.isEmpty() && !loading) viewModel.analyzePosition(settings.analysisLineCount)\n    }\n\n    LaunchedEffect(autoplay, settings.analysisAutoplaySeconds, index, length) {
         if (autoplay) {
             if (index >= length - 1) autoplay = false
             else {
@@ -53,14 +58,40 @@ fun AnalysisScreen(viewModel: GameViewModel) {
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ChessBoard(
-                board = board,
-                onSquareClick = { viewModel.onSquareClick(it) },
-                modifier = Modifier.weight(1f),
-                pieceSet = settings.pieceSet,
-                boardTheme = BoardThemes.byId(settings.boardTheme),
-                flipped = viewModel.flipped.value
-            )
+            Box(Modifier.weight(1f).height(280.dp)) {
+                ChessBoard(
+                    board = board,
+                    onSquareClick = { viewModel.onSquareClick(it) },
+                    modifier = Modifier.fillMaxSize(),
+                    pieceSet = settings.pieceSet,
+                    boardTheme = BoardThemes.byId(settings.boardTheme),
+                    flipped = viewModel.flipped.value
+                )
+                val bestMove = lines.firstOrNull()?.moves?.firstOrNull()
+                if (bestMove != null && bestMove.length >= 4) {
+                    Canvas(Modifier.fillMaxSize()) {
+                        fun center(square: String): Offset {
+                            val file = square[0].lowercaseChar() - 'a'
+                            val rank = square[1].digitToInt() - 1
+                            val flipped = viewModel.flipped.value
+                            val col = if (flipped) 7 - file else file
+                            val row = if (flipped) rank else 7 - rank
+                            val cell = size.width / 8f
+                            return Offset((col + 0.5f) * cell, (row + 0.5f) * cell)
+                        }
+                        val start = center(bestMove.substring(0, 2))
+                        val end = center(bestMove.substring(2, 4))
+                        val color = Color(0xFF35D07F)
+                        drawLine(color, start, end, strokeWidth = size.width * 0.018f, cap = StrokeCap.Round)
+                        val angle = kotlin.math.atan2(end.y - start.y, end.x - start.x)
+                        val head = size.width * 0.075f
+                        val p1 = Offset(end.x - head * kotlin.math.cos(angle - 0.55f), end.y - head * kotlin.math.sin(angle - 0.55f))
+                        val p2 = Offset(end.x - head * kotlin.math.cos(angle + 0.55f), end.y - head * kotlin.math.sin(angle + 0.55f))
+                        val path = Path().apply { moveTo(end.x, end.y); lineTo(p1.x, p1.y); lineTo(p2.x, p2.y); close() }
+                        drawPath(path, color)
+                    }
+                }
+            }
             EvaluationBar(score = evaluation, modifier = Modifier.height(280.dp).width(22.dp))
         }
         Spacer(Modifier.height(12.dp))
