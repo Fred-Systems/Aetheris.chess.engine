@@ -52,6 +52,14 @@ object NativeEngine {
         return nativeGo(depth, timeMs)
     }
 
+    // Keep style, position and search in one transaction because native state is process-global.
+    @Synchronized
+    fun searchConfiguredPosition(fen: String, depth: Int, timeMs: Int, aggression: Int, positional: Int, complexity: Int, solidity: Int, materialWeight: Int, mode: Int): String {
+        nativeSetParams(aggression, positional, complexity, solidity, materialWeight, mode)
+        nativeSetPosition(fen)
+        return nativeGo(depth, timeMs)
+    }
+
     @Synchronized
     fun analyzeFen(fen: String, depth: Int, timeMs: Int, count: Int): String = nativeAnalyzeFen(fen, depth, timeMs, count)
 
