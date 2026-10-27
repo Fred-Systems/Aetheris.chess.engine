@@ -156,7 +156,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val timeMs = when {
             perMove > 0 -> (perMove * 1000L).coerceAtMost(30000L)
             timed && remaining > 0 -> min(1500L, remaining / 20 + 60L)
-            else -> 1200L
+            else -> (250L + depth.toLong() * depth.toLong() * 35L).coerceIn(500L, 8000L)
         }
         val generation = ++engineGeneration
         engineThinking.value = true
