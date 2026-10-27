@@ -360,7 +360,7 @@ fun SettingsScreen(
         MenuRow("Engine vs Engine Simulation", onOpenSim)
         MenuRow("Game Notebook", onOpenNotebook)
         MenuRow("External Engines", onOpenExternal)
-        if (com.fredsystems.aetheris.BuildConfig.APPLICATION_ID.endsWith(".crashreport")) {
+        if (context.packageName.endsWith(".crashreport")) {
             MenuRow("Export crash report", onExportCrashReport)
         }
         MenuRow(if (checkingUpdate) "Checking..." else "Check for Updates", { checkUpdate() })
