@@ -521,7 +521,7 @@ std::string searchTopLines(Board& b, int depth, int timeMs, int count) {
     std::ostringstream out;
     const int limit = std::min(count, static_cast<int>(candidates.size()));
     for (int i = 0; i < limit; ++i) {
-        if (i) out << '\\n';
+        if (i) out << '\n';
         for (size_t j = 0; j < candidates[i].pv.size(); ++j) {
             if (j) out << ' ';
             out << moveToUci(candidates[i].pv[j]);
