@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -52,6 +53,8 @@ private val LastMoveTint = Color(0x66F4C95D)
 private val CheckTint = Color(0x99E53935)
 private val BoardFrame = Color(0xFF17131F)
 
+data class BoardArrow(val from: Int, val to: Int, val color: Color)
+
 private object PieceBitmapCache {
     private val cache = LruCache<String, ImageBitmap>(96)
     fun get(context: android.content.Context, set: String, code: String): ImageBitmap? {
@@ -76,7 +79,8 @@ fun ChessBoard(
     modifier: Modifier = Modifier,
     pieceSet: String = "cburnett",
     boardTheme: BoardTheme = BoardThemes.byId("brown"),
-    flipped: Boolean = false
+    flipped: Boolean = false,
+    arrows: List<BoardArrow> = emptyList()
 ) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -216,6 +220,35 @@ fun ChessBoard(
                         }
                     }
                 }
+            }
+            // Lichess-style translucent arrows are drawn above the square highlights and below pieces.
+            arrows.forEach { arrow ->
+                fun point(index: Int): Offset {
+                    val file = index % 8
+                    val rank = index / 8
+                    val col = if (!flipped) file else 7 - file
+                    val row = if (!flipped) 7 - rank else rank
+                    return Offset((col + 0.5f) * cell, (row + 0.5f) * cell)
+                }
+                val a = point(arrow.from)
+                val b = point(arrow.to)
+                val dx = b.x - a.x
+                val dy = b.y - a.y
+                val len = kotlin.math.sqrt(dx * dx + dy * dy).coerceAtLeast(1f)
+                val ux = dx / len
+                val uy = dy / len
+                val tip = Offset(b.x - ux * cell * 0.20f, b.y - uy * cell * 0.20f)
+                drawLine(arrow.color.copy(alpha = 0.78f), a, tip, strokeWidth = cell * 0.13f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                val baseX = tip.x - ux * cell * 0.27f
+                val baseY = tip.y - uy * cell * 0.27f
+                val wing = cell * 0.17f
+                val head = Path().apply {
+                    moveTo(tip.x, tip.y)
+                    lineTo(baseX - uy * wing, baseY + ux * wing)
+                    lineTo(baseX + uy * wing, baseY - ux * wing)
+                    close()
+                }
+                drawPath(head, arrow.color.copy(alpha = 0.88f))
             }
         }
 
