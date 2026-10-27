@@ -47,3 +47,6 @@ Release note: the final build also optimizes 512-unit NNUE inference and balance
 
 
 Final release workflow hardening: runtime dependency discovery now tolerates NDK installations outside ANDROID_HOME/ndk.
+
+
+The NNUE import workflow now reports a warning if the imported network's starting-position evaluation is implausibly large, rather than equating file-load success with playing strength.
