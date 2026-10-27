@@ -20,6 +20,8 @@ import androidx.compose.material.icons.outlined.Undo
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.*
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -106,34 +109,63 @@ class MainActivity : ComponentActivity() {
                         composable("external") { ExternalEnginesScreen() }
                     }
                     if (showCrashReportPrompt) {
-                        AlertDialog(
+                        Dialog(
                             onDismissRequest = {
                                 CrashDiagnostics.acknowledgeCrashReport(this@MainActivity)
                                 showCrashReportPrompt = false
                             },
-                            title = { Text("Aetheris may have crashed") },
-                            text = {
-                                Text("The previous engine search started but did not finish. The diagnostic report was saved before the engine ran. Please export it now so the engine crash can be investigated.")
-                            },
-                            confirmButton = {
-                                Button(onClick = {
-                                    val share = Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(Intent.EXTRA_SUBJECT, "Aetheris crash report")
-                                        putExtra(Intent.EXTRA_TEXT, CrashDiagnostics.readReport(this@MainActivity))
+                            properties = DialogProperties(usePlatformDefaultWidth = false)
+                        ) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth().fillMaxHeight(0.92f).padding(12.dp),
+                                shape = RoundedCornerShape(20.dp),
+                                color = Color(0xFF171421)
+                            ) {
+                                Column(Modifier.fillMaxSize().padding(16.dp)) {
+                                    Text("Aetheris crash report", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF2EEFF))
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        "The previous run appears to have ended unexpectedly. This report includes saved engine stages, Java stack traces, and native fatal-signal details when available.",
+                                        color = Color(0xFFB9B2CE), fontSize = 13.sp
+                                    )
+                                    Spacer(Modifier.height(10.dp))
+                                    Surface(
+                                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp), color = Color(0xFF0C0B10)
+                                    ) {
+                                        Text(
+                                            text = CrashDiagnostics.readReport(this@MainActivity),
+                                            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(10.dp),
+                                            color = Color(0xFFE6E1F2), fontFamily = FontFamily.Monospace,
+                                            fontSize = 10.sp, lineHeight = 13.sp
+                                        )
                                     }
-                                    CrashDiagnostics.acknowledgeCrashReport(this@MainActivity)
-                                    showCrashReportPrompt = false
-                                    startActivity(Intent.createChooser(share, "Send Aetheris crash report"))
-                                }) { Text("Export report") }
-                            },
-                            dismissButton = {
-                                TextButton(onClick = {
-                                    CrashDiagnostics.acknowledgeCrashReport(this@MainActivity)
-                                    showCrashReportPrompt = false
-                                }) { Text("Later") }
+                                    Spacer(Modifier.height(12.dp))
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        OutlinedButton(
+                                            modifier = Modifier.weight(1f),
+                                            onClick = {
+                                                CrashDiagnostics.acknowledgeCrashReport(this@MainActivity)
+                                                showCrashReportPrompt = false
+                                            }
+                                        ) { Text("Later") }
+                                        Button(
+                                            modifier = Modifier.weight(1f),
+                                            onClick = {
+                                                val share = Intent(Intent.ACTION_SEND).apply {
+                                                    type = "text/plain"
+                                                    putExtra(Intent.EXTRA_SUBJECT, "Aetheris full crash diagnostics")
+                                                    putExtra(Intent.EXTRA_TEXT, CrashDiagnostics.readReport(this@MainActivity))
+                                                }
+                                                CrashDiagnostics.acknowledgeCrashReport(this@MainActivity)
+                                                showCrashReportPrompt = false
+                                                startActivity(Intent.createChooser(share, "Export Aetheris crash diagnostics"))
+                                            }
+                                        ) { Text("Export report") }
+                                    }
+                                }
                             }
-                        )
+                        }
                     }
                 }
             }
