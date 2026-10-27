@@ -234,6 +234,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         engineGeneration++
         board = Board()
         moveList.clear()
+        analysisLines.value = emptyList()
         positionHistory.clear()
         positionHistory.add(board.fen)
         historyIndex.value = 0
@@ -293,6 +294,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         runCatching {
             board.loadFromFen(positionHistory[target])
             historyIndex.value = target
+            analysisLines.value = emptyList()
             boardState.value = toUi(board).copy(moveNumber = target)
             evaluation.value = 0
             updateEvaluationAsync()
