@@ -3,6 +3,10 @@
 #include <string>
 #include <sstream>
 #include <android/log.h>
+#include <signal.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/types.h>
 #include <csignal>
 #include <cstdint>
 #include <cstring>
@@ -14,6 +18,43 @@
 #define AETH_LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "AetherisEngine", __VA_ARGS__)
 
 using namespace aetheris;
+
+namespace {
+int g_crash_report_fd = -1;
+volatile sig_atomic_t g_native_stage = 0;
+
+static void aetherisFatalSignalHandler(int signal_number, siginfo_t*, void*) {
+    const char* stage = "NATIVE_STAGE=unknown\\n";
+    size_t stage_len = sizeof("NATIVE_STAGE=unknown\\n") - 1;
+    if (g_native_stage == 1) { stage = "NATIVE_STAGE=nativeGo-enter\\n"; stage_len = sizeof("NATIVE_STAGE=nativeGo-enter\\n") - 1; }
+    else if (g_native_stage == 2) { stage = "NATIVE_STAGE=searchBestMove-running\\n"; stage_len = sizeof("NATIVE_STAGE=searchBestMove-running\\n") - 1; }
+    else if (g_native_stage == 3) { stage = "NATIVE_STAGE=searchBestMove-returned\\n"; stage_len = sizeof("NATIVE_STAGE=searchBestMove-returned\\n") - 1; }
+    else if (g_native_stage == 4) { stage = "NATIVE_STAGE=move-string-conversion\\n"; stage_len = sizeof("NATIVE_STAGE=move-string-conversion\\n") - 1; }
+    if (g_crash_report_fd >= 0) {
+        const char* marker = "NATIVE_FATAL_SIGNAL (native fatal signal; Android system tombstone may contain the full native stack)\\n";
+        (void)write(g_crash_report_fd, marker, sizeof("NATIVE_FATAL_SIGNAL (native fatal signal; Android system tombstone may contain the full native stack)\\n") - 1);
+        (void)write(g_crash_report_fd, stage, stage_len);
+        const char* segv = "SIGNAL=SIGSEGV\\n";
+        const char* abrt = "SIGNAL=SIGABRT\\n";
+        const char* bus = "SIGNAL=SIGBUS\\n";
+        const char* ill = "SIGNAL=SIGILL\\n";
+        const char* fpe = "SIGNAL=SIGFPE\\n";
+        const char* message = signal_number == SIGSEGV ? segv : signal_number == SIGABRT ? abrt : signal_number == SIGBUS ? bus : signal_number == SIGILL ? ill : fpe;
+        size_t message_len = signal_number == SIGSEGV ? sizeof("SIGNAL=SIGSEGV\\n") - 1 :
+            signal_number == SIGABRT ? sizeof("SIGNAL=SIGABRT\\n") - 1 :
+            signal_number == SIGBUS ? sizeof("SIGNAL=SIGBUS\\n") - 1 :
+            signal_number == SIGILL ? sizeof("SIGNAL=SIGILL\\n") - 1 : sizeof("SIGNAL=SIGFPE\\n") - 1;
+        (void)write(g_crash_report_fd, message, message_len);
+    }
+    struct sigaction action{};
+    action.sa_handler = SIG_DFL;
+    sigemptyset(&action.sa_mask);
+    (void)sigaction(signal_number, &action, nullptr);
+    (void)kill(getpid(), signal_number);
+}
+}
+
+extern "C" void aetherisSetNativeCrashStage(int stage) { g_native_stage = stage; }
 
 namespace aetheris { Move searchBestMove(Board& b, int depth, int timeMs); }
 
@@ -76,6 +117,27 @@ void installFatalSignalHandlers() {
 extern "C" {
 
 JNIEXPORT void JNICALL
+Java_com_fredsystems_aetheris_engine_NativeEngine_nativeInstallCrashHandler(JNIEnv* env, jobject, jstring reportPath) {
+    const char* path = env->GetStringUTFChars(reportPath, nullptr);
+    if (!path) return;
+    int fd = open(path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0600);
+    env->ReleaseStringUTFChars(reportPath, path);
+    if (fd >= 0) {
+        if (g_crash_report_fd >= 0) close(g_crash_report_fd);
+        g_crash_report_fd = fd;
+        const int signals[] = { SIGSEGV, SIGABRT, SIGBUS, SIGILL, SIGFPE };
+        struct sigaction action{};
+        action.sa_sigaction = aetherisFatalSignalHandler;
+        sigemptyset(&action.sa_mask);
+        action.sa_flags = SA_SIGINFO | SA_RESETHAND;
+        for (int signal_number : signals) (void)sigaction(signal_number, &action, nullptr);
+        const char* ready = "NATIVE_CRASH_HANDLER_INSTALLED\\n";
+        (void)write(g_crash_report_fd, ready, sizeof("NATIVE_CRASH_HANDLER_INSTALLED\\n") - 1);
+    }
+}
+
+
+JNIEXPORT void JNICALL
 Java_com_fredsystems_aetheris_engine_NativeEngine_nativeInit(JNIEnv*, jobject) {
     initBitboards();
     resetBoard();
@@ -118,12 +180,12 @@ Java_com_fredsystems_aetheris_engine_NativeEngine_nativeSetNnue(JNIEnv* env, job
 
 JNIEXPORT jstring JNICALL
 Java_com_fredsystems_aetheris_engine_NativeEngine_nativeGo(JNIEnv* env, jobject, jint depth, jint timeMs) {
-    AETH_LOGI("nativeGo ENTER depth=%d timeMs=%d", (int)depth, (int)timeMs);
+    aetherisSetNativeCrashStage(1);\n    AETH_LOGI("nativeGo ENTER depth=%d timeMs=%d", (int)depth, (int)timeMs);
     Board& b = getBoard();
-    Move m = searchBestMove(b, depth, timeMs);
+    aetherisSetNativeCrashStage(2);\n    Move m = searchBestMove(b, depth, timeMs);\n    aetherisSetNativeCrashStage(3);
     AETH_LOGI("nativeGo SEARCH_RETURN move=%u", (unsigned int)m);
     if (m == 0) return env->NewStringUTF("");
-    int from = m & 63;
+    aetherisSetNativeCrashStage(4);\n    int from = m & 63;
     int to = (m >> 6) & 63;
     int promo = (m >> 12) & 7;
     char promoChar = 0;
