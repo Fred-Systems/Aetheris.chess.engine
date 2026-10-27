@@ -437,24 +437,26 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val fen = board.fen
         viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {
-                val lineCount = if (settings.value.showEngineThinkingArrows) 3 else 1
+                val count = if (settings.value.showEngineThinkingArrows) 3 else 1
                 val raw = runCatching {
-                    NativeEngine.analyzeFen(fen, options.value.depth.coerceIn(4, 10), 900, lineCount)
+                    NativeEngine.analyzeFen(fen, options.value.depth.coerceIn(4, 10), 1800, count)
                 }.getOrDefault("")
+                val whiteToMove = fen.split(" ").getOrNull(1) != "b"
                 val parsed = raw.lineSequence().mapNotNull { row ->
                     val parts = row.split("|", limit = 2)
                     if (parts.size != 2) return@mapNotNull null
                     val moves = parts[0].trim().split(Regex("\\s+")).filter { it.length >= 4 }
-                    val cp = parts[1].trim().toIntOrNull() ?: return@mapNotNull null
-                    if (moves.isEmpty()) null else EngineAnalysisLine(moves, if (fen.split(" ").getOrNull(1) == "b") -cp else cp)
+                    val score = parts[1].trim().toIntOrNull() ?: return@mapNotNull null
+                    if (moves.isEmpty()) null else EngineAnalysisLine(moves, if (whiteToMove) score else -score)
                 }.toList()
-                val fallback = runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
-                Triple(parsed.firstOrNull()?.scoreCp ?: if (fen.split(" ").getOrNull(1) == "b") -fallback else fallback, parsed.firstOrNull()?.moves?.firstOrNull(), parsed)
+                val score = parsed.firstOrNull()?.scoreCp
+                    ?: runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0).let { if (whiteToMove) it else -it }
+                Triple(score, parsed.firstOrNull()?.moves?.firstOrNull(), parsed)
             }
             if (board.fen == fen) {
                 evaluation.value = result.first
                 bestMoveUci.value = result.second
-                if (mode.value == PlayMode.PLAY) analysisLines.value = result.third
+                analysisLines.value = result.third
             }
         }
     }
