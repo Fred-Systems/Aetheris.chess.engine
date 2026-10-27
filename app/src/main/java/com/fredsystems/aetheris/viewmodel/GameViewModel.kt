@@ -57,7 +57,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
 
     init {
         runCatching {
-            NativeEngine.nativeInit()
+            NativeEngine.initialize()
             applyNativeOptions(options.value)
             ensureNnueAsset()?.let { NativeEngine.setNnue(it) }
         }.onFailure { engineAvailable.value = false }
@@ -163,8 +163,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch {
             val move = withContext(Dispatchers.Default) {
                 runCatching {
-                    NativeEngine.setPosition(fen)
-                    NativeEngine.go(depth, timeMs.toInt())
+                    NativeEngine.searchPosition(fen, depth, timeMs.toInt())
                 }.getOrNull()
             }
             if (generation != engineGeneration) return@launch
