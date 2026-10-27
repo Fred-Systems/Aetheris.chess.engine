@@ -481,7 +481,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
                 ?: legal.firstOrNull { it.promotion == LibPiece.NONE } ?: legal.first()
             val piece = replay.getPiece(from)
             val capture = replay.getPiece(to) != LibPiece.NONE ||
-                (piece.pieceType == LibPieceType.PAWN && from.file != to.file && replay.enPassantTarget == to)
+                (piece.pieceType == LibPieceType.PAWN && from.file != to.file && replay.getPiece(to) == LibPiece.NONE)
             val alternatives = replay.legalMoves().filter {
                 it.from != from && it.to == to && replay.getPiece(it.from).pieceType == piece.pieceType
             }
@@ -492,12 +492,12 @@ class GameViewModel(private val context: Context) : ViewModel() {
                     LibPieceType.ROOK -> append("R")
                     LibPieceType.BISHOP -> append("B")
                     LibPieceType.KNIGHT -> append("N")
-                    else -> if (capture) append(from.toString().first())
+                    else -> if (capture) append(from.toString().first().lowercaseChar())
                 }
                 if (piece.pieceType != LibPieceType.PAWN && alternatives.isNotEmpty()) {
                     val sameFile = alternatives.any { it.from.file == from.file }
                     val sameRank = alternatives.any { it.from.rank == from.rank }
-                    if (!sameFile) append(from.toString().first())
+                    if (!sameFile) append(from.toString().first().lowercaseChar())
                     else if (!sameRank) append(from.toString().last())
                     else append(from.toString())
                 }
