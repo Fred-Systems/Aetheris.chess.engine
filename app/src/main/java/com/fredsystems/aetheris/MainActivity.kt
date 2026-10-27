@@ -2,6 +2,7 @@
 package com.fredsystems.aetheris
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -58,6 +59,7 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        CrashDiagnostics.initialize(this)
         setContent {
             AetherisTheme {
                 val navController = rememberNavController()
@@ -86,7 +88,15 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onOpenSim = { navController.navigate("sim") },
                                 onOpenNotebook = { navController.navigate("notebook") },
-                                onOpenExternal = { navController.navigate("external") }
+                                onOpenExternal = { navController.navigate("external") },
+                                onExportCrashReport = {
+                                    val share = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_SUBJECT, "Aetheris crash report")
+                                        putExtra(Intent.EXTRA_TEXT, CrashDiagnostics.readReport(this@MainActivity))
+                                    }
+                                    startActivity(Intent.createChooser(share, "Send Aetheris crash report"))
+                                }
                             )
                         }
                         composable("analysis") { AnalysisScreen(vm) }
