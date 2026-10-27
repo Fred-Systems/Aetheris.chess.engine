@@ -28,6 +28,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.min
+import kotlin.math.abs
 import kotlin.random.Random
 
 enum class PlayMode { PLAY, ANALYSIS }
@@ -455,7 +456,15 @@ class GameViewModel(private val context: Context) : ViewModel() {
             if (source.absolutePath != custom.absolutePath) source.copyTo(custom, overwrite = true)
             NativeEngine.setNnue(custom.absolutePath)
             if (NativeEngine.isNnueLoaded()) {
-                nnueStatus.value = "Custom NNUE loaded successfully"
+                val configuredOptions = options.value
+                applyNativeOptions(configuredOptions.copy(mode = EngineMode.PURE_NNUE))
+                val startPositionCp = NativeEngine.evaluateFen(Board().fen)
+                applyNativeOptions(configuredOptions)
+                nnueStatus.value = if (abs(startPositionCp) > 100) {
+                    "Custom NNUE loaded, but start position scores ${if (startPositionCp >= 0) "+" else ""}$startPositionCp cp — check training/calibration"
+                } else {
+                    "Custom NNUE loaded and start-position score looks plausible (${if (startPositionCp >= 0) "+" else ""}$startPositionCp cp)"
+                }
                 updateEvaluationAsync()
             } else {
                 custom.delete()
