@@ -161,7 +161,7 @@ static bool inCheck(const Board& b, int side) {
     return squareAttacked(b, __builtin_ctzll(king), side ^ 1);
 }
 
-static void genMoves(const Board& b, std::vector<Move>& ml, bool capturesOnly) {
+static void genMoves(Board& b, std::vector<Move>& ml, bool capturesOnly) {
     MoveList tmp; tmp.count = 0;
     int us = b.side, them = us ^ 1;
     Bitboard friends = b.occupied[us];
@@ -258,10 +258,9 @@ static void genMoves(const Board& b, std::vector<Move>& ml, bool capturesOnly) {
     for (int i = 0; i < tmp.count; i++) {
         const Move m = tmp.moves[i];
         Undo u;
-        Board& mutableBoard = const_cast<Board&>(b);
-        makeMove(mutableBoard, m, u);
-        const bool legal = !inCheck(mutableBoard, us);
-        unmakeMove(mutableBoard, m, u);
+        makeMove(b, m, u);
+        const bool legal = !inCheck(b, us);
+        unmakeMove(b, m, u);
         if (legal) ml.push_back(m);
     }
 }
@@ -297,6 +296,16 @@ static std::uint64_t positionKey(const Board& b) {
 static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode) {
     if (timeUp()) { stopSearch = true; return 0; }
     nodeCount++;
+    // Quiescence can encounter a quiet check-evasion. Bound that extension to avoid
+    // an unbounded chain of checks while still detecting immediate mate at the horizon.
+    if (depth < 0) {
+        if (inCheck(b, b.side)) {
+            std::vector<Move> evasions;
+            genMoves(b, evasions, false);
+            if (evasions.empty()) return -MATE;
+        }
+        return evaluate(b);
+    }
     std::uint64_t key = positionKey(b);
     int idx = key & (tt2.size() - 1);
     if (tt2[idx].key == key && tt2[idx].depth >= depth) {
@@ -318,7 +327,7 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode) {
         if (caps.empty() && checked) return -MATE;
         for (Move m : caps) {
             Undo u; makeMove(b, m, u);
-            int score = -alphaBeta(b, 0, -beta, -alpha, false);
+            int score = -alphaBeta(b, -1, -beta, -alpha, false);
             unmakeMove(b, m, u);
             if (stopSearch) return 0;
             if (score >= beta) return score;
