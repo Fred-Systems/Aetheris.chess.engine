@@ -2,6 +2,7 @@ package com.fredsystems.aetheris
 
 import android.content.Context
 import android.os.Build
+import android.os.Debug
 import java.io.File
 import java.io.FileOutputStream
 import java.io.PrintWriter
@@ -9,12 +10,13 @@ import java.io.StringWriter
 import java.time.Instant
 
 /**
- * Diagnostic breadcrumbs are persisted before entering native code so they survive
- * a SIGSEGV/abort that prevents the Kotlin exception handler from running.
+ * Persistent crash evidence for the dedicated diagnostic build.
+ * Java crashes record their full stack trace; native fatal signals are written by JNI.
  */
 object CrashDiagnostics {
-    private const val FILE_NAME = "aetheris_crash_report.txt"
+    const val FILE_NAME = "aetheris_crash_report.txt"
     private val lock = Any()
+    @Volatile private var handlerInstalled = false
 
     private fun reportFile(context: Context) = File(context.filesDir, FILE_NAME)
 
@@ -23,16 +25,32 @@ object CrashDiagnostics {
         synchronized(lock) {
             val file = reportFile(app)
             val previous = runCatching { file.readText() }.getOrDefault("")
+            val lastAcknowledged = previous.lastIndexOf("CRASH_REPORT_ACKNOWLEDGED")
             val lastStart = previous.lastIndexOf("SEARCH_START")
             val lastDone = previous.lastIndexOf("SEARCH_COMPLETE")
-            val lastAcknowledged = previous.lastIndexOf("CRASH_REPORT_ACKNOWLEDGED")
-            val crashPending = lastStart > maxOf(lastDone, lastAcknowledged)
-            if (crashPending) {
-                appendLocked(app, "SUSPECTED_NATIVE_CRASH: previous search started but never recorded completion")
-            }
-            appendLocked(app, "APP_START time=${Instant.now()} version=${app.packageManager.getPackageInfo(app.packageName, 0).versionName} package=${app.packageName} device=${Build.MANUFACTURER} ${Build.MODEL} android=${Build.VERSION.RELEASE} sdk=${Build.VERSION.SDK_INT}")
+            val javaCrash = previous.lastIndexOf("JAVA_UNCAUGHT_EXCEPTION")
+            val nativeCrash = previous.lastIndexOf("NATIVE_FATAL_SIGNAL")
+            val crashPending = maxOf(javaCrash, nativeCrash) > lastAcknowledged ||
+                (lastStart > lastDone && lastStart > lastAcknowledged)
+
+            appendLocked(app, "APP_START time=${Instant.now()} version=${app.packageManager.getPackageInfo(app.packageName, 0).versionName} package=${app.packageName} device=${Build.MANUFACTURER} ${Build.MODEL} android=${Build.VERSION.RELEASE} sdk=${Build.VERSION.SDK_INT} abi=${Build.SUPPORTED_ABIS.joinToString(",")}")
+            appendLocked(app, "RUNTIME memoryMaxBytes=${Runtime.getRuntime().maxMemory()} memoryFreeBytes=${Runtime.getRuntime().freeMemory()} nativeHeapBytes=${Debug.getNativeHeapAllocatedSize()}")
+            installUncaughtExceptionHandler(app)
             return crashPending
         }
+    }
+
+    private fun installUncaughtExceptionHandler(context: Context) {
+        if (handlerInstalled) return
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            recordException(context, "JAVA_UNCAUGHT_EXCEPTION thread=${thread.name} id=${thread.id}", error)
+            synchronized(lock) {
+                appendLocked(context, "JAVA_UNCAUGHT_EXCEPTION time=${Instant.now()} thread=${thread.name} id=${thread.id}")
+            }
+            previous?.uncaughtException(thread, error)
+        }
+        handlerInstalled = true
     }
 
     fun acknowledgeCrashReport(context: Context) {
@@ -55,7 +73,7 @@ object CrashDiagnostics {
 
     fun recordStage(context: Context, stage: String, details: String = "") {
         synchronized(lock) {
-            appendLocked(context.applicationContext, "STAGE time=${Instant.now()} name=$stage details=${details.replace('\n', ' ')}")
+            appendLocked(context.applicationContext, "STAGE time=${Instant.now()} name=$stage details=${details.replace('\\n', ' ')}")
         }
     }
 
@@ -63,17 +81,28 @@ object CrashDiagnostics {
         val sw = StringWriter()
         error.printStackTrace(PrintWriter(sw))
         synchronized(lock) {
-            appendLocked(context.applicationContext, "JAVA_EXCEPTION time=${Instant.now()} where=$where\n$sw")
+            appendLocked(context.applicationContext, "JAVA_EXCEPTION time=${Instant.now()} where=$where")
+            appendLocked(context.applicationContext, sw.toString())
         }
     }
 
     fun readReport(context: Context): String {
-        val report = runCatching { reportFile(context.applicationContext).readText() }.getOrDefault("")
-        return "Aetheris crash diagnostics\nGenerated: ${Instant.now()}\n\n$report"
+        val report = runCatching { reportFile(context.applicationContext).readText() }.getOrDefault("No diagnostic events have been recorded.")
+        return buildString {
+            appendLine("AETHERIS CRASH DIAGNOSTICS")
+            appendLine("Generated: ${Instant.now()}")
+            appendLine("App version: ${runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrDefault("unknown")}")
+            appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}; Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
+            appendLine("ABIs: ${Build.SUPPORTED_ABIS.joinToString()}")
+            appendLine("Java VM: ${System.getProperty("java.vm.name")} ${System.getProperty("java.vm.version")}")
+            appendLine()
+            append(report)
+        }
     }
 
     private fun appendLocked(context: Context, line: String) {
         runCatching {
+            reportFile(context).parentFile?.mkdirs()
             FileOutputStream(reportFile(context), true).use { stream ->
                 stream.write((line + "\n").toByteArray(Charsets.UTF_8))
                 stream.fd.sync()
