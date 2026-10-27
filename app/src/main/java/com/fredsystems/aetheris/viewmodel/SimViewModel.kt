@@ -79,8 +79,8 @@ class SimViewModel(private val context: Context) : ViewModel() {
                             }.getOrNull()
                         }
                         if (mv.isNullOrBlank() || mv.length < 4) break
-                        val from = LibSquare.fromValue(mv.substring(0, 2))
-                        val to = LibSquare.fromValue(mv.substring(2, 4))
+                        val from = runCatching { LibSquare.valueOf(mv.substring(0, 2).uppercase()) }.getOrNull() ?: break
+                        val to = runCatching { LibSquare.valueOf(mv.substring(2, 4).uppercase()) }.getOrNull() ?: break
                         val candidates = board.legalMoves().filter { it.from == from && it.to == to }
                         if (candidates.isEmpty()) break
                         val promoChar = if (mv.length > 4) mv[4].lowercaseChar() else 'q'
