@@ -11,7 +11,7 @@
 #define AETH_LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "AetherisEngine", __VA_ARGS__)
 
 using namespace aetheris;
-namespace aetheris { Move searchBestMove(Board& b, int depth, int timeMs); }
+namespace aetheris { Move searchBestMove(Board& b, int depth, int timeMs); std::string searchTopLines(Board& b, int depth, int timeMs, int count); }
 
 namespace {
 int g_crash_report_fd = -1;
@@ -133,6 +133,16 @@ Java_com_fredsystems_aetheris_engine_NativeEngine_nativeGo(JNIEnv* env, jobject,
     uci += static_cast<char>('1' + (to / 8));
     if (promoChar) uci += promoChar;
     return env->NewStringUTF(uci.c_str());
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_fredsystems_aetheris_engine_NativeEngine_nativeAnalyzeFen(JNIEnv* env, jobject, jstring fen, jint depth, jint timeMs, jint count) {
+    const char* chars = env->GetStringUTFChars(fen, nullptr);
+    if (!chars) return env->NewStringUTF("");
+    setPosition(std::string(chars));
+    env->ReleaseStringUTFChars(fen, chars);
+    const std::string lines = searchTopLines(getBoard(), depth, timeMs, count);
+    return env->NewStringUTF(lines.c_str());
 }
 
 JNIEXPORT jint JNICALL
