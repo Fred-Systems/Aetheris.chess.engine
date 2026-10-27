@@ -33,6 +33,10 @@ EMSCRIPTEN_KEEPALIVE int aetheris_init() {
     return aetheris::loadNNUE("/weights.bin") ? 1 : 0;
 }
 
+EMSCRIPTEN_KEEPALIVE int aetheris_load_nnue(const char* path) {
+    return path && aetheris::loadNNUE(std::string(path)) ? 1 : 0;
+}
+
 EMSCRIPTEN_KEEPALIVE void aetheris_set_mode(int mode) {
     aetheris::setEngineMode(mode);
 }
