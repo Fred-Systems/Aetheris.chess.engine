@@ -27,8 +27,34 @@ jobs:
           ndk-version: r26b
       - name: Build release APK
         run: gradle assembleRelease
-      - name: Name release APK
-        run: cp app/build/outputs/apk/release/app-release.apk Aetheris-1.0.4.apk
+      - name: Locate and sign release APK
+        env:
+          ANDROID_SIGNING_KEY_BASE64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          APK_PATH="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)"
+          if [ -z "$APK_PATH" ]; then
+            echo "No release APK was produced. Contents of release output directory:"
+            find app/build/outputs/apk -maxdepth 4 -type f -print || true
+            exit 1
+          fi
+          if [ -z "${ANDROID_SIGNING_KEY_BASE64:-}" ] || [ -z "${ANDROID_KEYSTORE_PASSWORD:-}" ] || [ -z "${ANDROID_KEY_ALIAS:-}" ] || [ -z "${ANDROID_KEY_PASSWORD:-}" ]; then
+            echo "::error::The APK built successfully, but it needs a stable signing key before it can be released. Configure repository Actions secrets: ANDROID_SIGNING_KEY_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD."
+            exit 1
+          fi
+          printf '%s' "$ANDROID_SIGNING_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/aetheris-release.jks"
+          SDK_BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          "$SDK_BUILD_TOOLS/apksigner" sign \
+            --ks "$RUNNER_TEMP/aetheris-release.jks" \
+            --ks-key-alias "$ANDROID_KEY_ALIAS" \
+            --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
+            --key-pass env:ANDROID_KEY_PASSWORD \
+            --out Aetheris-1.0.4.apk "$APK_PATH"
+          "$SDK_BUILD_TOOLS/apksigner" verify Aetheris-1.0.4.apk
+          rm -f "$RUNNER_TEMP/aetheris-release.jks"
       - name: Publish GitHub release and attach APK
         env:
           GH_TOKEN: ${{ github.token }}
