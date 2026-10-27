@@ -94,7 +94,7 @@ object CrashDiagnostics {
             appendLine("App version: ${runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrDefault("unknown")}")
             appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}; Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
             appendLine("ABIs: ${Build.SUPPORTED_ABIS.joinToString()}")
-            appendLine("Java VM: ${System.getProperty("java.vm.name")} ${System.getProperty("java.vm.version")}")
+            appendLine("Java VM: ${System.getProperty("java.vm.name")} ${System.getProperty("java.vm.version")}")\n            appendLine("Native crash handler: ${if (report.contains("NATIVE_CRASH_HANDLER_INSTALLED")) "installed" else "not confirmed"}")
             appendLine()
             append(report)
         }
