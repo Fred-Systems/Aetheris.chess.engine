@@ -61,8 +61,8 @@ static int classicalWhiteScore(const Board& b) {
                 int positionalBonus = 0;
                 switch (p) {
                     case PAWN:
-                        positionalBonus += relativeRank * (8 + positional / 10);
-                        positionalBonus += (7 - cd) * (positional / 20);
+                        positionalBonus += relativeRank * (3 + positional / 25);
+                        positionalBonus += (7 - cd) * (positional / 30);
                         // Doubled pawns are less flexible and harder to defend.
                         if (__builtin_popcountll(ownPawns & (0x0101010101010101ULL << file)) > 1)
                             positionalBonus -= 12 + solidity / 5;
@@ -89,11 +89,11 @@ static int classicalWhiteScore(const Board& b) {
                         }
                         break;
                     case KNIGHT:
-                        positionalBonus += (7 - cd) * (positional / 8 + 2);
+                        positionalBonus += (7 - cd) * (positional / 50 + 2);
                         if (relativeRank == 0 || relativeRank == 7) positionalBonus -= 12;
                         break;
                     case BISHOP:
-                        positionalBonus += (7 - cd) * (positional / 12 + 1);
+                        positionalBonus += (7 - cd) * (positional / 25 + 1);
                         break;
                     case ROOK:
                         if (!fileHasPawn(b, file, side)) positionalBonus += 10 + positional / 8;
