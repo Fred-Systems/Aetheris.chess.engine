@@ -27,6 +27,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate website JavaScript syntax
+        run: |
+          python3 - <<'PY'
+          import re
+          html = open("docs/index.html", encoding="utf-8").read()
+          scripts = re.findall(r"<script>(.*?)</script>", html, flags=re.S)
+          if not scripts:
+              raise SystemExit("No inline website script found")
+          open("/tmp/aetheris-site.js", "w", encoding="utf-8").write("\\n".join(scripts))
+          PY
+          node --check /tmp/aetheris-site.js
       - name: Set up Emscripten
         uses: mymindstorm/setup-emsdk@v14
         with:
