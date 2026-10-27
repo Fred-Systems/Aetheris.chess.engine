@@ -30,6 +30,7 @@ fun AnalysisScreen(viewModel: GameViewModel) {
     val lines = viewModel.analysisLines.value
     val loading = viewModel.analysisLoading.value
     var autoplay by remember { mutableStateOf(false) }
+    var pgnExpanded by remember { mutableStateOf(false) }
 
     // Populate real principal variations as soon as Analysis opens and refresh them
     // whenever the user navigates to a different position.
@@ -145,6 +146,22 @@ fun AnalysisScreen(viewModel: GameViewModel) {
             }
         }
         Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = { pgnExpanded = !pgnExpanded }, modifier = Modifier.fillMaxWidth()) {
+            Text(if (pgnExpanded) "Hide PGN / move notebook" else "Show PGN / move notebook")
+        }
+        if (pgnExpanded) {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(10.dp)) {
+                    Text("Analysis session PGN", style = MaterialTheme.typography.titleSmall)
+                    Text(viewModel.currentPgn(), style = MaterialTheme.typography.bodySmall)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { viewModel.copyPgn() }, modifier = Modifier.weight(1f)) { Text("Copy PGN") }
+                        Button(onClick = { viewModel.saveCurrentGame() }, modifier = Modifier.weight(1f)) { Text("Save game") }
+                    }
+                    if (viewModel.pgnStatus.value.isNotBlank()) Text(viewModel.pgnStatus.value, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
         Text(
             "Playback interval: ${settings.analysisAutoplaySeconds}s per move (change it in Settings).",
             style = MaterialTheme.typography.bodySmall
