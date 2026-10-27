@@ -27,7 +27,8 @@ data class AppSettings(
     val flipped: Boolean = false,
     val playerColor: String = "white",
     val timeControl: String = "unlimited",
-    val moveTimeSeconds: Int = 0
+    val moveTimeSeconds: Int = 0,
+    val analysisAutoplaySeconds: Int = 2
 )
 
 class SettingsStore(context: Context) {
@@ -43,7 +44,8 @@ class SettingsStore(context: Context) {
         flipped = prefs.getBoolean("flipped", false),
         playerColor = prefs.getString("playerColor", "white") ?: "white",
         timeControl = prefs.getString("timeControl", "unlimited") ?: "unlimited",
-        moveTimeSeconds = prefs.getInt("moveTimeSeconds", 0)
+        moveTimeSeconds = prefs.getInt("moveTimeSeconds", 0),
+        analysisAutoplaySeconds = prefs.getInt("analysisAutoplaySeconds", 2).coerceIn(1, 15)
     )
 
     fun save(s: AppSettings) {
@@ -58,6 +60,7 @@ class SettingsStore(context: Context) {
             .putString("playerColor", s.playerColor)
             .putString("timeControl", s.timeControl)
             .putInt("moveTimeSeconds", s.moveTimeSeconds)
+            .putInt("analysisAutoplaySeconds", s.analysisAutoplaySeconds.coerceIn(1, 15))
             .apply()
     }
 }
