@@ -73,6 +73,9 @@ class SettingsStore(context: Context) {
             .putBoolean("showBestMoveArrow", s.showBestMoveArrow)
             .putBoolean("showEngineThinkingArrows", s.showEngineThinkingArrows)
             .putBoolean("showPgnPanel", s.showPgnPanel)
+            .putBoolean("showBestMoveArrow", s.showBestMoveArrow)
+            .putBoolean("showEngineThinkingArrows", s.showEngineThinkingArrows)
+            .putBoolean("showPgnPanel", s.showPgnPanel)
             .apply()
     }
 }
