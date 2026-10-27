@@ -35,7 +35,7 @@ jobs:
           scripts = re.findall(r"<script>(.*?)</script>", html, flags=re.S)
           if not scripts:
               raise SystemExit("No inline website script found")
-          open("/tmp/aetheris-site.js", "w", encoding="utf-8").write("\\n".join(scripts))
+          open("/tmp/aetheris-site.js", "w", encoding="utf-8").write("\n".join(scripts))
           PY
           node --check /tmp/aetheris-site.js
       - name: Set up Emscripten
