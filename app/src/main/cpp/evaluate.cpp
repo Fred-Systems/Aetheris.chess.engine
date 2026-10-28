@@ -2,6 +2,7 @@
 #include "nnue.h"
 #include <algorithm>
 #include <cstdlib>
+#include <android/log.h>
 // v1.0.14 evaluation diagnostics and mode separation.
 
 namespace aetheris {
@@ -20,7 +21,10 @@ void setComplexity(int v) { complexity = std::max(0, std::min(100, v)); }
 void setSolidity(int v) { solidity = std::max(0, std::min(100, v)); }
 void setMaterialWeight(int m) { materialWeight = std::max(0, std::min(100, m)); }
 void setEngineMode(int m) { engineMode = m; }
-void setNNUEPath(const std::string& p) { loadNNUE(p); }
+void setNNUEPath(const std::string& p) {
+    if (loadNNUE(p)) __android_log_print(ANDROID_LOG_INFO, "AetherisEngine", "NNUE loaded successfully from %s", p.c_str());
+    else __android_log_print(ANDROID_LOG_ERROR, "AetherisEngine", "NNUE Load Failed: %s", p.c_str());
+}
 
 static int centerDistance(int sq) {
     const int f = sq & 7, r = sq >> 3;
@@ -156,7 +160,8 @@ static int classicalWhiteScore(const Board& b) {
                         }
                     }
                 }
-                score += sign * mobility * (positional + 25) / 40;
+                const int activityScale = 150 - solidity;
+                score += sign * mobility * (positional + 25) * activityScale / 4000;
             }
         }
     }
@@ -174,7 +179,10 @@ int evaluate(const Board& b) {
     const int classical = classicalWhiteScore(b) * (b.side == WHITE ? 1 : -1);
     const bool loaded = nnueLoaded();
     if (!loaded || engineMode == ENGINE_PURE_CLASSICAL) return classical;
-    const int nn = nnueEvaluate(b);
+    int nn = nnueEvaluate(b);
+    // Personality sliders scale the learned signal modestly; they do not mutate weights.
+    const int nnScale = 100 + (positional - 50) / 2 + (50 - solidity) / 4;
+    nn = nn * nnScale / 100;
     if (engineMode == ENGINE_PURE_NNUE) return nn;
     // Dual Core combines the two evaluation sources equally; it is distinct from both single modes.
     return (nn + classical) / 2;
