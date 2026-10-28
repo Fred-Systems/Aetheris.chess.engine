@@ -166,6 +166,27 @@ static int classicalWhiteScore(const Board& b) {
         }
     }
 
+    // Aggression rewards coordinated pieces close to the opposing king.
+    // This bounded proximity heuristic complements tactical search without
+    // pretending the neural weights themselves were retrained.
+    for (int side = 0; side < 2; ++side) {
+        Bitboard enemyKing = b.pieces[side ^ 1][KING];
+        if (!enemyKing) continue;
+        const int kingSq = __builtin_ctzll(enemyKing);
+        const int kf = kingSq & 7, kr = kingSq >> 3;
+        int pressure = 0;
+        for (int p = KNIGHT; p <= QUEEN; ++p) {
+            Bitboard attackers = b.pieces[side][p];
+            while (attackers) {
+                const int sq = __builtin_ctzll(attackers);
+                attackers &= attackers - 1;
+                const int distance = std::max(std::abs((sq & 7) - kf), std::abs((sq >> 3) - kr));
+                if (distance <= 2) pressure += (3 - distance) * (p == QUEEN ? 2 : 1);
+            }
+        }
+        score += (side == WHITE ? 1 : -1) * pressure * aggression / 8;
+    }
+
     // Initiative is useful, but deliberately modest so it cannot dominate material.
     score += (b.side == WHITE ? 1 : -1) * (2 + aggression / 20);
     // The style controls influence evaluation in a bounded way, rather than adding
