@@ -125,10 +125,11 @@ select{background:#241e34;border:1px solid #352c4a;color:var(--text);padding:10p
         <div class="eval-wrap" id="evalWrap" style="display:none"><div class="eval-white" id="evalWhite"></div><div class="eval-mid"></div></div>
         <div class="board" id="board" aria-label="Chess board"></div>
       </div>
-      <div class="controls">
+      <div class="controls" style="grid-template-columns:repeat(4,minmax(0,1fr))">
         <button class="btn" id="newBtn">New</button>
         <button class="btn" id="undoBtn">Undo</button>
         <button class="btn primary" id="forceBtn">Force Move</button>
+        <button class="btn" id="playFromHereBtn">Play from Here</button>
       </div>
       <div class="card" style="width:var(--board-size);max-width:100%;margin-top:10px">
         <h3>PGN / Move Notebook</h3>
