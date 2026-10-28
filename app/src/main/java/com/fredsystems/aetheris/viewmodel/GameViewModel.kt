@@ -283,7 +283,8 @@ class GameViewModel(private val context: Context) : ViewModel() {
     private fun startEngineSearch(force: Boolean) {
         if (!engineAvailable.value) return
         val fen = board.fen
-        val depth = options.value.depth
+        val searchOptions = options.value
+        val depth = searchOptions.depth
         val perMove = moveTimeSeconds.value
         val timed = timeControlSeconds.value > 0
         val remaining = if (board.sideToMove == Side.WHITE) whiteTimeMs.value else blackTimeMs.value
@@ -298,7 +299,11 @@ class GameViewModel(private val context: Context) : ViewModel() {
             val move = withContext(Dispatchers.Default) {
                 CrashDiagnostics.searchStarted(context, fen, depth, timeMs.toInt())
                 runCatching {
-                    NativeEngine.searchPosition(fen, depth, timeMs.toInt()).also { move ->
+                    NativeEngine.searchPositionConfigured(
+                        fen, depth, timeMs.toInt(),
+                        searchOptions.aggression, searchOptions.positional, searchOptions.complexity,
+                        searchOptions.solidity, searchOptions.materialWeight, searchOptions.mode.ordinal
+                    ).also { move ->
                         CrashDiagnostics.searchCompleted(context, move)
                     }
                 }.onFailure { error -> CrashDiagnostics.recordException(context, "NativeEngine.searchPosition", error) }.getOrNull()
