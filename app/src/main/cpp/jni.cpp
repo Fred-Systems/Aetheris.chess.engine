@@ -216,6 +216,7 @@ Java_com_fredsystems_aetheris_engine_NativeEngine_nativeNnueSanityCheck(JNIEnv* 
         AETH_LOGI("NNUE_SANITY %s raw_cp=%d", test.label, cp);
         report << test.label << "=" << cp << "cp; ";
     }
+    setNNUECalibrationValid(sane);
     report << (sane ? "PASS" : "WARNING: weights/calibration failed sanity expectations");
     if (!sane) AETH_LOGE("NNUE_SANITY_FAILED %s", report.str().c_str());
     else AETH_LOGI("NNUE_SANITY_PASSED %s", report.str().c_str());
