@@ -298,12 +298,14 @@ static std::vector<TTEntry2> tt2(1 << 18);
 
 static int historyHeuristic[2][64][64] = {};
 static Move killerMoves[128][2] = {};
+static std::uint64_t searchPath[256] = {};
 
 
 void clearSearchTables() {
     std::fill(tt2.begin(), tt2.end(), TTEntry2{});
     std::memset(historyHeuristic, 0, sizeof(historyHeuristic));
     std::memset(killerMoves, 0, sizeof(killerMoves));
+    std::memset(searchPath, 0, sizeof(searchPath));
 }
 
 static int maxDepth = 6;
@@ -355,6 +357,19 @@ static int quiescence(Board& b, int alpha, int beta, int ply, int qply) {
     std::vector<Move> moves;
     genMoves(b, moves, !checked);
     if (checked && moves.empty()) return -MATE + ply;
+    // Search forcing captures in MVV-LVA order so good exchanges and promotions
+    // establish alpha early instead of wasting the quiescence budget on poor trades.
+    std::stable_sort(moves.begin(), moves.end(), [&](Move a, Move c) {
+        auto captureOrder = [&](Move m) {
+            const int from = m & 63, to = (m >> 6) & 63, promo = (m >> 12) & 7;
+            const int attacker = std::max(0, pieceAt(b, from, b.side));
+            int victim = pieceAt(b, to, b.side ^ 1);
+            if (victim < 0 && attacker == PAWN && to == b.epSquare) victim = PAWN;
+            return (promo ? 100000 + ORDER_VALUE[std::max(0, std::min(5, promo))] : 0)
+                + (victim >= 0 ? ORDER_VALUE[victim] * 16 - ORDER_VALUE[attacker] : 0);
+        };
+        return captureOrder(a) > captureOrder(c);
+    });
     for (Move m : moves) {
         Undo u;
         makeMove(b, m, u);
@@ -370,6 +385,15 @@ static int quiescence(Board& b, int alpha, int beta, int ply, int qply) {
 static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode, int ply = 0) {
     if (timeUp()) { stopSearch = true; return 0; }
     nodeCount++;
+    // The 50-move rule and search-line repetitions must be draws, not attractive
+    // quiet continuations that the engine keeps entering.
+    if (b.halfmove >= 100) return 0;
+    const std::uint64_t pathKey = positionKey(b);
+    if (ply > 0 && ply < 256) {
+        for (int i = ply - 2; i >= 0; i -= 2)
+            if (searchPath[i] == pathKey) return 0;
+    }
+    if (ply >= 0 && ply < 256) searchPath[ply] = pathKey;
     // Quiescence can encounter a quiet check-evasion. Bound that extension to avoid
     // an unbounded chain of checks while still detecting immediate mate at the horizon.
     if (depth < 0) {
