@@ -171,23 +171,13 @@ static int classicalWhiteScore(const Board& b) {
 }
 
 int evaluate(const Board& b) {
+    const int classical = classicalWhiteScore(b) * (b.side == WHITE ? 1 : -1);
     const bool loaded = nnueLoaded();
-    if (engineMode == ENGINE_PURE_NNUE && loaded) {
-        const int nn = nnueEvaluate(b);
-        const int classical = classicalWhiteScore(b) * (b.side == WHITE ? 1 : -1);
-        // The bundled compact network is experimental and has not been validated
-        // against a tactical test suite. Retain its signal, but keep classical
-        // search evaluation dominant so an uncalibrated net cannot erase material
-        // balance, recaptures, or obvious king-safety features.
-        return (nn + classical * 3) / 4;
-    }
-    if (engineMode == ENGINE_DUAL_CORE && loaded) {
-        const int nn = nnueEvaluate(b);
-        const int classical = classicalWhiteScore(b) * (b.side == WHITE ? 1 : -1);
-        return (nn + classical * 3) / 4;
-    }
-    const int whiteScore = classicalWhiteScore(b);
-    return b.side == WHITE ? whiteScore : -whiteScore;
+    if (!loaded || engineMode == ENGINE_PURE_CLASSICAL) return classical;
+    const int nn = nnueEvaluate(b);
+    if (engineMode == ENGINE_PURE_NNUE) return nn;
+    // Dual Core combines the two evaluation sources equally; it is distinct from both single modes.
+    return (nn + classical) / 2;
 }
 
 } // namespace aetheris
