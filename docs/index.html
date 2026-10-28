@@ -39,9 +39,9 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;ma
 .clock.active{background:var(--accent);color:#fff}
 .main-col{display:flex;flex-direction:column;align-items:center}
 .board-shell{display:flex;align-items:center;justify-content:center;gap:10px;width:100%}
-.board{width:var(--board-size);aspect-ratio:1;display:grid;grid-template-columns:repeat(8,1fr);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px #0008;background:#17131f;touch-action:none;user-select:none}
-.square{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;cursor:pointer}
-.square img{width:90%;height:90%;object-fit:contain;pointer-events:none;filter:drop-shadow(0 1px 1px #0002)}
+.board{width:var(--board-size);height:var(--board-size);aspect-ratio:1;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:repeat(8,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px #0008;background:#17131f;touch-action:none;user-select:none;flex:0 0 var(--board-size)}
+.square{position:relative;width:100%;height:100%;min-width:0;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;cursor:pointer;aspect-ratio:1}
+.square img{position:absolute;inset:5%;width:90%;height:90%;max-width:90%;max-height:90%;object-fit:contain;pointer-events:none;user-select:none;filter:drop-shadow(0 1px 1px #0002)}
 .square.last::before,.square.selected::before{content:"";position:absolute;inset:0;background:rgba(244,201,93,.4)}
 .square.selected::before{background:rgba(124,77,255,.45)}
 .square.check::before{content:"";position:absolute;inset:0;background:radial-gradient(circle,rgba(229,57,53,.75),transparent 72%)}
@@ -261,6 +261,26 @@ select{background:#241e34;border:1px solid #352c4a;color:var(--text);padding:10p
       <input type="range" id="depthRange" min="1" max="16" step="1" />
     </div>
     <div class="field">
+      <label>Aggression <span class="rangeval" id="aggressionLabel">50</span></label>
+      <input type="range" id="aggressionRange" min="0" max="100" step="1" />
+    </div>
+    <div class="field">
+      <label>Positional ↔ Tactical <span class="rangeval" id="positionalLabel">50</span></label>
+      <input type="range" id="positionalRange" min="0" max="100" step="1" />
+    </div>
+    <div class="field">
+      <label>Complexity ↔ Simplification <span class="rangeval" id="complexityLabel">50</span></label>
+      <input type="range" id="complexityRange" min="0" max="100" step="1" />
+    </div>
+    <div class="field">
+      <label>Solidity ↔ Activity <span class="rangeval" id="solidityLabel">50</span></label>
+      <input type="range" id="solidityRange" min="0" max="100" step="1" />
+    </div>
+    <div class="field">
+      <label>Analysis variation length <span class="rangeval" id="analysisLineLengthLabel">12 plies</span></label>
+      <input type="range" id="analysisLineLengthRange" min="4" max="20" step="1" />
+    </div>
+    <div class="field">
       <label>Analysis lines</label>
       <select id="analysisLineCount">
         <option value="1">1 line</option><option value="2">2 lines</option><option value="3">3 lines</option><option value="4">4 lines</option><option value="5">5 lines</option>
@@ -269,6 +289,22 @@ select{background:#241e34;border:1px solid #352c4a;color:var(--text);padding:10p
     <div class="field">
       <label>Analysis autoplay interval <span class="rangeval" id="autoplayLabel">2s</span></label>
       <input type="range" id="autoplayRange" min="1" max="15" step="1" />
+    </div>
+    <div class="field">
+      <label>Board sound volume <span class="rangeval" id="soundVolumeLabel">70%</span></label>
+      <input type="range" id="soundVolumeRange" min="0" max="100" step="5" />
+      <div class="switch"><span>Mute board sounds</span><input type="checkbox" id="muteSounds" /></div>
+    </div>
+    <div class="field">
+      <div class="switch"><span>Blindfold board (hide pieces)</span><input type="checkbox" id="blindfoldMode" /></div>
+      <div class="switch"><span>Enable premoves</span><input type="checkbox" id="premoveEnabled" /></div>
+      <div class="switch"><span>Allow multiple queued premoves</span><input type="checkbox" id="multiplePremoves" /></div>
+      <div class="switch"><span>Enable conditional reply</span><input type="checkbox" id="conditionalMoves" /></div>
+      <div class="switch"><span>Chess960 random start (experimental; castling unsupported)</span><input type="checkbox" id="chess960Enabled" /></div>
+      <label style="margin-top:9px">Conditional opponent move (UCI)</label>
+      <input type="text" id="conditionalOpponentMove" value="e7e5" maxlength="5" />
+      <label style="margin-top:9px">Conditional reply (UCI)</label>
+      <input type="text" id="conditionalReplyMove" value="g1f3" maxlength="5" />
     </div>
     <div class="field">
       <label>Load trained NNUE weights (.bin)</label>
@@ -313,14 +349,17 @@ const THEMES = [
 const DEFAULT_SETTINGS = {
   pieceSet:"cburnett", boardTheme:"brown", density:1, boardScale:1,
   showEvalPlay:false, showEvalAnalysis:true, playerColor:"white", timeControl:"unlimited",
-  engineMode:0, depth:8, analysisLineCount:3, analysisAutoplaySeconds:2
+  engineMode:2, depth:8, analysisLineCount:3, analysisAutoplaySeconds:2, analysisLineLength:12,
+  aggression:50, positional:50, complexity:50, solidity:50, materialWeight:50,
+  moveSoundsEnabled:true, moveSoundVolume:70, blindfoldMode:false, premoveEnabled:true,
+  multiplePremoves:false, conditionalMoves:false, conditionalOpponentMove:"e7e5", conditionalReplyMove:"g1f3", chess960Enabled:false
 };
 let settings = Object.assign({}, DEFAULT_SETTINGS, JSON.parse(localStorage.getItem("aetheris-web-settings") || "{}"));
 let game = new Chess();
 let selected = null, legal = [], lastMove = null, flipped = false;
 let mode = "play", evalVisible = false, thinking = false, playerColor = "w";
 let wasmEngine = null, wasmReady = false, wasmFailed = false;
-let historyMoves = [], historyIndex = 0, analysisPlaybackTimer = null;
+let historyMoves = [], historyIndex = 0, analysisPlaybackTimer = null, pendingPremoves = [], initialFen = game.fen();
 let timeSeconds = 0, whiteMs = 0, blackMs = 0, clockTimer = null, timeoutText = "";
 const boardEl = document.getElementById("board");
 const statusText = document.getElementById("statusText");
