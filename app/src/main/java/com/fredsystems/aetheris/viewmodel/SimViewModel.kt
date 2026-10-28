@@ -166,7 +166,9 @@ class SimViewModel(private val context: Context) : ViewModel() {
             val alternatives = replay.legalMoves().filter {
                 it.from != from && it.to == to && replay.getPiece(it.from).pieceType == piece.pieceType
             }
-            val san = buildString {
+            val san = if (piece.pieceType == LibPieceType.KING && replay.context.isCastleMove(move)) {
+                if (replay.context.isKingSideCastle(move)) "O-O" else "O-O-O"
+            } else buildString {
                 when (piece.pieceType) {
                     LibPieceType.KING -> append("K")
                     LibPieceType.QUEEN -> append("Q")
