@@ -171,14 +171,18 @@ static int classicalWhiteScore(const Board& b) {
 
 int evaluate(const Board& b) {
     const bool loaded = nnueLoaded();
-    if (engineMode == ENGINE_PURE_NNUE && loaded)
-        return nnueEvaluate(b);
+    if (engineMode == ENGINE_PURE_NNUE && loaded) {
+        const int nn = nnueEvaluate(b);
+        const int classical = classicalWhiteScore(b) * (b.side == WHITE ? 1 : -1);
+        // The bundled compact network is experimental and has not been validated
+        // against a tactical test suite. Retain its signal, but keep classical
+        // search evaluation dominant so an uncalibrated net cannot erase material
+        // balance, recaptures, or obvious king-safety features.
+        return (nn + classical * 3) / 4;
+    }
     if (engineMode == ENGINE_DUAL_CORE && loaded) {
         const int nn = nnueEvaluate(b);
         const int classical = classicalWhiteScore(b) * (b.side == WHITE ? 1 : -1);
-        // The current compact AETHNNUE model is experimental; keep classical
-        // tactical/material evaluation dominant until a trained model passes
-        // a proper suite, rather than letting a weak net swamp recapture logic.
         return (nn + classical * 3) / 4;
     }
     const int whiteScore = classicalWhiteScore(b);
