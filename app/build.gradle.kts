@@ -12,8 +12,8 @@ android {
         applicationId = "com.fredsystems.aetheris"
         minSdk = 26
         targetSdk = 34
-        versionCode = 15
-        versionName = "1.0.14"
+        versionCode = 16
+        versionName = "1.0.15"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
@@ -26,11 +26,27 @@ android {
         }
     }
 
+    signingConfigs {
+        create("stableRelease") {
+            val keystorePath = System.getenv("AETHERIS_KEYSTORE_PATH")
+            if (!keystorePath.isNullOrBlank()) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("AETHERIS_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("AETHERIS_KEY_ALIAS")
+                keyPassword = System.getenv("AETHERIS_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // The CI release artifact must be installable. Until a private release
-            // signing key is configured in GitHub Secrets, use the Android debug key.
-            signingConfig = signingConfigs.getByName("debug")
+            // A stable private signing key is required for in-place updates.
+            // CI sets AETHERIS_KEYSTORE_PATH when the repository secrets exist.
+            signingConfig = if (System.getenv("AETHERIS_KEYSTORE_PATH").isNullOrBlank()) {
+                signingConfigs.getByName("debug")
+            } else {
+                signingConfigs.getByName("stableRelease")
+            }
             if (project.hasProperty("crashReport")) {
                 applicationIdSuffix = ".crashreport"
                 versionNameSuffix = "-crashreport"
