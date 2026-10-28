@@ -107,7 +107,7 @@ jobs:
             - Optional pondering searches likely user moves and reuses cached replies when the played move matches.
             - Evaluation uses a bounded alpha-beta search instead of relying only on static material evaluation.
             - Experimental NNUE output is blended with classical evaluation to reduce the impact of uncalibrated weights.
-            - Analysis uses continuous progressive-depth search, a dark background, and algebraic notation.
+            - Analysis uses continuous progressive-depth search, preserves best-so-far lines, and shows algebraic notation on a dark background.
           files: release-assets/*
           overwrite_files: true
           fail_on_unmatched_files: true
