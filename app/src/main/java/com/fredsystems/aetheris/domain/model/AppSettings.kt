@@ -33,7 +33,9 @@ data class AppSettings(
     val showBestMoveArrow: Boolean = true,
     val showEngineThinkingArrows: Boolean = false,
     val showPgnPanel: Boolean = true,
-    val pondering: Boolean = false
+    val pondering: Boolean = false,
+    val moveSoundsEnabled: Boolean = true,
+    val moveSoundVolume: Int = 70
 )
 
 class SettingsStore(context: Context) {
@@ -55,7 +57,9 @@ class SettingsStore(context: Context) {
         showBestMoveArrow = prefs.getBoolean("showBestMoveArrow", true),
         showEngineThinkingArrows = prefs.getBoolean("showEngineThinkingArrows", false),
         showPgnPanel = prefs.getBoolean("showPgnPanel", true),
-        pondering = prefs.getBoolean("pondering", false)
+        pondering = prefs.getBoolean("pondering", false),
+        moveSoundsEnabled = prefs.getBoolean("moveSoundsEnabled", true),
+        moveSoundVolume = prefs.getInt("moveSoundVolume", 70).coerceIn(0, 100)
     )
 
     fun save(s: AppSettings) {
@@ -76,6 +80,8 @@ class SettingsStore(context: Context) {
             .putBoolean("showEngineThinkingArrows", s.showEngineThinkingArrows)
             .putBoolean("showPgnPanel", s.showPgnPanel)
             .putBoolean("pondering", s.pondering)
+            .putBoolean("moveSoundsEnabled", s.moveSoundsEnabled)
+            .putInt("moveSoundVolume", s.moveSoundVolume.coerceIn(0, 100))
             .apply()
     }
 }
