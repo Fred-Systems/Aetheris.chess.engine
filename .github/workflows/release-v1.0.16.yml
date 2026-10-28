@@ -69,6 +69,8 @@ jobs:
           test -n "$APK"
           cp "$APK" release-assets/Aetheris.apk
           unzip -q "$APK" 'lib/*/libaetheris_engine.so' 'lib/*/libaetheris_classical.so' -d release-assets/extracted
+          test -f release-assets/extracted/lib/arm64-v8a/libaetheris_engine.so
+          test -f release-assets/extracted/lib/arm64-v8a/libaetheris_classical.so
           for abi in arm64-v8a armeabi-v7a; do
             HYBRID="release-assets/extracted/lib/${abi}/libaetheris_engine.so"
             CLASSICAL="release-assets/extracted/lib/${abi}/libaetheris_classical.so"
