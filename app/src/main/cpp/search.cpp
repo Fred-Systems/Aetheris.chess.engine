@@ -450,12 +450,15 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode, int 
         makeMove(b, move, u);
         int score;
         const bool reduce = i >= 4 && depth >= 3 && quiet && !inCheck(b, b.side ^ 1) && !inCheck(b, b.side);
-        if (i == 0 || !pvNode) {
-            score = -alphaBeta(b, depth - 1, -beta, -alpha, pvNode && i == 0, ply + 1);
+        if (i == 0) {
+            score = -alphaBeta(b, depth - 1, -beta, -alpha, pvNode, ply + 1);
         } else {
-            // Late-move reductions save time on quiet moves that history says are unlikely.
+            // Principal-variation search: scout later moves with a null window.
+            // Late-move reductions save time on quiet moves with poor history,
+            // but every reduced move that improves alpha is re-searched at full depth.
             int reducedDepth = depth - 1;
-            if (reduce && historyHeuristic[b.side ^ 1][from][to] < 4000) reducedDepth = std::max(0, reducedDepth - 1);
+            if (reduce && historyHeuristic[b.side ^ 1][from][to] < 4000)
+                reducedDepth = std::max(0, reducedDepth - 1);
             score = -alphaBeta(b, reducedDepth, -alpha - 1, -alpha, false, ply + 1);
             if (score > alpha && reducedDepth < depth - 1)
                 score = -alphaBeta(b, depth - 1, -alpha - 1, -alpha, false, ply + 1);
