@@ -52,7 +52,7 @@ class GitHubUpdater(private val context: Context) {
             runCatching {
                 val request = Request.Builder().url(apkUrl).header("Accept", "application/vnd.android.package-archive").build()
                 client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) error("Download failed (HTTP ${'$'}{response.code})")
+                    if (!response.isSuccessful) error("Download failed (HTTP ${response.code})")
                     val body = response.body ?: error("The release returned an empty APK")
                     body.byteStream().use { input -> target.outputStream().use { output -> input.copyTo(output) } }
                 }
@@ -60,7 +60,7 @@ class GitHubUpdater(private val context: Context) {
                 withContext(Dispatchers.Main) { installApk(target) }
             }.onFailure { error ->
                 withContext(Dispatchers.Main) {
-                    android.widget.Toast.makeText(context, "Aetheris update failed: ${'$'}{error.message ?: "unknown error"}", android.widget.Toast.LENGTH_LONG).show()
+                    android.widget.Toast.makeText(context, "Aetheris update failed: ${error.message ?: "unknown error"}", android.widget.Toast.LENGTH_LONG).show()
                 }
             }
         }
