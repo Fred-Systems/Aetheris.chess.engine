@@ -31,16 +31,16 @@ fun AnalysisScreen(viewModel: GameViewModel) {
     val loading = viewModel.analysisLoading.value
     var autoplay by remember { mutableStateOf(false) }
     var continuousAnalysis by remember { mutableStateOf(true) }
-    var analysisDepth by remember(index, length) { mutableStateOf(4) }
+    var analysisDepth by remember(index, length) { mutableStateOf(viewModel.options.value.depth.coerceIn(4, 20)) }
     val configuration = LocalConfiguration.current
     var pgnExpanded by remember(configuration.screenWidthDp, settings.showPgnPanel) { mutableStateOf(configuration.screenWidthDp >= 600 && settings.showPgnPanel) }
 
     LaunchedEffect(continuousAnalysis, index, length) {
         while (continuousAnalysis) {
             if (!viewModel.analysisLoading.value) {
-                viewModel.options.value = viewModel.options.value.copy(depth = analysisDepth.coerceIn(4, 12))
+                viewModel.options.value = viewModel.options.value.copy(depth = analysisDepth.coerceIn(4, 20))
                 viewModel.analyzePosition(settings.analysisLineCount)
-                analysisDepth = (analysisDepth + 1).coerceAtMost(12)
+                analysisDepth = (analysisDepth + 1).coerceAtMost(20)
             }
             delay(5200)
         }
@@ -89,10 +89,22 @@ fun AnalysisScreen(viewModel: GameViewModel) {
             )
             EvaluationBar(score = evaluation, modifier = Modifier.height(280.dp).width(22.dp))
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Variation length", style = MaterialTheme.typography.labelLarge)
+            Text("${analysisDepth} plies", style = MaterialTheme.typography.labelMedium, color = Color(0xFFB9A8FF))
+        }
+        Slider(
+            value = analysisDepth.toFloat(),
+            onValueChange = { analysisDepth = it.toInt().coerceIn(4, 20) },
+            valueRange = 4f..20f,
+            steps = 15
+        )
+        Text("Longer lines take more time to calculate.", color = Color(0xFF9B93B8), style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Engine lines", style = MaterialTheme.typography.titleMedium)
-            Text("${settings.analysisLineCount} lines · depth ${viewModel.options.value.depth.coerceIn(4, 12)}", style = MaterialTheme.typography.bodySmall)
+            Text("${settings.analysisLineCount} lines · depth ${viewModel.options.value.depth.coerceIn(4, 20)}", style = MaterialTheme.typography.bodySmall)
         }
         Spacer(Modifier.height(4.dp))
         Button(onClick = { continuousAnalysis = !continuousAnalysis }, modifier = Modifier.fillMaxWidth()) {
