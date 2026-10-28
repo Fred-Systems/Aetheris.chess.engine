@@ -14,6 +14,8 @@ static int complexity = 50;
 static int solidity = 50;
 static int materialWeight = 50;
 int engineMode = ENGINE_DUAL_CORE;
+static bool nnueCalibrationValid = false;
+void setNNUECalibrationValid(bool valid) { nnueCalibrationValid = valid; }
 
 void setAggression(int a) { aggression = std::max(0, std::min(100, a)); }
 void setPositional(int v) { positional = std::max(0, std::min(100, v)); }
@@ -22,6 +24,7 @@ void setSolidity(int v) { solidity = std::max(0, std::min(100, v)); }
 void setMaterialWeight(int m) { materialWeight = std::max(0, std::min(100, m)); }
 void setEngineMode(int m) { engineMode = m; }
 void setNNUEPath(const std::string& p) {
+    setNNUECalibrationValid(false);
     if (loadNNUE(p)) __android_log_print(ANDROID_LOG_INFO, "AetherisEngine", "NNUE loaded successfully from %s", p.c_str());
     else __android_log_print(ANDROID_LOG_ERROR, "AetherisEngine", "NNUE Load Failed: %s", p.c_str());
 }
@@ -305,7 +308,7 @@ static int classicalWhiteScore(const Board& b) {
 int evaluate(const Board& b) {
     // All evaluation terms are returned from the side-to-move perspective for negamax.
     const int classical = classicalWhiteScore(b) * (b.side == WHITE ? 1 : -1);
-    if (engineMode == ENGINE_PURE_CLASSICAL || !nnueLoaded()) return classical;
+    if (engineMode == ENGINE_PURE_CLASSICAL || !nnueLoaded() || !nnueCalibrationValid) return classical;
 
     // The bundled AETHNNUE network is a small absolute-square model, not a
     // production HalfKP/HalfKA net. Keep it as a bounded learned residual until
