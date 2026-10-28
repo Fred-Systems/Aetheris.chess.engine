@@ -295,6 +295,10 @@ struct TTEntry2 { std::uint64_t key; int depth; int score; int flag; Move best; 
 // Keep the transposition table modest on memory-constrained Android devices.
 static std::vector<TTEntry2> tt2(1 << 18);
 
+void clearSearchTables() {
+    std::fill(tt2.begin(), tt2.end(), TTEntry2{});
+}
+
 static int maxDepth = 6;
 static long long nodeCount = 0;
 static std::chrono::steady_clock::time_point startTime;
