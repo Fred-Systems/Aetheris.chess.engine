@@ -740,7 +740,9 @@ function analyzePosition(){
   button.disabled = true; button.textContent = "Analyzing…";
   setTimeout(()=>{
     try {
-      const raw = wasmEngine.ccall("aetheris_analyze","string",["string","number","number","number"],[game.fen(),Math.min(20,settings.analysisLineLength||settings.depth),5000,settings.analysisLineCount]);
+      const lineDepth=Math.min(20,settings.analysisLineLength||settings.depth);
+      const analysisBudget=Math.min(15000,5000+lineDepth*500);
+      const raw = wasmEngine.ccall("aetheris_analyze","string",["string","number","number","number"],[game.fen(),lineDepth,analysisBudget,settings.analysisLineCount]);
       const rows = (raw||"").split("\n").filter(Boolean);
       const lines = rows.map(row=>{
         const parts=row.split("|"); const moves=(parts[0]||"").trim().split(/\s+/).filter(Boolean);
