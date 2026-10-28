@@ -1,11 +1,7 @@
 name: Release Aetheris v1.0.16
 
+# Retired release workflow: keep manual reruns available, but never let an old release replace the latest tag.
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - app/**
-      - .github/workflows/release-v1.0.16.yml
   workflow_dispatch:
 
 permissions:
