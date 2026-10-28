@@ -28,6 +28,9 @@ android {
 
     buildTypes {
         release {
+            // The CI release artifact must be installable. Until a private release
+            // signing key is configured in GitHub Secrets, use the Android debug key.
+            signingConfig = signingConfigs.getByName("debug")
             if (project.hasProperty("crashReport")) {
                 applicationIdSuffix = ".crashreport"
                 versionNameSuffix = "-crashreport"
