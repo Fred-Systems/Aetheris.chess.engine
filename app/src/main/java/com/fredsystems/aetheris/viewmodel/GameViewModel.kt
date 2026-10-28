@@ -374,6 +374,73 @@ class GameViewModel(private val context: Context) : ViewModel() {
         }
     }
 
+    fun formatAnalysisLine(moves: List<String>): String {
+        val replay = Board()
+        runCatching {
+            replay.loadFromFen(positionHistory.getOrNull(historyIndex.value) ?: board.fen)
+        }
+        val san = mutableListOf<String>()
+        for (uci in moves) {
+            if (uci.length < 4) break
+            val from = runCatching { LibSquare.valueOf(uci.substring(0, 2).uppercase()) }.getOrNull() ?: break
+            val to = runCatching { LibSquare.valueOf(uci.substring(2, 4).uppercase()) }.getOrNull() ?: break
+            val legal = replay.legalMoves().filter { it.from == from && it.to == to }
+            if (legal.isEmpty()) break
+            val promo = if (uci.length > 4) uci[4].lowercaseChar() else 'q'
+            val desired = when (promo) {
+                'n' -> LibPieceType.KNIGHT
+                'b' -> LibPieceType.BISHOP
+                'r' -> LibPieceType.ROOK
+                else -> LibPieceType.QUEEN
+            }
+            val move = legal.firstOrNull { it.promotion != LibPiece.NONE && it.promotion.pieceType == desired }
+                ?: legal.firstOrNull { it.promotion == LibPiece.NONE } ?: legal.first()
+            val piece = replay.getPiece(from)
+            val capture = replay.getPiece(to) != LibPiece.NONE ||
+                (piece.pieceType == LibPieceType.PAWN && from.file != to.file && replay.getPiece(to) == LibPiece.NONE)
+            val alternatives = replay.legalMoves().filter {
+                it.from != from && it.to == to && replay.getPiece(it.from).pieceType == piece.pieceType
+            }
+            val notation = buildString {
+                when (piece.pieceType) {
+                    LibPieceType.KING -> append("K")
+                    LibPieceType.QUEEN -> append("Q")
+                    LibPieceType.ROOK -> append("R")
+                    LibPieceType.BISHOP -> append("B")
+                    LibPieceType.KNIGHT -> append("N")
+                    else -> if (capture) append(from.toString().first().lowercaseChar())
+                }
+                if (piece.pieceType != LibPieceType.PAWN && alternatives.isNotEmpty()) {
+                    val sameFile = alternatives.any { it.from.file == from.file }
+                    val sameRank = alternatives.any { it.from.rank == from.rank }
+                    if (!sameFile) append(from.toString().first().lowercaseChar())
+                    else if (!sameRank) append(from.toString().last())
+                    else append(from.toString())
+                }
+                if (capture) append("x")
+                append(to.toString().lowercase())
+                if (move.promotion != LibPiece.NONE) {
+                    append("=")
+                    append(when (move.promotion.pieceType) {
+                        LibPieceType.KNIGHT -> "N"
+                        LibPieceType.BISHOP -> "B"
+                        LibPieceType.ROOK -> "R"
+                        else -> "Q"
+                    })
+                }
+            }
+            if (!replay.doMove(move)) break
+            san.add(notation + when {
+                replay.isMated() -> "#"
+                replay.isKingAttacked() -> "+"
+                else -> ""
+            })
+        }
+        return san.mapIndexed { i, move ->
+            if (i % 2 == 0) "${(i / 2) + 1}. $move" else move
+        }.joinToString(" ")
+    }
+
     fun playAnalysisLine(line: EngineAnalysisLine) {
         if (mode.value != PlayMode.ANALYSIS || line.moves.isEmpty()) return
         engineGeneration++
