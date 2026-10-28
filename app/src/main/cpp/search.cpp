@@ -505,14 +505,37 @@ Move searchBestMove(Board& b, int depth, int timeMs) {
     stopSearch = false;
     nodeCount = 0;
     Move best = 0;
+    int previousScore = 0;
     for (int d = 1; d <= depth; d++) {
-        int s = alphaBeta(b, d, -INF, INF, true);
-        std::uint64_t key = positionKey(b);
-        int idx = key & (tt2.size() - 1);
+        int window = d >= 4 ? 40 : INF;
+        int alpha = d >= 4 ? std::max(-INF, previousScore - window) : -INF;
+        int beta = d >= 4 ? std::min(INF, previousScore + window) : INF;
+        int score = 0;
+        bool completedIteration = false;
+        for (int retry = 0; retry < 8; ++retry) {
+            score = alphaBeta(b, d, alpha, beta, true);
+            if (stopSearch) break;
+            if (score <= alpha && alpha > -INF) {
+                window *= 2;
+                alpha = std::max(-INF, alpha - window);
+                continue;
+            }
+            if (score >= beta && beta < INF) {
+                window *= 2;
+                beta = std::min(INF, beta + window);
+                continue;
+            }
+            completedIteration = true;
+            break;
+        }
+        // Never replace the last fully completed iteration with an interrupted one.
+        if (!completedIteration || stopSearch) break;
+        const std::uint64_t key = positionKey(b);
+        const int idx = key & (tt2.size() - 1);
         if (tt2[idx].key == key && tt2[idx].best) best = tt2[idx].best;
-        if (stopSearch) break;
-        std::cout << "info depth " << d << " score cp " << s << " nodes " << nodeCount << std::endl;
-        __android_log_print(ANDROID_LOG_INFO, "AetherisEngine", "SEARCH_DEPTH_DONE depth=%d score=%d nodes=%lld", d, s, nodeCount);
+        previousScore = score;
+        std::cout << "info depth " << d << " score cp " << score << " nodes " << nodeCount << std::endl;
+        __android_log_print(ANDROID_LOG_INFO, "AetherisEngine", "SEARCH_DEPTH_DONE depth=%d score=%d nodes=%lld", d, score, nodeCount);
     }
     if (best == 0) {
         std::vector<Move> legal;
