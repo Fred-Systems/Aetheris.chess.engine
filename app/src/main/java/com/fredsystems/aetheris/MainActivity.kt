@@ -43,6 +43,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.fredsystems.aetheris.domain.model.PieceColor
 import com.fredsystems.aetheris.domain.model.EngineMode
+import com.fredsystems.aetheris.domain.model.EngineOptions
 import com.fredsystems.aetheris.domain.model.TimeControl
 import com.fredsystems.aetheris.ui.analysis.AnalysisScreen
 import com.fredsystems.aetheris.ui.board.ChessBoard
@@ -210,6 +211,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
     var showNewGame by remember { mutableStateOf(false) }
     var showPlayFromHere by remember { mutableStateOf(false) }
     var showConditionalDialog by remember { mutableStateOf(false) }
+    var showQuickEngineOptions by remember { mutableStateOf(false) }
     var conditionalOpponent by remember { mutableStateOf("e7e5") }
     var conditionalReply by remember { mutableStateOf("g1f3") }
     val configuration = LocalConfiguration.current
@@ -268,20 +270,20 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 ModeChip("Play", mode == PlayMode.PLAY, Modifier.weight(1f)) { vm.setMode(PlayMode.PLAY) }
-                ModeChip("Analysis", mode == PlayMode.ANALYSIS, Modifier.weight(1f)) { vm.setMode(PlayMode.ANALYSIS) }
+                Button(
+                    onClick = { vm.setMode(PlayMode.ANALYSIS); navController.navigate("analysis") },
+                    modifier = Modifier.weight(1.6f)
+                ) { Text("Analysis & Lines") }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = { vm.setMode(PlayMode.ANALYSIS); navController.navigate("analysis") },
-                    modifier = Modifier.weight(1f)
-                ) { Text("Analysis") }
                 OutlinedButton(
                     onClick = { navController.navigate("sim") },
                     modifier = Modifier.weight(1f)
                 ) { Text("Engine match") }
-            }
-            OutlinedButton(onClick = { showPlayFromHere = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("Play from Here")
+                OutlinedButton(
+                    onClick = { showPlayFromHere = true },
+                    modifier = Modifier.weight(1f)
+                ) { Text("Play from Here") }
             }
             if (settings.conditionalMoves) {
                 OutlinedButton(onClick = { showConditionalDialog = true }, modifier = Modifier.fillMaxWidth()) {
@@ -344,7 +346,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                         .coerceIn(200.dp, widthLimit)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (evalVisible) {
-                            EvaluationBar(score = eval, modifier = Modifier.height(boardSize).width(20.dp))
+                            EvaluationBar(score = eval, modifier = Modifier.height(boardSize).width(22.dp))
                             Spacer(Modifier.width(10.dp))
                         }
                         ChessBoard(
@@ -355,6 +357,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                             boardTheme = BoardThemes.byId(settings.boardTheme),
                             flipped = flipped,
                             blindfold = settings.blindfoldMode,
+                            onBoardLongPress = { showQuickEngineOptions = true },
                             arrows = if (!settings.showBestMoveArrow && !settings.showEngineThinkingArrows) emptyList() else {
                                 val candidates = if (settings.showEngineThinkingArrows) liveAnalysisLines.take(5) else liveAnalysisLines.take(1)
                                 val colors = listOf(Color(0xFF35D07F), Color(0xFF3399FF), Color(0xFFFFB020), Color(0xFFB56BFF), Color(0xFFFF5252))
@@ -390,6 +393,17 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
             Spacer(Modifier.height(8.dp))
 
         }
+    }
+
+    if (showQuickEngineOptions) {
+        QuickEngineOptionsDialog(
+            current = opts,
+            onDismiss = { showQuickEngineOptions = false },
+            onApply = { updated ->
+                vm.updateOptions(updated)
+                showQuickEngineOptions = false
+            }
+        )
     }
 
     if (showConditionalDialog) {
@@ -445,6 +459,62 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 showNewGame = false
             }
         )
+    }
+}
+
+@Composable
+private fun QuickEngineOptionsDialog(
+    current: EngineOptions,
+    onDismiss: () -> Unit,
+    onApply: (EngineOptions) -> Unit
+) {
+    var mode by remember(current) { mutableStateOf(current.mode) }
+    var aggression by remember(current) { mutableFloatStateOf(current.aggression.toFloat()) }
+    var positional by remember(current) { mutableFloatStateOf(current.positional.toFloat()) }
+    var complexity by remember(current) { mutableFloatStateOf(current.complexity.toFloat()) }
+    var solidity by remember(current) { mutableFloatStateOf(current.solidity.toFloat()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Quick engine controls") },
+        text = {
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                Text("Choose engine", style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    ModeChip("Classical", mode == EngineMode.PURE_CLASSICAL, Modifier.weight(1f)) { mode = EngineMode.PURE_CLASSICAL }
+                    ModeChip("NNUE", mode == EngineMode.PURE_NNUE, Modifier.weight(1f)) { mode = EngineMode.PURE_NNUE }
+                    ModeChip("Hybrid", mode == EngineMode.DUAL_CORE, Modifier.weight(1f)) { mode = EngineMode.DUAL_CORE }
+                }
+                Text("Persona", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 10.dp))
+                QuickPersonalitySlider("Defensive", "Aggressive", aggression) { aggression = it }
+                QuickPersonalitySlider("Positional", "Tactical", positional) { positional = it }
+                QuickPersonalitySlider("Simplify", "Complexity", complexity) { complexity = it }
+                QuickPersonalitySlider("Solid", "Active", solidity) { solidity = it }
+                Text("Long-press the board again any time to reopen these controls.", color = Color(0xFF9B93B8), style = MaterialTheme.typography.bodySmall)
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                onApply(current.copy(
+                    aggression = aggression.toInt(),
+                    positional = positional.toInt(),
+                    complexity = complexity.toInt(),
+                    solidity = solidity.toInt(),
+                    mode = mode
+                ))
+            }) { Text("Apply") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@Composable
+private fun QuickPersonalitySlider(left: String, right: String, value: Float, onChange: (Float) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(left, color = Color(0xFFB9B2CE), style = MaterialTheme.typography.labelSmall)
+            Text(right, color = Color(0xFFB9B2CE), style = MaterialTheme.typography.labelSmall)
+        }
+        Slider(value = value, onValueChange = onChange, valueRange = 0f..100f)
     }
 }
 
