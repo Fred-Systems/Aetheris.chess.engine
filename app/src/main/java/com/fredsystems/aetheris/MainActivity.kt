@@ -269,7 +269,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 OutlinedButton(
                     onClick = { vm.setMode(PlayMode.ANALYSIS); navController.navigate("analysis") },
                     modifier = Modifier.weight(1f)
-                ) { Text("Analysis & engine lines") }
+                ) { Text("Analysis") }
                 OutlinedButton(
                     onClick = { navController.navigate("sim") },
                     modifier = Modifier.weight(1f)
