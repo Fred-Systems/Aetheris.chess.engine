@@ -16,12 +16,32 @@ class GitHubUpdater(private val context: Context) {
     private val repo = "Fred-Systems/Aetheris.chess.engine"
 
     suspend fun fetchLatest(): JSONObject? = withContext(Dispatchers.IO) {
-        val url = "https://api.github.com/repos/$repo/releases/latest"
-        val req = Request.Builder().url(url).build()
+        // Do not depend on GitHub's mutable /releases/latest pointer: an older
+        // version-specific workflow can accidentally mark its old release latest.
+        // Pick the highest published stable semantic version from the release list.
+        val url = "https://api.github.com/repos/$repo/releases?per_page=50"
+        val req = Request.Builder()
+            .url(url)
+            .header("Cache-Control", "no-cache")
+            .header("Accept", "application/vnd.github+json")
+            .build()
         client.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) return@withContext null
-            JSONObject(resp.body!!.string())
+            val releases = org.json.JSONArray(resp.body!!.string())
+            (0 until releases.length())
+                .map { releases.getJSONObject(it) }
+                .filter { !it.optBoolean("draft", true) && !it.optBoolean("prerelease", true) }
+                .filter { it.optJSONArray("assets")?.let { assets ->
+                    (0 until assets.length()).any { i -> assets.getJSONObject(i).optString("name").endsWith(".apk") }
+                } == true }
+                .maxByOrNull { versionSortKey(it.optString("tag_name")) }
         }
+    }
+
+    private fun versionSortKey(tag: String): Long {
+        val parts = tag.trimStart('v', 'V').split(".")
+        if (parts.isEmpty() || parts.any { it.toIntOrNull() == null }) return -1L
+        return parts.take(3).fold(0L) { acc, part -> acc * 1000L + part.toInt() }
     }
 
     // Releases use semantic version tags (v1.0.4), so compare the same
