@@ -19,6 +19,11 @@ int main() {
     using namespace aetheris;
     initBitboards();
     resetBoard();
+#ifdef AETHERIS_DEFAULT_CLASSICAL
+    setEngineMode(ENGINE_PURE_CLASSICAL);
+#else
+    setEngineMode(ENGINE_DUAL_CORE);
+#endif
     setNNUEPath("weights.bin");
     std::string line;
     int depthLimit = 6;
@@ -28,7 +33,11 @@ int main() {
         std::string cmd;
         iss >> cmd;
         if (cmd == "uci") {
-            std::cout << "id name Aetheris" << std::endl;
+#ifdef AETHERIS_DEFAULT_CLASSICAL
+            std::cout << "id name Aetheris Classical" << std::endl;
+#else
+            std::cout << "id name Aetheris Hybrid" << std::endl;
+#endif
             std::cout << "id author Fred-Systems" << std::endl;
             std::cout << "option name Aggression type spin default 50 min 0 max 100" << std::endl;
             std::cout << "option name Positional type spin default 50 min 0 max 100" << std::endl;
@@ -37,7 +46,11 @@ int main() {
             std::cout << "option name MaterialWeight type spin default 50 min 0 max 100" << std::endl;
             std::cout << "option name UseOpeningBook type check default false" << std::endl;
             std::cout << "option name Depth type spin default 6 min 1 max 64" << std::endl;
+#ifdef AETHERIS_DEFAULT_CLASSICAL
+            std::cout << "option name EngineMode type combo default PureClassical var DualCore var PureNNUE var PureClassical" << std::endl;
+#else
             std::cout << "option name EngineMode type combo default DualCore var DualCore var PureNNUE var PureClassical" << std::endl;
+#endif
             std::cout << "option name NNUEFile type string default weights.bin" << std::endl;
             std::cout << "uciok" << std::endl;
         } else if (cmd == "isready") {
