@@ -41,6 +41,8 @@ fun SimScreen(viewModel: SimViewModel, onBack: () -> Unit) {
     var solidityB by remember { mutableStateOf(viewModel.solidityB.toFloat()) }
     var tuneA by remember { mutableStateOf(false) }
     var tuneB by remember { mutableStateOf(false) }
+    var matchStarted by remember { mutableStateOf(false) }
+    LaunchedEffect(viewModel.running.value) { if (viewModel.running.value) matchStarted = true }
 
     fun applyPersona(persona: String, sideA: Boolean) {
         val values = when (persona) {
@@ -67,6 +69,7 @@ fun SimScreen(viewModel: SimViewModel, onBack: () -> Unit) {
                 TextButton(onClick = onBack) { Text("Back") }
             }
 
+            if (!matchStarted) {
             Column(
                 Modifier.fillMaxWidth().heightIn(max = 285.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -111,6 +114,8 @@ fun SimScreen(viewModel: SimViewModel, onBack: () -> Unit) {
                 )
             }
 
+            }
+
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     val maxBoard = if (maxWidth < maxHeight) maxWidth else maxHeight
@@ -132,23 +137,29 @@ fun SimScreen(viewModel: SimViewModel, onBack: () -> Unit) {
 
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                Button(
-                    onClick = {
-                        viewModel.depthA = depthA.toInt().coerceIn(1, 24)
-                        viewModel.depthB = depthB.toInt().coerceIn(1, 24)
-                        viewModel.timeMs = timeMs.toInt().coerceIn(100, 30000)
-                        viewModel.aggressionA = aggressionA.toInt(); viewModel.positionalA = positionalA.toInt()
-                        viewModel.complexityA = complexityA.toInt(); viewModel.solidityA = solidityA.toInt()
-                        viewModel.aggressionB = aggressionB.toInt(); viewModel.positionalB = positionalB.toInt()
-                        viewModel.complexityB = complexityB.toInt(); viewModel.solidityB = solidityB.toInt()
-                        viewModel.start()
-                    },
-                    enabled = !viewModel.running.value,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp)
-                ) { Text("Start Match") }
-                OutlinedButton(onClick = { viewModel.stop() }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
-                    Text("Stop")
+                if (!matchStarted) {
+                    Button(
+                        onClick = {
+                            viewModel.depthA = depthA.toInt().coerceIn(1, 24)
+                            viewModel.depthB = depthB.toInt().coerceIn(1, 24)
+                            viewModel.timeMs = timeMs.toInt().coerceIn(100, 30000)
+                            viewModel.aggressionA = aggressionA.toInt(); viewModel.positionalA = positionalA.toInt()
+                            viewModel.complexityA = complexityA.toInt(); viewModel.solidityA = solidityA.toInt()
+                            viewModel.aggressionB = aggressionB.toInt(); viewModel.positionalB = positionalB.toInt()
+                            viewModel.complexityB = complexityB.toInt(); viewModel.solidityB = solidityB.toInt()
+                            viewModel.start()
+                            matchStarted = true
+                        },
+                        enabled = !viewModel.running.value,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp)
+                    ) { Text("Start Match") }
+                } else {
+                    OutlinedButton(
+                        onClick = { viewModel.stop(); matchStarted = false },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp)
+                    ) { Text("Stop Match / Back to Setup") }
                 }
             }
         }
