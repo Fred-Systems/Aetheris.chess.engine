@@ -12,8 +12,8 @@ android {
         applicationId = "com.fredsystems.aetheris"
         minSdk = 26
         targetSdk = 34
-        versionCode = 16
-        versionName = "1.0.15"
+        versionCode = 17
+        versionName = "1.0.16"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
@@ -21,7 +21,7 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags += "-O3 -fno-exceptions -fno-rtti"
-                targets += listOf("aetheris", "aetheris_engine")
+                targets += listOf("aetheris", "aetheris_engine", "aetheris_classical")
             }
         }
     }
