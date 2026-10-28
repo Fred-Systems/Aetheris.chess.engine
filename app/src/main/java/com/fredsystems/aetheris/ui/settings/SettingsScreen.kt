@@ -193,6 +193,21 @@ fun SettingsScreen(
         }
 
         Spacer(Modifier.height(12.dp))
+        SettingsCard("Board sounds") {
+            SwitchRow("Move and check sound effects", settings.moveSoundsEnabled) {
+                viewModel.updateSettings(settings.copy(moveSoundsEnabled = it))
+            }
+            Text("Uses lightweight built-in Android tones for moves and checks. Sound is disabled when muted or volume is zero.",
+                color = Color(0xFF9B93B8), fontSize = 11.sp)
+            LabeledSlider(
+                title = "Sound volume",
+                valueText = "${settings.moveSoundVolume}%",
+                value = settings.moveSoundVolume.toFloat(),
+                range = 0f..100f
+            ) { viewModel.updateSettings(settings.copy(moveSoundVolume = it.toInt().coerceIn(0, 100))) }
+        }
+
+        Spacer(Modifier.height(12.dp))
         SettingsCard("Engine") {
             SwitchRow("Ponder during my turn", settings.pondering) {
                 viewModel.updateSettings(settings.copy(pondering = it))
