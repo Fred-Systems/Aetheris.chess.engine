@@ -41,6 +41,14 @@ EMSCRIPTEN_KEEPALIVE void aetheris_set_mode(int mode) {
     aetheris::setEngineMode(mode);
 }
 
+EMSCRIPTEN_KEEPALIVE void aetheris_set_personality(int aggression, int positional, int complexity, int solidity, int materialWeight) {
+    aetheris::setAggression(aggression);
+    aetheris::setPositional(positional);
+    aetheris::setComplexity(complexity);
+    aetheris::setSolidity(solidity);
+    aetheris::setMaterialWeight(materialWeight);
+}
+
 EMSCRIPTEN_KEEPALIVE int aetheris_eval(const char* fen) {
     if (!fen) return 0;
     aetheris::setPosition(std::string(fen));
