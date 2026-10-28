@@ -439,29 +439,21 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     private fun updateEvaluationAsync() {
+        // Keep startup and ordinary move handling lightweight. The multi-PV search
+        // used to run immediately when the ViewModel was created and could crash
+        // the app on affected native builds before the board was usable. Full
+        // principal variations are requested explicitly by AnalysisScreen.
         val fen = board.fen
         viewModelScope.launch {
-            val result = withContext(Dispatchers.Default) {
-                val count = if (settings.value.showEngineThinkingArrows) 3 else 1
-                val raw = runCatching {
-                    NativeEngine.analyzeFen(fen, options.value.depth.coerceIn(4, 10), 1800, count)
-                }.getOrDefault("")
+            val score = withContext(Dispatchers.Default) {
                 val whiteToMove = fen.split(" ").getOrNull(1) != "b"
-                val parsed = raw.lineSequence().mapNotNull { row ->
-                    val parts = row.split("|", limit = 2)
-                    if (parts.size != 2) return@mapNotNull null
-                    val moves = parts[0].trim().split(Regex("\\s+")).filter { it.length >= 4 }
-                    val score = parts[1].trim().toIntOrNull() ?: return@mapNotNull null
-                    if (moves.isEmpty()) null else EngineAnalysisLine(moves, if (whiteToMove) score else -score)
-                }.toList()
-                val score = parsed.firstOrNull()?.scoreCp
-                    ?: runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0).let { if (whiteToMove) it else -it }
-                Triple(score, parsed.firstOrNull()?.moves?.firstOrNull(), parsed)
+                val raw = runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
+                if (whiteToMove) raw else -raw
             }
             if (board.fen == fen) {
-                evaluation.value = result.first
-                bestMoveUci.value = result.second
-                analysisLines.value = result.third
+                evaluation.value = score
+                bestMoveUci.value = null
+                analysisLines.value = emptyList()
             }
         }
     }
