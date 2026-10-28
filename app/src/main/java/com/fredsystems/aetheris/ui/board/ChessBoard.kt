@@ -80,7 +80,8 @@ fun ChessBoard(
     pieceSet: String = "cburnett",
     boardTheme: BoardTheme = BoardThemes.byId("brown"),
     flipped: Boolean = false,
-    arrows: List<BoardArrow> = emptyList()
+    arrows: List<BoardArrow> = emptyList(),
+    blindfold: Boolean = false
 ) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -121,7 +122,7 @@ fun ChessBoard(
             .clip(RoundedCornerShape(18.dp))
             .background(BoardFrame)
             .onSizeChanged { boardWidthPx = it.width }
-            .pointerInput(flipped, board.pieces, board.sideToMove, board.gameOver) {
+            .pointerInput(flipped, board.pieces, board.sideToMove, board.gameOver, blindfold) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     val start = indexAt(down.position, size.width) ?: return@awaitEachGesture
@@ -257,7 +258,7 @@ fun ChessBoard(
                 val index = displayToIndex(row, col)
                 val piece = board.pieces[index]
                 val isDragged = dragging && index == dragFrom
-                if (piece != null && !isDragged && !(animating && index == board.lastMoveTo)) {
+                if (piece != null && !blindfold && !isDragged && !(animating && index == board.lastMoveTo)) {
                     PieceImage(
                         piece = piece,
                         pieceSet = pieceSet,
@@ -328,7 +329,7 @@ fun ChessBoard(
 
         if (dragging && dragFrom != null) {
             val piece = board.pieces[dragFrom!!]
-            if (piece != null) {
+            if (piece != null && !blindfold) {
                 PieceImage(
                     piece = piece,
                     pieceSet = pieceSet,
