@@ -606,7 +606,7 @@ static std::string moveToUci(Move m) {
 // Multi-PV analysis: search each legal root move, then follow the transposition
 // table's best replies to return a genuine principal-variation line per candidate.
 std::string searchTopLines(Board& b, int depth, int timeMs, int count) {
-    depth = std::max(1, std::min(depth, 12));
+    depth = std::max(1, std::min(depth, 20));
     timeMs = std::max(100, std::min(timeMs, 15000));
     count = std::max(1, std::min(count, 5));
     std::vector<Move> legal;
