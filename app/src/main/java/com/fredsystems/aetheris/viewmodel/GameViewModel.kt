@@ -200,8 +200,11 @@ class GameViewModel(private val context: Context) : ViewModel() {
         ponderCache.keys.removeAll { it.startsWith("${beforeFen}|") }
         val from = move.from.ordinal
         val to = move.to.ordinal
+        val isCapture = board.getPiece(move.to) != LibPiece.NONE || (board.getPiece(move.from).pieceType == LibPieceType.PAWN && move.from.file != move.to.file && board.getEnPassant() == move.to)
+        val isCastle = board.getPiece(move.from).pieceType == LibPieceType.KING && runCatching { board.context.isCastleMove(move) }.getOrDefault(false)
+        val isPromotion = move.promotion != LibPiece.NONE
         if (!board.doMove(move)) return
-        playMoveSound(board.isKingAttacked())
+        playMoveSound(board.isKingAttacked(), isCapture, isCastle, isPromotion)
         val currentIndex = historyIndex.value.coerceIn(0, positionHistory.lastIndex)
         while (positionHistory.size > currentIndex + 1) positionHistory.removeAt(positionHistory.lastIndex)
         while (moveList.size > currentIndex) moveList.removeAt(moveList.lastIndex)
@@ -230,12 +233,13 @@ class GameViewModel(private val context: Context) : ViewModel() {
         }
     }
 
-    private fun playMoveSound(check: Boolean) {
+    private fun playMoveSound(check: Boolean, capture: Boolean, castle: Boolean, promotion: Boolean) {
         val prefs = settings.value
         if (!prefs.moveSoundsEnabled || prefs.moveSoundVolume <= 0) return
         runCatching {
             val tone = ToneGenerator(AudioManager.STREAM_MUSIC, prefs.moveSoundVolume.coerceIn(1, 100))
-            tone.startTone(if (check) ToneGenerator.TONE_PROP_BEEP else ToneGenerator.TONE_PROP_ACK, 110)
+            val toneType = when { check -> ToneGenerator.TONE_PROP_BEEP; capture -> ToneGenerator.TONE_PROP_NACK; castle -> ToneGenerator.TONE_PROP_PROMPT; promotion -> ToneGenerator.TONE_PROP_BEEP; else -> ToneGenerator.TONE_PROP_ACK }
+            tone.startTone(toneType, if (check || promotion) 150 else 90)
             viewModelScope.launch {
                 delay(180)
                 tone.release()
