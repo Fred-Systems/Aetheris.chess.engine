@@ -8,6 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: write
 
 concurrency:
@@ -21,36 +22,28 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
+      - name: Download verified APK from successful build
+        uses: actions/download-artifact@v4
         with:
-          distribution: temurin
-          java-version: 17
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Set up Android NDK
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r26b
-
-      - name: Build signed release APK
-        run: gradle assembleRelease
+          name: aetheris-release-apk
+          path: downloaded-apk
+          run-id: 40618124725
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Prepare release assets
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p release-assets
-          APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)"
+          APK="$(find downloaded-apk -type f -name '*.apk' | head -n 1)"
           test -n "$APK"
           cp "$APK" release-assets/Aetheris.apk
 
-          mkdir -p release-assets/uci
+          mkdir -p release-assets/uci apk-extract
+          unzip -q "$APK" 'lib/*/libaetheris_engine.so' -d apk-extract
           for abi in arm64-v8a armeabi-v7a; do
-            BIN="$(find app/build -type f -name 'libaetheris_engine.so' | grep "/${abi}/" | head -n 1 || true)"
-            if [ -n "$BIN" ]; then
+            BIN="apk-extract/lib/${abi}/libaetheris_engine.so"
+            if [ -f "$BIN" ]; then
               mkdir -p "release-assets/uci/${abi}"
               cp "$BIN" "release-assets/uci/${abi}/aetheris_engine"
               chmod +x "release-assets/uci/${abi}/aetheris_engine"
