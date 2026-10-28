@@ -414,6 +414,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         ponderJob?.cancel()
         ponderJob = null
         ponderCache.clear()
+        pendingPremoves.clear()
         val chosen = when (colorChoice) {
             "black" -> PieceColor.BLACK
             "random" -> if (Random.nextBoolean()) PieceColor.WHITE else PieceColor.BLACK
@@ -516,10 +517,17 @@ class GameViewModel(private val context: Context) : ViewModel() {
             'r' -> LibPieceType.ROOK
             else -> LibPieceType.QUEEN
         }
-        val move = candidates.firstOrNull { it.promotion == LibPiece.NONE }
-            ?: candidates.firstOrNull { it.promotion.pieceType == desired }
+        val move = candidates.firstOrNull { it.promotion != LibPiece.NONE && it.promotion.pieceType == desired }
+            ?: candidates.firstOrNull { it.promotion == LibPiece.NONE }
             ?: candidates.first()
+        if (settings.value.conditionalMoves && uci.equals(conditionalOpponentUci, ignoreCase = true)) {
+            conditionalReplyUci?.let { reply ->
+                pendingPremoves.clear()
+                pendingPremoves.add(reply)
+            }
+        }
         makeMove(move, allowEngineReply = false)
+        runPendingPremove()
     }
 
     fun analyzePosition(count: Int = settings.value.analysisLineCount) {
