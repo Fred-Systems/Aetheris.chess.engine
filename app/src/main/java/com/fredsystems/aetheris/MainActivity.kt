@@ -449,7 +449,7 @@ private fun PlayFromHereDialog(
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Engine level", fontSize = 12.sp, color = Color(0xFF9B93B8))
-                    Text("Depth \${depth.toInt()}", fontWeight = FontWeight.Bold)
+                    Text("Depth ${depth.toInt()}", fontWeight = FontWeight.Bold)
                 }
                 Slider(value = depth, onValueChange = { depth = it }, valueRange = 1f..20f, steps = 18)
                 Text("Engine", fontSize = 12.sp, color = Color(0xFF9B93B8))
