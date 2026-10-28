@@ -103,6 +103,7 @@ jobs:
 
             - Engine-vs-engine matches switch to the live board after starting.
             - Default search depth increased to improve tactical calculation.
+            - Transposition scores are cleared when engine settings or NNUE weights change.
             - Play from Here configures color, time control, search depth, and engine mode.
             - Optional pondering searches likely user moves and reuses cached replies when the played move matches.
             - Evaluation uses a bounded alpha-beta search instead of relying only on static material evaluation.
