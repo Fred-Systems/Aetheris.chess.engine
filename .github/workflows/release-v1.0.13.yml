@@ -3,6 +3,8 @@ name: Release Aetheris v1.0.13
 on:
   push:
     branches: [ main ]
+    paths:
+      - .github/workflows/release-v1.0.13.yml
   workflow_dispatch:
 
 permissions:
@@ -14,7 +16,6 @@ concurrency:
 
 jobs:
   release:
-    if: github.event_name == 'workflow_dispatch' || (github.event.head_commit && contains(github.event.head_commit.message, 'Release Aetheris version 1.0.13'))
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
