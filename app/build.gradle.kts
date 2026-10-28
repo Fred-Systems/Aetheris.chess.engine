@@ -96,6 +96,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-    implementation("com.github.bhlangonijr:chesslib:1.3.3")
+    implementation("com.github.bhlangonijr:chesslib:1.3.7")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
