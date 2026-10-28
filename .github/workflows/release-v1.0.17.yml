@@ -1,4 +1,5 @@
 name: Release Aetheris v1.0.17
+# Keep this version's workflow as the only automatic release publisher; obsolete version workflows are manual-only.
 
 on:
   push:
