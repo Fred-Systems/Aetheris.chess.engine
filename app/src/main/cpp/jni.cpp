@@ -2,6 +2,7 @@
 #include "nnue.h"
 #include <jni.h>
 #include <string>
+#include <sstream>
 #include <android/log.h>
 #include <signal.h>
 #include <fcntl.h>
@@ -189,6 +190,36 @@ Java_com_fredsystems_aetheris_engine_NativeEngine_nativeRawNnueEvaluateFen(JNIEn
     setPosition(std::string(chars));
     env->ReleaseStringUTFChars(fen, chars);
     return nnueEvaluate(getBoard());
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_fredsystems_aetheris_engine_NativeEngine_nativeNnueSanityCheck(JNIEnv*, jobject) {
+    if (!nnueLoaded()) {
+        AETH_LOGE("NNUE Load Failed: sanity check requested without a loaded network");
+        return env->NewStringUTF("NNUE Load Failed");
+    }
+    struct CheckCase { const char* label; const char* fen; int expectedSign; };
+    const CheckCase cases[] = {
+        {"start", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 0},
+        {"white_queen_missing", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNB1KBNR w KQkq - 0 1", -1},
+        {"black_queen_missing", "rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 1}
+    };
+    std::ostringstream report;
+    bool sane = true;
+    for (const auto& test : cases) {
+        setPosition(test.fen);
+        const int cp = nnueEvaluate(getBoard()); // raw, unsearched NNUE score in centipawns
+        if (test.expectedSign == 0) sane = sane && std::abs(cp) <= 100;
+        else sane = sane && ((test.expectedSign < 0 && cp < 0) || (test.expectedSign > 0 && cp > 0));
+        if (test.expectedSign != 0 && (std::abs(cp) < 500 || std::abs(cp) > 1600)) sane = false;
+        AETH_LOGI("NNUE_SANITY %s raw_cp=%d", test.label, cp);
+        report << test.label << "=" << cp << "cp; ";
+    }
+    report << (sane ? "PASS" : "WARNING: weights/calibration failed sanity expectations");
+    if (!sane) AETH_LOGE("NNUE_SANITY_FAILED %s", report.str().c_str());
+    else AETH_LOGI("NNUE_SANITY_PASSED %s", report.str().c_str());
+    resetBoard();
+    return env->NewStringUTF(report.str().c_str());
 }
 
 JNIEXPORT jint JNICALL
