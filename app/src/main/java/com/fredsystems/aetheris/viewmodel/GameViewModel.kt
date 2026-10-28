@@ -9,8 +9,7 @@ import com.fredsystems.aetheris.data.GameRepository
 import com.fredsystems.aetheris.domain.model.GameRecord
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.media.AudioManager
-import android.media.ToneGenerator
+import com.fredsystems.aetheris.audio.LichessSoundPlayer
 import com.fredsystems.aetheris.domain.model.AppSettings
 import com.fredsystems.aetheris.domain.model.BoardState
 import com.fredsystems.aetheris.domain.model.EngineMode
@@ -43,6 +42,7 @@ data class EngineAnalysisLine(val moves: List<String>, val scoreCp: Int)
 
 class GameViewModel(private val context: Context) : ViewModel() {
     private val store = SettingsStore(context)
+    private val soundPlayer = LichessSoundPlayer(context.applicationContext)
     private var board = Board()
     private val moveList = mutableListOf<String>()
     private val positionHistory = mutableListOf<String>()
@@ -98,7 +98,8 @@ class GameViewModel(private val context: Context) : ViewModel() {
                 val startPositionCp = NativeEngine.evaluateFen(startFen)
                 applyNativeOptions(configuredOptions)
                 android.util.Log.i("AetherisNNUE", "NNUE loaded; raw start score=$rawNnueCp cp; blended score=$startPositionCp cp")
-                nnueStatus.value = "NNUE loaded · raw $rawNnueCp cp · calibrated hybrid $startPositionCp cp"
+                val sanity = NativeEngine.nnueSanityCheck()
+                nnueStatus.value = "NNUE loaded · start $rawNnueCp cp · $sanity"
             } else {
                 nnueStatus.value = "NNUE Load Failed — Classical fallback active"
                 android.util.Log.e("AetherisNNUE", "NNUE Load Failed: bundled and custom network unavailable")
@@ -236,15 +237,12 @@ class GameViewModel(private val context: Context) : ViewModel() {
     private fun playMoveSound(check: Boolean, capture: Boolean, castle: Boolean, promotion: Boolean) {
         val prefs = settings.value
         if (!prefs.moveSoundsEnabled || prefs.moveSoundVolume <= 0) return
-        runCatching {
-            val tone = ToneGenerator(AudioManager.STREAM_MUSIC, prefs.moveSoundVolume.coerceIn(1, 100))
-            val toneType = when { check -> ToneGenerator.TONE_PROP_BEEP; capture -> ToneGenerator.TONE_PROP_NACK; castle -> ToneGenerator.TONE_PROP_PROMPT; promotion -> ToneGenerator.TONE_PROP_BEEP; else -> ToneGenerator.TONE_PROP_ACK }
-            tone.startTone(toneType, if (check || promotion) 150 else 90)
-            viewModelScope.launch {
-                delay(180)
-                tone.release()
-            }
-        }.onFailure { android.util.Log.w("AetherisAudio", "Could not play move sound", it) }
+        // Match Lichess Standard's event sounds instead of synthesizing harsh system beeps.
+        soundPlayer.play(when {
+            check -> "check"
+            capture -> "capture"
+            else -> "move"
+        }, prefs.moveSoundVolume)
     }
 
     private fun startPonderingIfNeeded() {
@@ -890,21 +888,34 @@ class GameViewModel(private val context: Context) : ViewModel() {
 
     private fun ensureNnueAsset(): String? {
         return try {
-            // Prefer the current 512-hidden-unit network at the asset root. Replace
-            // stale cached legacy weights so upgrades actually use the bundled model.
             val out = java.io.File(context.filesDir, "nnue/weights.bin")
             out.parentFile?.mkdirs()
-            if (!out.exists() || out.length() < 1_000_000L) {
-                val temp = java.io.File(out.parentFile, "weights.bin.tmp")
-                context.assets.open("weights.bin").use { input ->
-                    temp.outputStream().use { output -> input.copyTo(output) }
+            val assetBytes = context.assets.open("weights.bin").use { it.readBytes() }
+            val assetDigest = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(assetBytes).joinToString("") { "%02x".format(it) }
+            val cachedDigest = if (out.isFile) {
+                java.io.FileInputStream(out).use { input ->
+                    val digest = java.security.MessageDigest.getInstance("SHA-256")
+                    val buffer = ByteArray(16 * 1024)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        digest.update(buffer, 0, count)
+                    }
+                    digest.digest().joinToString("") { "%02x".format(it) }
                 }
-                if (out.exists()) out.delete()
+            } else ""
+            if (!out.isFile || cachedDigest != assetDigest) {
+                val temp = java.io.File(out.parentFile, "weights.bin.tmp")
+                temp.outputStream().use { it.write(assetBytes) }
+                if (out.exists() && !out.delete()) throw java.io.IOException("Unable to replace stale NNUE cache")
                 if (!temp.renameTo(out)) throw java.io.IOException("Unable to install bundled NNUE weights")
+                android.util.Log.i("AetherisNNUE", "Updated cached NNUE weights, bytes=${out.length()}, sha256=$assetDigest")
             }
             if (out.length() < 1_000_000L) throw java.io.IOException("Bundled NNUE file is unexpectedly small")
             out.absolutePath
         } catch (e: Exception) {
+            android.util.Log.e("AetherisNNUE", "NNUE Load Failed while preparing the bundled weights", e)
             null
         }
     }
@@ -951,6 +962,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
 
     override fun onCleared() {
         clockJob?.cancel()
+        soundPlayer.release()
         super.onCleared()
     }
 }
