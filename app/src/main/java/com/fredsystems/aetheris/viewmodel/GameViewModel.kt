@@ -548,7 +548,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch {
             val raw = withContext(Dispatchers.Default) {
                 runCatching {
-                    NativeEngine.analyzeFen(fen, requestedDepth, 5000, count.coerceIn(1, 5))
+                    NativeEngine.analyzeFen(fen, requestedDepth, (5000 + requestedDepth * 500).coerceAtMost(15000), count.coerceIn(1, 5))
                 }.getOrDefault("")
             }
             if (board.fen == fen) {
