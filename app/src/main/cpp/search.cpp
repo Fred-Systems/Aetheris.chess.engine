@@ -296,6 +296,10 @@ struct TTEntry2 { std::uint64_t key; int depth; int score; int flag; Move best; 
 // Keep the transposition table modest on memory-constrained Android devices.
 static std::vector<TTEntry2> tt2(1 << 18);
 
+static int historyHeuristic[2][64][64] = {};
+static Move killerMoves[128][2] = {};
+
+
 void clearSearchTables() {
     std::fill(tt2.begin(), tt2.end(), TTEntry2{});
     std::memset(historyHeuristic, 0, sizeof(historyHeuristic));
@@ -310,9 +314,6 @@ static bool stopSearch = false;
 
 // History and killer heuristics learn which quiet moves tend to cause cutoffs.
 // They are intentionally bounded and reset with the transposition table.
-static int historyHeuristic[2][64][64] = {};
-static Move killerMoves[128][2] = {};
-
 static bool timeUp() {
     if (timeLimitMs <= 0) return false;
     auto now = std::chrono::steady_clock::now();
