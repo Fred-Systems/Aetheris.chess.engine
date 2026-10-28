@@ -70,6 +70,8 @@ class GameViewModel(private val context: Context) : ViewModel() {
 
     private var engineGeneration = 0
     private var clockJob: Job? = null
+    private var ponderJob: Job? = null
+    private val ponderCache = mutableMapOf<String, String>()
 
     init {
         positionHistory.add(board.fen)
@@ -152,6 +154,13 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     private fun makeMove(move: LibMove, allowEngineReply: Boolean) {
+        val beforeFen = board.fen
+        val moveUci = move.toString().lowercase()
+        val ponderKey = "${beforeFen}|${moveUci}"
+        val cachedPonderReply = if (allowEngineReply && settings.value.pondering) ponderCache[ponderKey] else null
+        ponderJob?.cancel()
+        ponderJob = null
+        ponderCache.keys.removeAll { it.startsWith("${beforeFen}|") }
         val from = move.from.ordinal
         val to = move.to.ordinal
         if (!board.doMove(move)) return
@@ -172,7 +181,83 @@ class GameViewModel(private val context: Context) : ViewModel() {
         boardState.value = next
         if (moveTimeSeconds.value > 0) resetClocks()
         updateEvaluationAsync()
-        if (allowEngineReply) maybeEngineMove()
+        if (allowEngineReply) {
+            val legalCachedReply = cachedPonderReply?.takeIf { uci ->
+                board.legalMoves().any { it.toString().equals(uci, ignoreCase = true) }
+            }
+            if (legalCachedReply != null) applyUciMove(legalCachedReply)
+            else maybeEngineMove()
+        } else {
+            startPonderingIfNeeded()
+        }
+    }
+
+    private fun startPonderingIfNeeded() {
+        if (!settings.value.pondering || mode.value != PlayMode.PLAY ||
+            boardState.value.gameOver || !engineAvailable.value || engineThinking.value) return
+        val userSide = if (playerColor.value == PieceColor.WHITE) Side.WHITE else Side.BLACK
+        if (board.sideToMove != userSide) return
+        val rootFen = board.fen
+        val candidates = board.legalMoves().sortedByDescending { move ->
+            if (board.getPiece(move.to) != LibPiece.NONE) 2 else if (move.promotion != LibPiece.NONE) 3 else 0
+        }.take(6).map { it.toString().lowercase() }
+        if (candidates.isEmpty()) return
+        ponderJob?.cancel()
+        ponderJob = viewModelScope.launch {
+            for (userMove in candidates) {
+                if (!isActive || board.fen != rootFen || !settings.value.pondering) break
+                val reply = withContext(Dispatchers.Default) {
+                    runCatching {
+                        val speculative = Board()
+                        speculative.loadFromFen(rootFen)
+                        val candidate = speculative.legalMoves().firstOrNull {
+                            it.toString().equals(userMove, ignoreCase = true)
+                        } ?: return@runCatching ""
+                        if (!speculative.doMove(candidate)) return@runCatching ""
+                        NativeEngine.searchPosition(speculative.fen, 5, 350).lowercase()
+                    }.getOrDefault("")
+                }
+                if (reply.length >= 4 && isActive && board.fen == rootFen && settings.value.pondering) {
+                    ponderCache["$rootFen|$userMove"] = reply
+                }
+            }
+        }
+    }
+
+    fun startGameFromHere(colorChoice: String, timeControlId: String, depth: Int, engineMode: EngineMode) {
+        val target = historyIndex.value.coerceIn(0, positionHistory.lastIndex)
+        runCatching { board.loadFromFen(positionHistory[target]) }
+        while (positionHistory.size > target + 1) positionHistory.removeAt(positionHistory.lastIndex)
+        while (moveList.size > target) moveList.removeAt(moveList.lastIndex)
+        historyIndex.value = target
+        historyLength.value = positionHistory.size
+        val chosen = when (colorChoice) {
+            "black" -> PieceColor.BLACK
+            "random" -> if (Random.nextBoolean()) PieceColor.WHITE else PieceColor.BLACK
+            else -> PieceColor.WHITE
+        }
+        playerColor.value = chosen
+        flipped.value = chosen == PieceColor.BLACK
+        mode.value = PlayMode.PLAY
+        engineGeneration++
+        engineThinking.value = false
+        analysisLines.value = emptyList()
+        bestMoveUci.value = null
+        options.value = options.value.copy(depth = depth.coerceIn(1, 20), mode = engineMode)
+        applyNativeOptions(options.value)
+        val tc = TimeControl.byId(timeControlId)
+        timeControlSeconds.value = tc.seconds
+        moveTimeSeconds.value = settings.value.moveTimeSeconds
+        saveSettings(settings.value.copy(
+            playerColor = if (chosen == PieceColor.WHITE) "white" else "black",
+            timeControl = tc.id,
+            flipped = flipped.value
+        ))
+        resetClocks()
+        boardState.value = toUi(board).copy(moveNumber = target)
+        updateEvaluationAsync()
+        if ((board.sideToMove == Side.WHITE) == (chosen == PieceColor.WHITE)) startPonderingIfNeeded()
+        else maybeEngineMove()
     }
 
     private fun maybeEngineMove() {
@@ -476,7 +561,13 @@ class GameViewModel(private val context: Context) : ViewModel() {
 
     fun updateSettings(s: AppSettings) {
         val playerColorChanged = s.playerColor != settings.value.playerColor
+        val ponderingChanged = s.pondering != settings.value.pondering
         saveSettings(s)
+        if (ponderingChanged) {
+            ponderJob?.cancel()
+            ponderCache.clear()
+            if (s.pondering) startPonderingIfNeeded()
+        }
         if (s.flipped != flipped.value) flipped.value = s.flipped
         timeControlSeconds.value = TimeControl.byId(s.timeControl).seconds
         moveTimeSeconds.value = s.moveTimeSeconds
@@ -506,15 +597,15 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     private fun updateEvaluationAsync() {
-        // Keep startup and ordinary move handling lightweight. The multi-PV search
-        // used to run immediately when the ViewModel was created and could crash
-        // the app on affected native builds before the board was usable. Full
-        // principal variations are requested explicitly by AnalysisScreen.
+        // Prefer a bounded searched score over static material-only evaluation so
+        // immediate recaptures, forcing checks, and short mating tactics influence the bar.
         val fen = board.fen
         viewModelScope.launch {
             val score = withContext(Dispatchers.Default) {
                 val whiteToMove = fen.split(" ").getOrNull(1) != "b"
-                val raw = runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
+                val searched = runCatching { NativeEngine.analyzeFen(fen, 5, 900, 1) }.getOrDefault("")
+                val searchedCp = searched.lineSequence().firstOrNull()?.substringAfterLast("|")?.trim()?.toIntOrNull()
+                val raw = searchedCp ?: runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
                 if (whiteToMove) raw else -raw
             }
             if (board.fen == fen) {
