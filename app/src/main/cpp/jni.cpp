@@ -210,9 +210,9 @@ Java_com_fredsystems_aetheris_engine_NativeEngine_nativeNnueSanityCheck(JNIEnv* 
     for (const auto& test : cases) {
         setPosition(test.fen);
         const int cp = nnueEvaluate(getBoard()); // raw, unsearched NNUE score in centipawns
-        if (test.expectedSign == 0) sane = sane && std::abs(cp) <= 100;
+        if (test.expectedSign == 0) sane = sane && std::abs(cp) <= 40;
         else sane = sane && ((test.expectedSign < 0 && cp < 0) || (test.expectedSign > 0 && cp > 0));
-        if (test.expectedSign != 0 && (std::abs(cp) < 500 || std::abs(cp) > 1600)) sane = false;
+        if (test.expectedSign != 0 && (std::abs(cp) < 800 || std::abs(cp) > 1200)) sane = false;
         AETH_LOGI("NNUE_SANITY %s raw_cp=%d", test.label, cp);
         report << test.label << "=" << cp << "cp; ";
     }
