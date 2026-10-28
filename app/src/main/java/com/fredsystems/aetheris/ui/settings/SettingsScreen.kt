@@ -100,6 +100,26 @@ fun SettingsScreen(
         viewModel.resetAllSettings()
     }
 
+    fun downloadApkToDownloads(url: String) {
+        runCatching {
+            val request = DownloadManager.Request(Uri.parse(url))
+                .setTitle("Aetheris APK")
+                .setDescription("Download the installer without installing it")
+                .setMimeType("application/vnd.android.package-archive")
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                .setAllowedOverMetered(true)
+                .setAllowedOverRoaming(false)
+                .setDestinationInExternalPublicDir(
+                    Environment.DIRECTORY_DOWNLOADS,
+                    "Aetheris-${System.currentTimeMillis()}.apk"
+                )
+            (context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
+            Toast.makeText(context, "APK download started. It will appear in Downloads.", Toast.LENGTH_LONG).show()
+        }.onFailure {
+            Toast.makeText(context, "Could not start APK download: ${it.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
     fun checkUpdate() {
         checkingUpdate = true
         scope.launch {
@@ -552,9 +572,9 @@ fun SettingsScreen(
             dismissButton = {
                 if (updateUrl != null) {
                     TextButton(onClick = {
-                        updater.downloadAndInstall(updateUrl!!)
+                        downloadApkToDownloads(updateUrl!!)
                         showUpdateDialog = false
-                    }) { Text("Download APK") }
+                    }) { Text("Download APK to Downloads") }
                 }
             }
         )
