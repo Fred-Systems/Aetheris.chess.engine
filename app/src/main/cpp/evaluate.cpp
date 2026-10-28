@@ -36,6 +36,42 @@ static bool fileHasPawn(const Board& b, int file, int side) {
     return (b.pieces[side][PAWN] & fileMask) != 0;
 }
 
+static bool pawnSupportsSquare(Bitboard pawns, int square, int side) {
+    const int file = square & 7, rank = square >> 3;
+    const int sourceRank = side == WHITE ? rank - 1 : rank + 1;
+    if (sourceRank < 0 || sourceRank > 7) return false;
+    if (file > 0 && (pawns & (1ULL << (sourceRank * 8 + file - 1)))) return true;
+    if (file < 7 && (pawns & (1ULL << (sourceRank * 8 + file + 1)))) return true;
+    return false;
+}
+
+static bool enemyPawnCanAttackSquare(Bitboard pawns, int square, int enemySide) {
+    const int file = square & 7, rank = square >> 3;
+    const int sourceRank = enemySide == WHITE ? rank - 1 : rank + 1;
+    if (sourceRank < 0 || sourceRank > 7) return false;
+    if (file > 0 && (pawns & (1ULL << (sourceRank * 8 + file - 1)))) return true;
+    if (file < 7 && (pawns & (1ULL << (sourceRank * 8 + file + 1)))) return true;
+    return false;
+}
+
+static bool rookPairConnected(const Board& b, int a, int c) {
+    if ((a >> 3) == (c >> 3)) {
+        const int low = std::min(a & 7, c & 7) + 1;
+        const int high = std::max(a & 7, c & 7);
+        for (int f = low; f < high; ++f)
+            if (b.all & (1ULL << ((a >> 3) * 8 + f))) return false;
+        return true;
+    }
+    if ((a & 7) == (c & 7)) {
+        const int low = std::min(a >> 3, c >> 3) + 1;
+        const int high = std::max(a >> 3, c >> 3);
+        for (int r = low; r < high; ++r)
+            if (b.all & (1ULL << (r * 8 + (a & 7)))) return false;
+        return true;
+    }
+    return false;
+}
+
 static int classicalWhiteScore(const Board& b) {
     int score = 0;
     int phase = 0; // tapered king evaluation: 0=endgame, 24=opening
@@ -96,9 +132,18 @@ static int classicalWhiteScore(const Board& b) {
                     case KNIGHT:
                         positionalBonus += (7 - cd) * (positional / 50 + 2);
                         if (relativeRank == 0 || relativeRank == 7) positionalBonus -= 12;
+                        // A supported outpost that enemy pawns cannot chase is a durable asset.
+                        if (relativeRank >= 3 && relativeRank <= 5 &&
+                            pawnSupportsSquare(ownPawns, sq, side) &&
+                            !enemyPawnCanAttackSquare(enemyPawns, sq, side ^ 1))
+                            positionalBonus += 12 + positional / 10;
                         break;
                     case BISHOP:
                         positionalBonus += (7 - cd) * (positional / 25 + 1);
+                        if (relativeRank >= 3 && relativeRank <= 5 &&
+                            pawnSupportsSquare(ownPawns, sq, side) &&
+                            !enemyPawnCanAttackSquare(enemyPawns, sq, side ^ 1))
+                            positionalBonus += 7 + positional / 14;
                         break;
                     case ROOK:
                         if (!fileHasPawn(b, file, side)) positionalBonus += 10 + positional / 8;
@@ -129,6 +174,67 @@ static int classicalWhiteScore(const Board& b) {
         // Bishop pair is a meaningful long-term asset.
         if (__builtin_popcountll(b.pieces[side][BISHOP]) >= 2)
             score += sign * (26 + positional / 5);
+
+        // Connected rooks coordinate on open files and rank-seven pressure.
+        {
+            Bitboard rooks = b.pieces[side][ROOK];
+            int squares[2] = {-1, -1}, count = 0;
+            while (rooks && count < 2) {
+                squares[count++] = __builtin_ctzll(rooks);
+                rooks &= rooks - 1;
+            }
+            if (count == 2 && rookPairConnected(b, squares[0], squares[1]))
+                score += sign * (12 + positional / 8);
+        }
+
+        // Pawn chains and protected passers are harder to undermine tactically.
+        {
+            Bitboard pawns = ownPawns;
+            while (pawns) {
+                const int sq = __builtin_ctzll(pawns);
+                pawns &= pawns - 1;
+                if (pawnSupportsSquare(ownPawns, sq, side))
+                    score += sign * (5 + solidity / 20);
+                const int relativeRank = side == WHITE ? (sq >> 3) : 7 - (sq >> 3);
+                if (relativeRank >= 4 && pawnSupportsSquare(ownPawns, sq, side))
+                    score += sign * (relativeRank - 3) * 3;
+            }
+        }
+
+        // King shelter is valuable before the queens come off. Missing shield pawns
+        // and open files adjacent to the king create long-term attack targets.
+        if (phase > 8) {
+            const Bitboard kingBits = b.pieces[side][KING];
+            if (kingBits) {
+                const int kingSq = __builtin_ctzll(kingBits);
+                const int kingFile = kingSq & 7, kingRank = kingSq >> 3;
+                const int shieldRank = kingRank + (side == WHITE ? 1 : -1);
+                for (int df = -1; df <= 1; ++df) {
+                    const int sf = kingFile + df;
+                    if (sf < 0 || sf > 7) continue;
+                    if (shieldRank < 0 || shieldRank > 7) {
+                        score -= sign * 6;
+                        continue;
+                    }
+                    const bool shieldPawn = (ownPawns & (1ULL << (shieldRank * 8 + sf))) != 0;
+                    score += sign * (shieldPawn ? 10 + phase / 3 : -8);
+                    if (!fileHasPawn(b, sf, side) && !fileHasPawn(b, sf, side ^ 1))
+                        score -= sign * 5;
+                }
+            }
+        }
+
+        // Space: pieces that occupy the opponent's half support safer manoeuvring.
+        for (int p = KNIGHT; p <= QUEEN; ++p) {
+            Bitboard pieces = b.pieces[side][p];
+            while (pieces) {
+                const int sq = __builtin_ctzll(pieces);
+                pieces &= pieces - 1;
+                const int rank = sq >> 3;
+                if ((side == WHITE && rank >= 3) || (side == BLACK && rank <= 4))
+                    score += sign * (p == KNIGHT || p == BISHOP ? 3 : 1);
+            }
+        }
 
         // Small mobility term rewards active minor/major pieces without requiring attack tables.
         for (int p = KNIGHT; p <= QUEEN; ++p) {
