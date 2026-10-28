@@ -183,6 +183,15 @@ Java_com_fredsystems_aetheris_engine_NativeEngine_nativeEvaluate(JNIEnv*, jobjec
 }
 
 JNIEXPORT jint JNICALL
+Java_com_fredsystems_aetheris_engine_NativeEngine_nativeRawNnueEvaluateFen(JNIEnv* env, jobject, jstring fen) {
+    const char* chars = env->GetStringUTFChars(fen, nullptr);
+    if (!chars) return 0;
+    setPosition(std::string(chars));
+    env->ReleaseStringUTFChars(fen, chars);
+    return nnueEvaluate(getBoard());
+}
+
+JNIEXPORT jint JNICALL
 Java_com_fredsystems_aetheris_engine_NativeEngine_nativeEvaluateFen(JNIEnv* env, jobject, jstring fen) {
     const char* chars = env->GetStringUTFChars(fen, nullptr);
     if (!chars) return 0;
