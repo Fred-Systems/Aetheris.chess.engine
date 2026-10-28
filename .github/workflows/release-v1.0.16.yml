@@ -31,6 +31,9 @@ jobs:
       - name: Configure Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Diagnose bundled NNUE weights and feature mapping
+        run: python3 training/validate_weights.py app/src/main/assets/weights.bin
+
       - name: Set up Android NDK
         uses: nttld/setup-ndk@v1
         with:
