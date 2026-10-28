@@ -9,6 +9,8 @@ import com.fredsystems.aetheris.data.GameRepository
 import com.fredsystems.aetheris.domain.model.GameRecord
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.media.AudioManager
+import android.media.ToneGenerator
 import com.fredsystems.aetheris.domain.model.AppSettings
 import com.fredsystems.aetheris.domain.model.BoardState
 import com.fredsystems.aetheris.domain.model.EngineMode
@@ -167,6 +169,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val from = move.from.ordinal
         val to = move.to.ordinal
         if (!board.doMove(move)) return
+        playMoveSound(board.isKingAttacked())
         val currentIndex = historyIndex.value.coerceIn(0, positionHistory.lastIndex)
         while (positionHistory.size > currentIndex + 1) positionHistory.removeAt(positionHistory.lastIndex)
         while (moveList.size > currentIndex) moveList.removeAt(moveList.lastIndex)
@@ -193,6 +196,19 @@ class GameViewModel(private val context: Context) : ViewModel() {
         } else {
             startPonderingIfNeeded()
         }
+    }
+
+    private fun playMoveSound(check: Boolean) {
+        val prefs = settings.value
+        if (!prefs.moveSoundsEnabled || prefs.moveSoundVolume <= 0) return
+        runCatching {
+            val tone = ToneGenerator(AudioManager.STREAM_MUSIC, prefs.moveSoundVolume.coerceIn(1, 100))
+            tone.startTone(if (check) ToneGenerator.TONE_PROP_BEEP else ToneGenerator.TONE_PROP_ACK, 110)
+            viewModelScope.launch {
+                delay(180)
+                tone.release()
+            }
+        }.onFailure { android.util.Log.w("AetherisAudio", "Could not play move sound", it) }
     }
 
     private fun startPonderingIfNeeded() {
