@@ -2,7 +2,13 @@
 #include "nnue.h"
 #include <algorithm>
 #include <cstdlib>
+#ifdef __ANDROID__
 #include <android/log.h>
+#else
+#define ANDROID_LOG_INFO 0
+#define ANDROID_LOG_ERROR 0
+#define __android_log_print(...) ((void)0)
+#endif
 // v1.0.14 evaluation diagnostics and mode separation.
 
 namespace aetheris {
