@@ -1,10 +1,7 @@
 package com.fredsystems.aetheris.updater
 
-import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
-import android.os.Environment
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
@@ -50,14 +47,24 @@ class GitHubUpdater(private val context: Context) {
     }
 
     fun downloadAndInstall(apkUrl: String) {
-        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val req = DownloadManager.Request(Uri.parse(apkUrl))
-            .setTitle("Aetheris Update")
-            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "aetheris-update.apk")
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-        dm.enqueue(req)
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            val target = File(context.cacheDir, "aetheris-update.apk")
+            runCatching {
+                val request = Request.Builder().url(apkUrl).header("Accept", "application/vnd.android.package-archive").build()
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) error("Download failed (HTTP ${'$'}{response.code})")
+                    val body = response.body ?: error("The release returned an empty APK")
+                    body.byteStream().use { input -> target.outputStream().use { output -> input.copyTo(output) } }
+                }
+                if (target.length() < 100_000L) error("Downloaded APK is too small to be valid")
+                withContext(Dispatchers.Main) { installApk(target) }
+            }.onFailure { error ->
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(context, "Aetheris update failed: ${'$'}{error.message ?: "unknown error"}", android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
-
     fun installApk(file: File) {
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
         val intent = Intent(Intent.ACTION_VIEW).apply {
