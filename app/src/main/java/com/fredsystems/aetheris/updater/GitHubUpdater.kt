@@ -70,18 +70,17 @@ class GitHubUpdater(private val context: Context) {
             }
         }
     }
+    @Suppress("DEPRECATION")
     private fun hasMatchingSigner(apk: File): Boolean {
         val pm = context.packageManager
         val installed = if (Build.VERSION.SDK_INT >= 28) {
             pm.getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
         } else {
-            @Suppress("DEPRECATION")
             pm.getPackageInfo(context.packageName, PackageManager.GET_SIGNATURES)
         }
         val archive = if (Build.VERSION.SDK_INT >= 28) {
             pm.getPackageArchiveInfo(apk.absolutePath, PackageManager.GET_SIGNING_CERTIFICATES)
         } else {
-            @Suppress("DEPRECATION")
             pm.getPackageArchiveInfo(apk.absolutePath, PackageManager.GET_SIGNATURES)
         } ?: return false
         if (archive.packageName != context.packageName) return false
@@ -90,9 +89,7 @@ class GitHubUpdater(private val context: Context) {
             val archiveSigners = archive.signingInfo?.apkContentsSigners?.map { it.toCharsString() }?.toSet()
             !installedSigners.isNullOrEmpty() && installedSigners == archiveSigners
         } else {
-            @Suppress("DEPRECATION")
             installed.signatures?.map { it.toCharsString() }?.toSet() ==
-                @Suppress("DEPRECATION")
                 archive.signatures?.map { it.toCharsString() }?.toSet()
         }
     }
