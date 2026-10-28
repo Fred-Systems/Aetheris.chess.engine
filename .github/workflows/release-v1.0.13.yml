@@ -1,10 +1,7 @@
 name: Release Aetheris v1.0.13
 
+# Retired release workflow: manual reruns only; never republish an obsolete version.
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - .github/workflows/release-v1.0.13.yml
   workflow_dispatch:
 
 permissions:
