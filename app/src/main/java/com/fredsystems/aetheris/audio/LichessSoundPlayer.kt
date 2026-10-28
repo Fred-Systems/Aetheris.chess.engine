@@ -37,9 +37,7 @@ class LichessSoundPlayer(context: Context) {
 
     private val files = mapOf(
         "move" to "Move.mp3",
-        "capture" to "Capture.mp3",
-        // Lichess Standard's Check asset aliases the standard move sound.
-        "check" to "Move.mp3"
+        "capture" to "Capture.mp3"
     )
 
     init {
@@ -86,7 +84,7 @@ class LichessSoundPlayer(context: Context) {
     }
 
     fun play(event: String, volumePercent: Int) {
-        val id = soundIds[event] ?: return
+        val id = soundIds[event] ?: if (event == "check") soundIds["move"] else null ?: return
         if (!loadedIds.contains(id)) return
         val volume = volumePercent.coerceIn(0, 100) / 100f
         if (volume <= 0f) return
