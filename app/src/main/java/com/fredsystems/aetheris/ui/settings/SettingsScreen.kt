@@ -215,8 +215,8 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(12.dp))
         SettingsCard("Board sounds") {
-            SwitchRow("Move and check sound effects", settings.moveSoundsEnabled) {
-                viewModel.updateSettings(settings.copy(moveSoundsEnabled = it))
+            SwitchRow("Mute board sounds", !settings.moveSoundsEnabled) {
+                viewModel.updateSettings(settings.copy(moveSoundsEnabled = !it))
             }
             Text("Uses Lichess Standard move/capture audio, loaded from Lichess on first use and cached privately. Internet is needed for the initial sound download.",
                 color = Color(0xFF9B93B8), fontSize = 11.sp)
