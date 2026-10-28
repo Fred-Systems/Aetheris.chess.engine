@@ -92,14 +92,21 @@ class GameViewModel(private val context: Context) : ViewModel() {
             (if (customNnue.isFile) customNnue.absolutePath else bundledNnue)?.let { NativeEngine.setNnue(it) }
             if (NativeEngine.isNnueLoaded()) {
                 val configuredOptions = options.value
-                applyNativeOptions(configuredOptions.copy(mode = EngineMode.PURE_NNUE))
                 val startFen = board.fen
                 val rawNnueCp = NativeEngine.rawNnueEvaluateFen(startFen)
-                val startPositionCp = NativeEngine.evaluateFen(startFen)
-                applyNativeOptions(configuredOptions)
-                android.util.Log.i("AetherisNNUE", "NNUE loaded; raw start score=$rawNnueCp cp; blended score=$startPositionCp cp")
                 val sanity = NativeEngine.nnueSanityCheck()
-                nnueStatus.value = "NNUE loaded · start $rawNnueCp cp · $sanity"
+                if (sanity.contains("WARNING") || sanity.contains("NNUE Load Failed")) {
+                    options.value = configuredOptions.copy(mode = EngineMode.PURE_CLASSICAL)
+                    applyNativeOptions(options.value)
+                    nnueStatus.value = "NNUE calibration failed; Classical fallback active · raw start $rawNnueCp cp · $sanity"
+                    android.util.Log.e("AetherisNNUE", nnueStatus.value)
+                } else {
+                    applyNativeOptions(configuredOptions.copy(mode = EngineMode.PURE_NNUE))
+                    val startPositionCp = NativeEngine.evaluateFen(startFen)
+                    applyNativeOptions(configuredOptions)
+                    android.util.Log.i("AetherisNNUE", "NNUE loaded; raw start=$rawNnueCp cp; calibrated NNUE score=$startPositionCp cp; $sanity")
+                    nnueStatus.value = "NNUE calibrated · start $rawNnueCp cp · $sanity"
+                }
             } else {
                 nnueStatus.value = "NNUE Load Failed — Classical fallback active"
                 android.util.Log.e("AetherisNNUE", "NNUE Load Failed: bundled and custom network unavailable")
@@ -652,7 +659,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     fun updateOptions(o: EngineOptions) {
-        val nnueRejected = nnueStatus.value.contains("rejected", ignoreCase = true) || nnueStatus.value.contains("failed calibration", ignoreCase = true)
+        val nnueRejected = nnueStatus.value.contains("rejected", ignoreCase = true) || nnueStatus.value.contains("failed calibration", ignoreCase = true) || nnueStatus.value.contains("calibration failed", ignoreCase = true) || nnueStatus.value.contains("WARNING", ignoreCase = true) || nnueStatus.value.contains("NNUE Load Failed", ignoreCase = true)
         val safe = if (o.mode == EngineMode.PURE_NNUE && nnueRejected) o.copy(mode = EngineMode.PURE_CLASSICAL) else o
         options.value = safe
         applyNativeOptions(safe)
@@ -869,6 +876,15 @@ class GameViewModel(private val context: Context) : ViewModel() {
             if (source.absolutePath != custom.absolutePath) source.copyTo(custom, overwrite = true)
             NativeEngine.setNnue(custom.absolutePath)
             if (NativeEngine.isNnueLoaded()) {
+                val sanity = NativeEngine.nnueSanityCheck()
+                if (sanity.contains("WARNING") || sanity.contains("NNUE Load Failed")) {
+                    custom.delete()
+                    ensureNnueAsset()?.let { NativeEngine.setNnue(it); NativeEngine.nnueSanityCheck() }
+                    options.value = options.value.copy(mode = EngineMode.PURE_CLASSICAL)
+                    applyNativeOptions(options.value)
+                    nnueStatus.value = "Custom NNUE rejected by static checks; Classical fallback active · $sanity"
+                    return@runCatching
+                }
                 val configuredOptions = options.value
                 applyNativeOptions(configuredOptions.copy(mode = EngineMode.PURE_NNUE))
                 val startPositionCp = NativeEngine.evaluateFen(Board().fen)
