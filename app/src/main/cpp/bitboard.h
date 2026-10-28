@@ -50,6 +50,7 @@ enum EngineMode { ENGINE_DUAL_CORE = 0, ENGINE_PURE_NNUE = 1, ENGINE_PURE_CLASSI
 extern int engineMode;
 void setEngineMode(int m);
 void setNNUEPath(const std::string& p);
+void setNNUECalibrationValid(bool valid);
 
 inline Square sq(int file, int rank) { return rank * 8 + file; }
 inline int fileOf(Square s) { return s & 7; }
