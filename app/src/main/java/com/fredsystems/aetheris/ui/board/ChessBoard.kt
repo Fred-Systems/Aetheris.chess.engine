@@ -10,6 +10,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -46,8 +47,6 @@ import com.fredsystems.aetheris.domain.model.PieceType
 import com.fredsystems.aetheris.ui.theme.BoardTheme
 import com.fredsystems.aetheris.ui.theme.BoardThemes
 import kotlin.math.roundToInt
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 private val SelectedGlow = Color(0xFF7C4DFF)
 private val LegalDot = Color(0x662B1A0E)
@@ -94,6 +93,7 @@ fun ChessBoard(
     var dragging by remember { mutableStateOf(false) }
     var draggedMove by remember { mutableStateOf(false) }
     var boardWidthPx by remember { mutableStateOf(0) }
+    var boardLongPressTriggered by remember { mutableStateOf(false) }
 
     LaunchedEffect(board.moveNumber) {
         if (board.moveNumber > 0 && draggedMove) {
@@ -125,6 +125,18 @@ fun ChessBoard(
             .clip(RoundedCornerShape(18.dp))
             .background(BoardFrame)
             .onSizeChanged { boardWidthPx = it.width }
+            .pointerInput(onBoardLongPress) {
+                detectTapGestures(
+                    onPress = {
+                        boardLongPressTriggered = false
+                        tryAwaitRelease()
+                    },
+                    onLongPress = {
+                        boardLongPressTriggered = true
+                        onBoardLongPress()
+                    }
+                )
+            }
             .pointerInput(flipped, board.pieces, board.sideToMove, board.gameOver, blindfold, onBoardLongPress) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
@@ -133,23 +145,14 @@ fun ChessBoard(
                     dragPosition = down.position
                     dragging = false
                     var released = false
-                    var longPressed = false
-                    val longPressJob = launch {
-                        delay(viewConfiguration.longPressTimeoutMillis)
-                        if (!dragging && dragFrom == start) {
-                            longPressed = true
-                            onBoardLongPress()
-                        }
-                    }
                     while (true) {
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
                         dragPosition = change.position
                         if (!change.pressed) {
                             released = true
-                            longPressJob.cancel()
                             val target = indexAt(change.position, size.width)
-                            if (longPressed) {
+                            if (boardLongPressTriggered) {
                                 // The long press opens engine controls; don't also move/select a square.
                             } else if (dragging) {
                                 if (target != null && target != start) {
@@ -165,7 +168,6 @@ fun ChessBoard(
                             break
                         }
                         if (!dragging && (change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
-                            longPressJob.cancel()
                             val piece = board.pieces[start]
                             if (piece != null && piece.color == board.sideToMove) {
                                 dragging = true
@@ -176,7 +178,6 @@ fun ChessBoard(
                             change.consume()
                         }
                     }
-                    longPressJob.cancel()
                     if (!released && dragFrom != null) dragFrom = null
                     dragFrom = null
                     dragging = false
