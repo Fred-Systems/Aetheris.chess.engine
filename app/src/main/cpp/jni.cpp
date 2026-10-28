@@ -17,6 +17,8 @@ namespace aetheris { Move searchBestMove(Board& b, int depth, int timeMs); int s
 namespace {
 int g_crash_report_fd = -1;
 volatile sig_atomic_t g_native_stage = 0;
+bool g_engine_params_initialized = false;
+int g_last_engine_params[6] = {0, 0, 0, 0, 0, 0};
 
 static void aetherisFatalSignalHandler(int signal_number, siginfo_t*, void*) {
     if (g_crash_report_fd >= 0) {
@@ -69,6 +71,8 @@ Java_com_fredsystems_aetheris_engine_NativeEngine_nativeInstallCrashHandler(JNIE
 
 JNIEXPORT void JNICALL
 Java_com_fredsystems_aetheris_engine_NativeEngine_nativeInit(JNIEnv*, jobject) {
+    clearSearchTables();
+    g_engine_params_initialized = false;
     initBitboards();
     resetBoard();
 }
@@ -91,9 +95,16 @@ JNIEXPORT void JNICALL
 Java_com_fredsystems_aetheris_engine_NativeEngine_nativeSetParams(
     JNIEnv*, jobject, jint aggression, jint positional, jint complexity,
     jint solidity, jint materialWeight, jint mode) {
-    // Scores in the TT depend on the evaluation mode/style; never reuse scores
-    // from a different engine configuration.
-    clearSearchTables();
+    const int params[6] = { aggression, positional, complexity, solidity, materialWeight, mode };
+    bool changed = !g_engine_params_initialized;
+    for (int i = 0; i < 6; ++i) {
+        if (g_last_engine_params[i] != params[i]) changed = true;
+        g_last_engine_params[i] = params[i];
+    }
+    g_engine_params_initialized = true;
+    // TT scores depend on evaluation mode/style. Preserve them for consecutive
+    // searches with identical options, but clear them whenever the configuration changes.
+    if (changed) clearSearchTables();
     setAggression(aggression);
     setPositional(positional);
     setComplexity(complexity);
