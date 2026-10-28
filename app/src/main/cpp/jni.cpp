@@ -12,7 +12,7 @@
 #define AETH_LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "AetherisEngine", __VA_ARGS__)
 
 using namespace aetheris;
-namespace aetheris { Move searchBestMove(Board& b, int depth, int timeMs); int searchEvaluation(Board& b, int depth, int timeMs); std::string searchTopLines(Board& b, int depth, int timeMs, int count); }
+namespace aetheris { Move searchBestMove(Board& b, int depth, int timeMs); int searchEvaluation(Board& b, int depth, int timeMs); std::string searchTopLines(Board& b, int depth, int timeMs, int count); void clearSearchTables(); }
 
 namespace {
 int g_crash_report_fd = -1;
@@ -91,6 +91,9 @@ JNIEXPORT void JNICALL
 Java_com_fredsystems_aetheris_engine_NativeEngine_nativeSetParams(
     JNIEnv*, jobject, jint aggression, jint positional, jint complexity,
     jint solidity, jint materialWeight, jint mode) {
+    // Scores in the TT depend on the evaluation mode/style; never reuse scores
+    // from a different engine configuration.
+    clearSearchTables();
     setAggression(aggression);
     setPositional(positional);
     setComplexity(complexity);
@@ -108,6 +111,7 @@ JNIEXPORT void JNICALL
 Java_com_fredsystems_aetheris_engine_NativeEngine_nativeSetNnue(JNIEnv* env, jobject, jstring path) {
     const char* chars = env->GetStringUTFChars(path, nullptr);
     if (chars) {
+        clearSearchTables();
         setNNUEPath(std::string(chars));
         env->ReleaseStringUTFChars(path, chars);
     }
