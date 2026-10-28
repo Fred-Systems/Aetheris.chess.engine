@@ -47,15 +47,21 @@ class SimViewModel(private val context: Context) : ViewModel() {
     init {
         runCatching {
             NativeEngine.initialize()
-            ensureNnue()?.let { NativeEngine.setNnue(it) }
-            val startScore = NativeEngine.evaluateFen(Board().fen)
-            if (kotlin.math.abs(startScore) > 100) {
+            val networkPath = ensureNnue()
+            if (networkPath != null) NativeEngine.setNnue(networkPath)
+            if (!NativeEngine.isNnueLoaded()) {
                 nnueCalibrationAccepted = false
                 modeA = "PureClassical"
                 modeB = "PureClassical"
-                status.value = "Bundled NNUE rejected ($startScore cp at start); using classical evaluation"
+                status.value = "NNUE Load Failed — Classical mode only"
+                android.util.Log.e("AetherisSim", "NNUE Load Failed: bundled asset could not be loaded")
             } else {
-                status.value = "Engine ready · NNUE start score $startScore cp"
+                val startScore = NativeEngine.evaluateFen(Board().fen)
+                status.value = if (kotlin.math.abs(startScore) > 100) {
+                    "Engine ready · NNUE loaded (calibration warning: $startScore cp)"
+                } else {
+                    "Engine ready · NNUE loaded ($startScore cp at start)"
+                }
             }
         }.onFailure {
             nnueCalibrationAccepted = false
@@ -146,11 +152,15 @@ class SimViewModel(private val context: Context) : ViewModel() {
     private fun ensureNnue(): String? = try {
         val out = java.io.File(context.filesDir, "nnue/weights.bin")
         out.parentFile?.mkdirs()
-        if (!out.exists()) {
-            context.assets.open("nnue/weights.bin").use { input ->
-                out.outputStream().use { output -> input.copyTo(output) }
+        if (!out.exists() || out.length() < 1_000_000L) {
+            val temp = java.io.File(out.parentFile, "weights.bin.tmp")
+            context.assets.open("weights.bin").use { input ->
+                temp.outputStream().use { output -> input.copyTo(output) }
             }
+            if (out.exists()) out.delete()
+            if (!temp.renameTo(out)) throw java.io.IOException("Unable to install bundled NNUE weights")
         }
+        if (out.length() < 1_000_000L) throw java.io.IOException("Bundled NNUE file is unexpectedly small")
         out.absolutePath
     } catch (e: Exception) {
         null
