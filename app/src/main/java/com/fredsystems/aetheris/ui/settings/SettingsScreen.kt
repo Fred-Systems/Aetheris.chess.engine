@@ -2,8 +2,12 @@
 package com.fredsystems.aetheris.ui.settings
 
 import android.graphics.BitmapFactory
+import android.app.DownloadManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Environment
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -407,12 +411,25 @@ fun SettingsScreen(
             }
         })
         MenuRow("Download UCI Engine Package", {
-            context.startActivity(
-                Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse("https://github.com/Fred-Systems/Aetheris.chess.engine/releases/latest/download/Aetheris-UCI-Engine-Android.zip")
-                )
-            )
+            runCatching {
+                val url = "https://github.com/Fred-Systems/Aetheris.chess.engine/releases/latest/download/Aetheris-UCI-Engine-Android.zip"
+                val request = DownloadManager.Request(Uri.parse(url))
+                    .setTitle("Aetheris UCI Engine")
+                    .setDescription("Downloading the Android chess engine package to Downloads")
+                    .setMimeType("application/zip")
+                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    .setAllowedOverMetered(true)
+                    .setAllowedOverRoaming(false)
+                    .setDestinationInExternalPublicDir(
+                        Environment.DIRECTORY_DOWNLOADS,
+                        "Aetheris-UCI-Engine-Android-${System.currentTimeMillis()}.zip"
+                    )
+                val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                manager.enqueue(request)
+                Toast.makeText(context, "UCI engine download started. Check Downloads and notifications.", Toast.LENGTH_LONG).show()
+            }.onFailure {
+                Toast.makeText(context, "Could not start UCI download: ${it.localizedMessage ?: "unknown error"}", Toast.LENGTH_LONG).show()
+            }
         })
 
         Spacer(Modifier.height(30.dp))
