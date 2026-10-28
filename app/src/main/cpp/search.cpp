@@ -5,7 +5,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <random>
+#include <cstring>
 #ifdef __ANDROID__
 #include <android/log.h>
 #else
@@ -298,6 +298,8 @@ static std::vector<TTEntry2> tt2(1 << 18);
 
 void clearSearchTables() {
     std::fill(tt2.begin(), tt2.end(), TTEntry2{});
+    std::memset(historyHeuristic, 0, sizeof(historyHeuristic));
+    std::memset(killerMoves, 0, sizeof(killerMoves));
 }
 
 static int maxDepth = 6;
@@ -305,6 +307,11 @@ static long long nodeCount = 0;
 static std::chrono::steady_clock::time_point startTime;
 static int timeLimitMs = 0;
 static bool stopSearch = false;
+
+// History and killer heuristics learn which quiet moves tend to cause cutoffs.
+// They are intentionally bounded and reset with the transposition table.
+static int historyHeuristic[2][64][64] = {};
+static Move killerMoves[128][2] = {};
 
 static bool timeUp() {
     if (timeLimitMs <= 0) return false;
@@ -359,7 +366,7 @@ static int quiescence(Board& b, int alpha, int beta, int ply, int qply) {
     return alpha;
 }
 
-static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode) {
+static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode, int ply = 0) {
     if (timeUp()) { stopSearch = true; return 0; }
     nodeCount++;
     // Quiescence can encounter a quiet check-evasion. Bound that extension to avoid
@@ -384,7 +391,11 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode) {
     // Null-move pruning: skip a turn in sufficiently rich, non-check positions
     // to quickly prove many branches cannot beat beta. Disable it in low material
     // positions where zugzwang is common.
-    if (depth >= 3 && !pvNode && !inCheck(b, b.side)) {
+    if (depth <= 0) return quiescence(b, alpha, beta, 0, 0);
+
+    // Guarded null-move pruning: require a plausible static fail-high and
+    // sufficient non-pawn material, avoiding the worst zugzwang cases.
+    if (depth >= 3 && !pvNode && !inCheck(b, b.side) && evaluate(b) >= beta) {
         int nonPawnMaterial = 0;
         for (int p = KNIGHT; p <= QUEEN; ++p)
             nonPawnMaterial += __builtin_popcountll(b.pieces[b.side][p]);
@@ -402,8 +413,6 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode) {
             if (nullScore >= beta) return nullScore;
         }
     }
-
-    if (depth <= 0) return quiescence(b, alpha, beta, 0, 0);
     std::vector<Move> moves;
     genMoves(b, moves, false);
     if (moves.empty()) {
@@ -412,20 +421,17 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode) {
     // Put the transposition-table move first, then winning captures/promotions.
     const Move ttMove = (tt2[idx].key == key) ? tt2[idx].best : 0;
     auto orderingScore = [&](Move m) {
-        if (m == ttMove) return 1000000;
+        if (m == ttMove && m != 0) return 2000000;
         const int from = m & 63, to = (m >> 6) & 63, promo = (m >> 12) & 7;
         const int attacker = pieceAt(b, from, b.side);
         int victim = pieceAt(b, to, b.side ^ 1);
         if (victim < 0 && attacker == PAWN && to == b.epSquare) victim = PAWN;
-        int score = promo ? 80000 + ORDER_VALUE[promo] : 0;
-        if (victim >= 0) score += 50000 + ORDER_VALUE[victim] * 10 - ORDER_VALUE[std::max(0, std::min(5, attacker))];
-        return score;
+        if (promo) return 900000 + ORDER_VALUE[std::max(0, std::min(5, promo))];
+        if (victim >= 0) return 800000 + ORDER_VALUE[victim] * 16 - ORDER_VALUE[std::max(0, std::min(5, attacker))];
+        if (ply < 128 && killerMoves[ply][0] == m) return 700000;
+        if (ply < 128 && killerMoves[ply][1] == m) return 690000;
+        return historyHeuristic[b.side][from][to];
     };
-    // Shuffle equal-priority candidates before stable ordering. The engine still
-    // prioritizes TT moves and tactical captures, but close/equal choices can vary
-    // between games instead of reproducing the same deterministic tie-break forever.
-    static thread_local std::mt19937 varietyRng(std::random_device{}());
-    std::shuffle(moves.begin(), moves.end(), varietyRng);
     std::stable_sort(moves.begin(), moves.end(), [&](Move a, Move bmove) {
         return orderingScore(a) > orderingScore(bmove);
     });
@@ -433,22 +439,47 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode) {
     int bestScore = -INF;
     int origAlpha = alpha;
     for (size_t i = 0; i < moves.size(); i++) {
+        const Move move = moves[i];
+        const int from = move & 63, to = (move >> 6) & 63;
+        const int attacker = pieceAt(b, from, b.side);
+        int victim = pieceAt(b, to, b.side ^ 1);
+        if (victim < 0 && attacker == PAWN && to == b.epSquare) victim = PAWN;
+        const bool quiet = victim < 0 && ((move >> 12) & 7) == 0;
         Undo u;
-        makeMove(b, moves[i], u);
+        makeMove(b, move, u);
         int score;
+        const bool reduce = i >= 4 && depth >= 3 && quiet && !inCheck(b, b.side ^ 1) && !inCheck(b, b.side);
         if (i == 0 || !pvNode) {
-            score = -alphaBeta(b, depth - 1, -beta, -alpha, pvNode && i == 0);
+            score = -alphaBeta(b, depth - 1, -beta, -alpha, pvNode && i == 0, ply + 1);
         } else {
-            score = -alphaBeta(b, depth - 1, -alpha - 1, -alpha, false);
-            if (score > alpha && score < beta) {
-                score = -alphaBeta(b, depth - 1, -beta, -alpha, true);
-            }
+            // Late-move reductions save time on quiet moves that history says are unlikely.
+            int reducedDepth = depth - 1;
+            if (reduce && historyHeuristic[b.side ^ 1][from][to] < 4000) reducedDepth = std::max(0, reducedDepth - 1);
+            score = -alphaBeta(b, reducedDepth, -alpha - 1, -alpha, false, ply + 1);
+            if (score > alpha && reducedDepth < depth - 1)
+                score = -alphaBeta(b, depth - 1, -alpha - 1, -alpha, false, ply + 1);
+            if (score > alpha && score < beta)
+                score = -alphaBeta(b, depth - 1, -beta, -alpha, true, ply + 1);
         }
-        unmakeMove(b, moves[i], u);
+        unmakeMove(b, move, u);
         if (stopSearch) return 0;
-        if (score > bestScore) { bestScore = score; bestMove = moves[i]; }
+        if (score > bestScore) { bestScore = score; bestMove = move; }
         if (score > alpha) alpha = score;
-        if (alpha >= beta) break;
+        if (alpha >= beta) {
+            if (quiet && ply < 128) {
+                if (killerMoves[ply][0] != move) {
+                    killerMoves[ply][1] = killerMoves[ply][0];
+                    killerMoves[ply][0] = move;
+                }
+                int& h = historyHeuristic[b.side][from][to];
+                h = std::min(20000, h + depth * depth * 16);
+            }
+            break;
+        }
+        if (quiet) {
+            int& h = historyHeuristic[b.side][from][to];
+            h = std::max(-20000, h - depth);
+        }
     }
     TTEntry2 e;
     e.key = key; e.depth = depth; e.score = bestScore; e.best = bestMove;
