@@ -42,7 +42,48 @@ fun SimScreen(viewModel: SimViewModel, onBack: () -> Unit) {
     var tuneA by remember { mutableStateOf(false) }
     var tuneB by remember { mutableStateOf(false) }
     var matchStarted by remember { mutableStateOf(false) }
+    var showPgnDialog by remember { mutableStateOf(false) }
+    var pgnDraft by remember { mutableStateOf("") }
+    var matchComment by remember { mutableStateOf("") }
     LaunchedEffect(viewModel.running.value) { if (viewModel.running.value) matchStarted = true }
+
+    if (showPgnDialog) {
+        AlertDialog(
+            onDismissRequest = { showPgnDialog = false },
+            title = { Text("Engine Match PGN / Notebook") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Edit the movetext or full PGN before saving. Your edits are stored in the Notebook record.",
+                        style = MaterialTheme.typography.bodySmall)
+                    OutlinedTextField(
+                        value = pgnDraft,
+                        onValueChange = { pgnDraft = it },
+                        label = { Text("Editable PGN and move list") },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 180.dp, max = 360.dp),
+                        minLines = 8,
+                        maxLines = 16
+                    )
+                    OutlinedTextField(
+                        value = matchComment,
+                        onValueChange = { matchComment = it },
+                        label = { Text("Match notes / comments") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        maxLines = 4
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.saveMatchToNotebook(pgnDraft, matchComment)
+                    showPgnDialog = false
+                }) { Text("Save to Notebook") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pgnDraft = viewModel.currentPgn() }) { Text("Reset PGN") }
+            }
+        )
+    }
 
     fun applyPersona(persona: String, sideA: Boolean) {
         val values = when (persona) {
@@ -161,6 +202,14 @@ fun SimScreen(viewModel: SimViewModel, onBack: () -> Unit) {
                         shape = RoundedCornerShape(14.dp)
                     ) { Text("Stop Match / Back to Setup") }
                 }
+                OutlinedButton(
+                    onClick = {
+                        pgnDraft = viewModel.currentPgn()
+                        showPgnDialog = true
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(14.dp)
+                ) { Text("PGN / Notebook") }
             }
         }
     }
