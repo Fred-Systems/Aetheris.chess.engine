@@ -35,7 +35,12 @@ data class AppSettings(
     val showPgnPanel: Boolean = true,
     val pondering: Boolean = false,
     val moveSoundsEnabled: Boolean = true,
-    val moveSoundVolume: Int = 70
+    val moveSoundVolume: Int = 70,
+    val blindfoldMode: Boolean = false,
+    val premoveEnabled: Boolean = true,
+    val multiplePremoves: Boolean = false,
+    val conditionalMoves: Boolean = false,
+    val chess960Enabled: Boolean = false
 )
 
 class SettingsStore(context: Context) {
@@ -59,7 +64,12 @@ class SettingsStore(context: Context) {
         showPgnPanel = prefs.getBoolean("showPgnPanel", true),
         pondering = prefs.getBoolean("pondering", false),
         moveSoundsEnabled = prefs.getBoolean("moveSoundsEnabled", true),
-        moveSoundVolume = prefs.getInt("moveSoundVolume", 70).coerceIn(0, 100)
+        moveSoundVolume = prefs.getInt("moveSoundVolume", 70).coerceIn(0, 100),
+        blindfoldMode = prefs.getBoolean("blindfoldMode", false),
+        premoveEnabled = prefs.getBoolean("premoveEnabled", true),
+        multiplePremoves = prefs.getBoolean("multiplePremoves", false),
+        conditionalMoves = prefs.getBoolean("conditionalMoves", false),
+        chess960Enabled = prefs.getBoolean("chess960Enabled", false)
     )
 
     fun save(s: AppSettings) {
@@ -82,6 +92,11 @@ class SettingsStore(context: Context) {
             .putBoolean("pondering", s.pondering)
             .putBoolean("moveSoundsEnabled", s.moveSoundsEnabled)
             .putInt("moveSoundVolume", s.moveSoundVolume.coerceIn(0, 100))
+            .putBoolean("blindfoldMode", s.blindfoldMode)
+            .putBoolean("premoveEnabled", s.premoveEnabled)
+            .putBoolean("multiplePremoves", s.multiplePremoves)
+            .putBoolean("conditionalMoves", s.conditionalMoves)
+            .putBoolean("chess960Enabled", s.chess960Enabled)
             .apply()
     }
 }
