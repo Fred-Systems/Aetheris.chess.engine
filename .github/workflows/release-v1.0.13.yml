@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: aetheris-release-v1.0.13
+  cancel-in-progress: true
+
 jobs:
   release:
     if: github.event_name == 'workflow_dispatch' || (github.event.head_commit && contains(github.event.head_commit.message, 'Release Aetheris version 1.0.13'))
@@ -97,6 +101,7 @@ jobs:
             Aetheris v1.0.13
 
             - Engine-vs-engine matches switch to the live board after starting.
+            - Default search depth increased to improve tactical calculation.
             - Play from Here configures color, time control, search depth, and engine mode.
             - Optional pondering searches likely user moves and reuses cached replies when the played move matches.
             - Evaluation uses a bounded alpha-beta search instead of relying only on static material evaluation.
