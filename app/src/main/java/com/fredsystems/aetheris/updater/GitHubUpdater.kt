@@ -2,6 +2,8 @@ package com.fredsystems.aetheris.updater
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
@@ -57,6 +59,9 @@ class GitHubUpdater(private val context: Context) {
                     body.byteStream().use { input -> target.outputStream().use { output -> input.copyTo(output) } }
                 }
                 if (target.length() < 100_000L) error("Downloaded APK is too small to be valid")
+                if (!hasMatchingSigner(target)) {
+                    error("Android cannot update this installation because the APK signing certificate differs. Uninstall the old CI-signed build once, then install the new APK. Configure a stable private signing key for future in-place updates.")
+                }
                 withContext(Dispatchers.Main) { installApk(target) }
             }.onFailure { error ->
                 withContext(Dispatchers.Main) {
@@ -65,6 +70,33 @@ class GitHubUpdater(private val context: Context) {
             }
         }
     }
+    private fun hasMatchingSigner(apk: File): Boolean {
+        val pm = context.packageManager
+        val installed = if (Build.VERSION.SDK_INT >= 28) {
+            pm.getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getPackageInfo(context.packageName, PackageManager.GET_SIGNATURES)
+        }
+        val archive = if (Build.VERSION.SDK_INT >= 28) {
+            pm.getPackageArchiveInfo(apk.absolutePath, PackageManager.GET_SIGNING_CERTIFICATES)
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getPackageArchiveInfo(apk.absolutePath, PackageManager.GET_SIGNATURES)
+        } ?: return false
+        if (archive.packageName != context.packageName) return false
+        return if (Build.VERSION.SDK_INT >= 28) {
+            val installedSigners = installed.signingInfo?.apkContentsSigners?.map { it.toCharsString() }?.toSet()
+            val archiveSigners = archive.signingInfo?.apkContentsSigners?.map { it.toCharsString() }?.toSet()
+            !installedSigners.isNullOrEmpty() && installedSigners == archiveSigners
+        } else {
+            @Suppress("DEPRECATION")
+            installed.signatures?.map { it.toCharsString() }?.toSet() ==
+                @Suppress("DEPRECATION")
+                archive.signatures?.map { it.toCharsString() }?.toSet()
+        }
+    }
+
     fun installApk(file: File) {
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
         val intent = Intent(Intent.ACTION_VIEW).apply {
