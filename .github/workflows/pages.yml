@@ -56,7 +56,7 @@ jobs:
             -s EXPORT_NAME=AetherisModule \
             -s ALLOW_MEMORY_GROWTH=1 \
             -s ENVIRONMENT=web \
-            -s EXPORTED_FUNCTIONS='["_aetheris_init","_aetheris_load_nnue","_aetheris_set_mode","_aetheris_set_personality","_aetheris_best_move","_aetheris_eval","_aetheris_analyze","_malloc","_free"]' \
+            -s EXPORTED_FUNCTIONS='["_aetheris_init","_aetheris_load_nnue","_aetheris_set_mode","_aetheris_set_personality","_aetheris_validate_nnue","_aetheris_best_move","_aetheris_eval","_aetheris_analyze","_malloc","_free"]' \
             -s EXPORTED_RUNTIME_METHODS='["ccall","FS","UTF8ToString","stringToUTF8","lengthBytesUTF8"]' \
             --preload-file app/src/main/assets/nnue/weights.bin@/weights.bin \
             -o docs/aetheris.js
