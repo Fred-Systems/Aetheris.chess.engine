@@ -856,6 +856,11 @@ class GameViewModel(private val context: Context) : ViewModel() {
         boardState.value = boardState.value.copy(gameOver = true, statusText = "$winner wins on time")
     }
 
+    fun runNnueDiagnostics() {
+        nnueStatus.value = runCatching { NativeEngine.nnueSanityCheck() }
+            .getOrElse { "NNUE diagnostic failed: ${it.message ?: "unknown error"}" }
+    }
+
     fun loadCustomNnue(sourcePath: String) {
         val custom = java.io.File(context.filesDir, "nnue/custom_weights.bin")
         runCatching {
