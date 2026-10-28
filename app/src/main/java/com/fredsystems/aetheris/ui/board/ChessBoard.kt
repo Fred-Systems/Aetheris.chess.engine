@@ -46,6 +46,8 @@ import com.fredsystems.aetheris.domain.model.PieceType
 import com.fredsystems.aetheris.ui.theme.BoardTheme
 import com.fredsystems.aetheris.ui.theme.BoardThemes
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private val SelectedGlow = Color(0xFF7C4DFF)
 private val LegalDot = Color(0x662B1A0E)
@@ -81,7 +83,8 @@ fun ChessBoard(
     boardTheme: BoardTheme = BoardThemes.byId("brown"),
     flipped: Boolean = false,
     arrows: List<BoardArrow> = emptyList(),
-    blindfold: Boolean = false
+    blindfold: Boolean = false,
+    onBoardLongPress: () -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -122,7 +125,7 @@ fun ChessBoard(
             .clip(RoundedCornerShape(18.dp))
             .background(BoardFrame)
             .onSizeChanged { boardWidthPx = it.width }
-            .pointerInput(flipped, board.pieces, board.sideToMove, board.gameOver, blindfold) {
+            .pointerInput(flipped, board.pieces, board.sideToMove, board.gameOver, blindfold, onBoardLongPress) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     val start = indexAt(down.position, size.width) ?: return@awaitEachGesture
@@ -130,14 +133,25 @@ fun ChessBoard(
                     dragPosition = down.position
                     dragging = false
                     var released = false
+                    var longPressed = false
+                    val longPressJob = launch {
+                        delay(viewConfiguration.longPressTimeoutMillis)
+                        if (!dragging && dragFrom == start) {
+                            longPressed = true
+                            onBoardLongPress()
+                        }
+                    }
                     while (true) {
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
                         dragPosition = change.position
                         if (!change.pressed) {
                             released = true
+                            longPressJob.cancel()
                             val target = indexAt(change.position, size.width)
-                            if (dragging) {
+                            if (longPressed) {
+                                // The long press opens engine controls; don't also move/select a square.
+                            } else if (dragging) {
                                 if (target != null && target != start) {
                                     draggedMove = true
                                     onSquareClick(start)
@@ -151,6 +165,7 @@ fun ChessBoard(
                             break
                         }
                         if (!dragging && (change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
+                            longPressJob.cancel()
                             val piece = board.pieces[start]
                             if (piece != null && piece.color == board.sideToMove) {
                                 dragging = true
@@ -161,6 +176,7 @@ fun ChessBoard(
                             change.consume()
                         }
                     }
+                    longPressJob.cancel()
                     if (!released && dragFrom != null) dragFrom = null
                     dragFrom = null
                     dragging = false
