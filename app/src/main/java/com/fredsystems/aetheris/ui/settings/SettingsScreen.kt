@@ -190,6 +190,27 @@ fun SettingsScreen(
             SwitchRow("Show PGN panel by default on large screens", settings.showPgnPanel) {
                 viewModel.updateSettings(settings.copy(showPgnPanel = it))
             }
+            Divider(color = Color(0xFF393248), modifier = Modifier.padding(vertical = 8.dp))
+            Text("Advanced play", color = Color(0xFFF2EEFF), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            SwitchRow("Blindfold mode (hide pieces)", settings.blindfoldMode) {
+                viewModel.updateSettings(settings.copy(blindfoldMode = it))
+            }
+            SwitchRow("Enable premove (default on)", settings.premoveEnabled) {
+                viewModel.updateSettings(settings.copy(premoveEnabled = it))
+            }
+            SwitchRow("Allow multiple premoves", settings.multiplePremoves) {
+                viewModel.updateSettings(settings.copy(multiplePremoves = it))
+            }
+            SwitchRow("Enable conditional moves", settings.conditionalMoves) {
+                viewModel.updateSettings(settings.copy(conditionalMoves = it))
+            }
+            SwitchRow("Chess960 random starting position", settings.chess960Enabled) {
+                viewModel.updateSettings(settings.copy(chess960Enabled = it))
+            }
+            Text(
+                "Chess960 uses random back-rank positions. The current native engine does not yet support Chess960 castling, so this variant is experimental against the engine.",
+                color = Color(0xFFE0B878), fontSize = 11.sp
+            )
         }
 
         Spacer(Modifier.height(12.dp))
