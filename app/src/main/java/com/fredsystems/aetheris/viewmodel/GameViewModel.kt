@@ -46,6 +46,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     private var board = Board()
     private val moveList = mutableListOf<String>()
     private val positionHistory = mutableListOf<String>()
+    private var initialFen: String = board.fen
     private val pendingPremoves = mutableListOf<String>()
     private var conditionalOpponentUci: String? = null
     private var conditionalReplyUci: String? = null
@@ -426,6 +427,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         evalVisible.value = settings.value.showEvalPlay
         engineGeneration++
         board = if (settings.value.chess960Enabled) createChess960Board() else Board()
+        initialFen = board.fen
         moveList.clear()
         analysisLines.value = emptyList()
         positionHistory.clear()
@@ -729,6 +731,8 @@ class GameViewModel(private val context: Context) : ViewModel() {
 
     fun currentPgn(): String {
         val replay = Board()
+        runCatching { replay.loadFromFen(initialFen, settings.value.chess960Enabled) }
+            .onFailure { runCatching { replay.loadFromFen(initialFen) } }
         val sanMoves = mutableListOf<String>()
         moveList.forEach { uci ->
             if (uci.length < 4) return@forEach
@@ -796,7 +800,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
             board.isDraw() || board.isStaleMate() -> "1/2-1/2"
             else -> "*"
         }
-        return "[Event \"Aetheris Game\"]\n[Site \"Aetheris Android\"]\n[Result \"$result\"]\n\n$body $result".trim()
+        val variantTag = if (settings.value.chess960Enabled) "[Variant \"Chess960\"]\n" else ""
+        val setupTag = if (settings.value.chess960Enabled) "[SetUp \"1\"]\n[FEN \"$initialFen\"]\n" else ""
+        return "[Event \"Aetheris Game\"]\n[Site \"Aetheris Android\"]\n$variantTag$setupTag[Result \"$result\"]\n\n$body $result".trim()
     }
 
     fun copyPgn() {
