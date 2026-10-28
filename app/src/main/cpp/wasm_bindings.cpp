@@ -2,6 +2,7 @@
 #include "nnue.h"
 #include <emscripten/emscripten.h>
 #include <string>
+#include <cstdlib>
 
 namespace aetheris {
 Move searchBestMove(Board& b, int depth, int timeMs);
@@ -9,6 +10,29 @@ std::string searchTopLines(Board& b, int depth, int timeMs, int count);
 }
 
 namespace {
+bool validateNnueCalibration() {
+    if (!aetheris::nnueLoaded()) {
+        aetheris::setNNUECalibrationValid(false);
+        return false;
+    }
+    struct CheckCase { const char* fen; int expectedSign; };
+    const CheckCase cases[] = {
+        {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 0},
+        {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNB1KBNR w KQkq - 0 1", -1},
+        {"rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 1}
+    };
+    bool sane = true;
+    for (const auto& test : cases) {
+        aetheris::setPosition(std::string(test.fen));
+        const int cp = aetheris::nnueEvaluate(aetheris::getBoard());
+        if (test.expectedSign == 0) sane = sane && std::abs(cp) <= 40;
+        else sane = sane && ((test.expectedSign < 0 && cp < 0) || (test.expectedSign > 0 && cp > 0));
+        if (test.expectedSign != 0 && (std::abs(cp) < 800 || std::abs(cp) > 1200)) sane = false;
+    }
+    aetheris::setNNUECalibrationValid(sane);
+    aetheris::resetBoard();
+    return sane;
+}
 std::string resultBuffer;
 std::string moveToUci(aetheris::Move m) {
     if (!m) return "";
@@ -30,11 +54,22 @@ extern "C" {
 EMSCRIPTEN_KEEPALIVE int aetheris_init() {
     aetheris::initBitboards();
     aetheris::resetBoard();
-    return aetheris::loadNNUE("/weights.bin") ? 1 : 0;
+    const bool loaded = aetheris::loadNNUE("/weights.bin");
+    if (loaded) validateNnueCalibration();
+    return loaded ? 1 : 0;
 }
 
 EMSCRIPTEN_KEEPALIVE int aetheris_load_nnue(const char* path) {
-    return path && aetheris::loadNNUE(std::string(path)) ? 1 : 0;
+    if (!path || !aetheris::loadNNUE(std::string(path))) {
+        aetheris::setNNUECalibrationValid(false);
+        return 0;
+    }
+    validateNnueCalibration();
+    return 1;
+}
+
+EMSCRIPTEN_KEEPALIVE int aetheris_validate_nnue() {
+    return validateNnueCalibration() ? 1 : 0;
 }
 
 EMSCRIPTEN_KEEPALIVE void aetheris_set_mode(int mode) {
