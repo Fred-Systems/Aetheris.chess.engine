@@ -332,6 +332,17 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                     }
                 }
             }
+            if (opts.mode == EngineMode.PURE_NNUE &&
+                (vm.nnueStatus.value.contains("fallback", ignoreCase = true) ||
+                 vm.nnueStatus.value.contains("calibration", ignoreCase = true) ||
+                 vm.nnueStatus.value.contains("WARNING", ignoreCase = true))) {
+                Text(
+                    "NNUE selected, but its weights failed calibration; the native safety guard is using Classical evaluation.",
+                    color = Color(0xFFFFC078),
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(top = 5.dp, start = 4.dp, end = 4.dp)
+                )
+            }
 
             Spacer(Modifier.height(10.dp))
 
