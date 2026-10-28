@@ -49,6 +49,7 @@ void setMaterialWeight(int m);
 enum EngineMode { ENGINE_DUAL_CORE = 0, ENGINE_PURE_NNUE = 1, ENGINE_PURE_CLASSICAL = 2 };
 extern int engineMode;
 void setEngineMode(int m);
+void setNNUECalibrationValid(bool valid);
 void setNNUEPath(const std::string& p);
 void setNNUECalibrationValid(bool valid);
 
