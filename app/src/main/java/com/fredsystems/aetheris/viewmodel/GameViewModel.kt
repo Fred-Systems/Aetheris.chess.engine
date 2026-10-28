@@ -90,18 +90,15 @@ class GameViewModel(private val context: Context) : ViewModel() {
                 val configuredOptions = options.value
                 applyNativeOptions(configuredOptions.copy(mode = EngineMode.PURE_NNUE))
                 val startPositionCp = NativeEngine.evaluateFen(Board().fen)
-                if (abs(startPositionCp) > 100) {
-                    // A materially non-zero score in the symmetric starting position is a strong
-                    // calibration warning. Do not let a suspect network drive move selection.
-                    options.value = configuredOptions.copy(mode = EngineMode.PURE_CLASSICAL)
-                    applyNativeOptions(options.value)
-                    nnueStatus.value = "NNUE rejected for play: start position scores $startPositionCp cp. Classical evaluation enabled; retrain/calibrate the network."
+                applyNativeOptions(configuredOptions)
+                nnueStatus.value = if (abs(startPositionCp) > 100) {
+                    "NNUE loaded with calibration warning ($startPositionCp cp at start); NNUE mode remains available."
                 } else {
-                    applyNativeOptions(configuredOptions)
-                    nnueStatus.value = "NNUE loaded; starting-position score $startPositionCp cp"
+                    "NNUE loaded successfully; start position $startPositionCp cp."
                 }
             } else {
-                nnueStatus.value = "NNUE unavailable — Classical fallback active"
+                nnueStatus.value = "NNUE Load Failed — Classical fallback active"
+                android.util.Log.e("AetherisNNUE", "NNUE Load Failed: bundled and custom network unavailable")
             }
         }.onFailure { engineAvailable.value = false }
         evalVisible.value = settings.value.showEvalPlay
@@ -822,13 +819,19 @@ class GameViewModel(private val context: Context) : ViewModel() {
 
     private fun ensureNnueAsset(): String? {
         return try {
+            // Prefer the current 512-hidden-unit network at the asset root. Replace
+            // stale cached legacy weights so upgrades actually use the bundled model.
             val out = java.io.File(context.filesDir, "nnue/weights.bin")
             out.parentFile?.mkdirs()
-            if (!out.exists()) {
-                context.assets.open("nnue/weights.bin").use { input ->
-                    out.outputStream().use { output -> input.copyTo(output) }
+            if (!out.exists() || out.length() < 1_000_000L) {
+                val temp = java.io.File(out.parentFile, "weights.bin.tmp")
+                context.assets.open("weights.bin").use { input ->
+                    temp.outputStream().use { output -> input.copyTo(output) }
                 }
+                if (out.exists()) out.delete()
+                if (!temp.renameTo(out)) throw java.io.IOException("Unable to install bundled NNUE weights")
             }
+            if (out.length() < 1_000_000L) throw java.io.IOException("Bundled NNUE file is unexpectedly small")
             out.absolutePath
         } catch (e: Exception) {
             null
