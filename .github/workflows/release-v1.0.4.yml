@@ -1,8 +1,8 @@
 name: Build and publish Aetheris v1.0.4
 
+# Retired release workflow: manual reruns only; never republish an obsolete version.
 on:
-  push:
-    branches: [ main ]
+  workflow_dispatch:
 
 permissions:
   contents: write
