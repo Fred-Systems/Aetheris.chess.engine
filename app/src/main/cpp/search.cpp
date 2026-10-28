@@ -5,6 +5,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <random>
 #ifdef __ANDROID__
 #include <android/log.h>
 #else
@@ -398,6 +399,11 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode) {
         if (victim >= 0) score += 50000 + ORDER_VALUE[victim] * 10 - ORDER_VALUE[std::max(0, std::min(5, attacker))];
         return score;
     };
+    // Shuffle equal-priority candidates before stable ordering. The engine still
+    // prioritizes TT moves and tactical captures, but close/equal choices can vary
+    // between games instead of reproducing the same deterministic tie-break forever.
+    static thread_local std::mt19937 varietyRng(std::random_device{}());
+    std::shuffle(moves.begin(), moves.end(), varietyRng);
     std::stable_sort(moves.begin(), moves.end(), [&](Move a, Move bmove) {
         return orderingScore(a) > orderingScore(bmove);
     });
