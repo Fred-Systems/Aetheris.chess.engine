@@ -27,6 +27,7 @@ object NativeEngine {
     external fun nativeAnalyzeFen(fen: String, depth: Int, timeMs: Int, count: Int): String
     external fun nativeEvaluate(): Int
     external fun nativeEvaluateFen(fen: String): Int
+    external fun nativeSearchEvaluationFen(fen: String, depth: Int, timeMs: Int): Int
 
     @Synchronized
     fun setPosition(fen: String) = nativeSetPosition(fen)
@@ -82,6 +83,10 @@ object NativeEngine {
 
     @Synchronized
     fun evaluateFen(fen: String): Int = nativeEvaluateFen(fen)
+
+    @Synchronized
+    fun searchEvaluationFen(fen: String, depth: Int, timeMs: Int): Int =
+        nativeSearchEvaluationFen(fen, depth, timeMs)
 
     @Synchronized
     fun reset() = nativeReset()
