@@ -381,6 +381,28 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode) {
         if (tt2[idx].flag == 2 && s < beta) beta = s;
         if (alpha >= beta) return s;
     }
+    // Null-move pruning: skip a turn in sufficiently rich, non-check positions
+    // to quickly prove many branches cannot beat beta. Disable it in low material
+    // positions where zugzwang is common.
+    if (depth >= 3 && !pvNode && !inCheck(b, b.side)) {
+        int nonPawnMaterial = 0;
+        for (int p = KNIGHT; p <= QUEEN; ++p)
+            nonPawnMaterial += __builtin_popcountll(b.pieces[b.side][p]);
+        if (nonPawnMaterial >= 2) {
+            const int savedEp = b.epSquare;
+            const int savedHalfmove = b.halfmove;
+            b.side ^= 1;
+            b.epSquare = -1;
+            ++b.halfmove;
+            const int nullScore = -alphaBeta(b, depth - 3, -beta, -beta + 1, false);
+            b.side ^= 1;
+            b.epSquare = savedEp;
+            b.halfmove = savedHalfmove;
+            if (stopSearch) return 0;
+            if (nullScore >= beta) return nullScore;
+        }
+    }
+
     if (depth <= 0) return quiescence(b, alpha, beta, 0, 0);
     std::vector<Move> moves;
     genMoves(b, moves, false);
