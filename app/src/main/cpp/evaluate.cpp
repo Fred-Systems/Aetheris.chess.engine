@@ -197,16 +197,24 @@ static int classicalWhiteScore(const Board& b) {
 }
 
 int evaluate(const Board& b) {
+    // All evaluation terms are returned from the side-to-move perspective for negamax.
     const int classical = classicalWhiteScore(b) * (b.side == WHITE ? 1 : -1);
-    const bool loaded = nnueLoaded();
-    if (!loaded || engineMode == ENGINE_PURE_CLASSICAL) return classical;
-    int nn = nnueEvaluate(b);
-    // Personality sliders scale the learned signal modestly; they do not mutate weights.
-    const int nnScale = 100 + (positional - 50) / 2 + (50 - solidity) / 4;
-    nn = nn * nnScale / 100;
-    if (engineMode == ENGINE_PURE_NNUE) return nn;
-    // Dual Core combines the two evaluation sources equally; it is distinct from both single modes.
-    return (nn + classical) / 2;
+    if (engineMode == ENGINE_PURE_CLASSICAL || !nnueLoaded()) return classical;
+
+    // The bundled AETHNNUE network is a small absolute-square model, not a
+    // production HalfKP/HalfKA net. Keep it as a bounded learned residual until
+    // a properly trained and benchmarked replacement is bundled. This avoids
+    // catastrophic play when a valid file has poor calibration.
+    int neural = nnueEvaluate(b);
+    const int neuralScale = 100 + (positional - 50) / 3 + (50 - solidity) / 5;
+    neural = neural * neuralScale / 100;
+    neural = std::max(-600, std::min(600, neural));
+
+    // "NNUE" mode deliberately remains NNUE-assisted rather than raw-network-only:
+    // 55% classical anchor + 45% bounded network. Dual Core is more conservative
+    // at 75/25. Both continue to benefit from the search tree and the loaded net.
+    const int nnuePercent = engineMode == ENGINE_PURE_NNUE ? 45 : 25;
+    return (classical * (100 - nnuePercent) + neural * nnuePercent) / 100;
 }
 
 } // namespace aetheris
