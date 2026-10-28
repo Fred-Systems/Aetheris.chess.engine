@@ -412,7 +412,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val leftRook = ('A'.code + rooks.min()).toChar()
         val rights = "" + rightRook + leftRook + rightRook.lowercaseChar() + leftRook.lowercaseChar()
         val fen = blackBack + "/pppppppp/8/8/8/8/PPPPPPPP/" + whiteBack + " w " + rights + " - 0 1"
-        return Board().also { it.loadFromFen(fen, true) }
+        return Board().also { it.loadFromFen(fen) }
     }
     fun newGame(colorChoice: String = settings.value.playerColor) {
         ponderJob?.cancel()
@@ -734,8 +734,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
 
     fun currentPgn(): String {
         val replay = Board()
-        runCatching { replay.loadFromFen(initialFen, settings.value.chess960Enabled) }
-            .onFailure { runCatching { replay.loadFromFen(initialFen) } }
+        runCatching { replay.loadFromFen(initialFen) }
         val sanMoves = mutableListOf<String>()
         moveList.forEach { uci ->
             if (uci.length < 4) return@forEach
