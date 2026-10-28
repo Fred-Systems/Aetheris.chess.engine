@@ -7,5 +7,5 @@ data class EngineOptions(
     val solidity: Int = 50,
     val materialWeight: Int = 50,
     val depth: Int = 8,
-    val mode: EngineMode = EngineMode.DUAL_CORE
+    val mode: EngineMode = EngineMode.PURE_CLASSICAL
 )
