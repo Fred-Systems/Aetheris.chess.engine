@@ -358,7 +358,7 @@ let settings = Object.assign({}, DEFAULT_SETTINGS, JSON.parse(localStorage.getIt
 let game = new Chess();
 let selected = null, legal = [], lastMove = null, flipped = false;
 let mode = "play", evalVisible = false, thinking = false, playerColor = "w";
-let wasmEngine = null, wasmReady = false, wasmFailed = false;
+let wasmEngine = null, wasmReady = false, wasmFailed = false, nnueCalibrated = false;
 let historyMoves = [], historyIndex = 0, analysisPlaybackTimer = null, pendingPremoves = [], initialFen = game.fen();
 let timeSeconds = 0, whiteMs = 0, blackMs = 0, clockTimer = null, timeoutText = "";
 const boardEl = document.getElementById("board");
@@ -414,10 +414,18 @@ if(typeof AetherisModule === "function") {
   AetherisModule().then(mod=>{
     wasmEngine=mod;
     const loaded=wasmEngine.ccall("aetheris_init","number",[],[]);
+    nnueCalibrated = loaded===1 && wasmEngine.ccall("aetheris_validate_nnue","number",[],[])===1;
     wasmReady=true;
     wasmFailed=false;
     applyEngineMode();
-    if(loaded!==1) statusSub.textContent="Engine loaded; bundled NNUE unavailable, using Classical fallback";
+    const nnueStatus=document.getElementById("nnueStatus");
+    if(loaded!==1) {
+      nnueStatus.textContent="Bundled NNUE could not load; Classical evaluation is active.";
+    } else if(!nnueCalibrated) {
+      nnueStatus.textContent="Bundled NNUE loaded but failed the material-sign calibration checks. The engine deliberately uses Classical evaluation until valid weights are supplied.";
+    } else {
+      nnueStatus.textContent="Bundled NNUE loaded and passed static material calibration.";
+    }
     renderBoard(); renderStatus();
     if(mode==="play" && game.turn()!==playerColor) engineMove(false);
   }).catch(err=>{
@@ -484,7 +492,8 @@ function renderStatus(){
   statusText.textContent = statusLine();
   const modes = ["Dual Core","Pure NNUE","Classical"];
   statusSub.textContent = !wasmReady ? (wasmFailed ? "Aetheris engine unavailable — use the hosted website" : "Loading Aetheris WebAssembly engine…") :
-    (thinking ? "Aetheris is thinking…" : (mode === "play" ? "Depth " + settings.depth + " · Aetheris " + (modes[settings.engineMode] || modes[0]) : "Analysis · depth " + settings.depth));
+    (thinking ? "Aetheris is thinking…" : (mode === "play" ? "Depth " + settings.depth + " · Aetheris " + (modes[settings.engineMode] || modes[2]) : "Analysis · depth " + settings.depth));
+  if(wasmReady && settings.engineMode!==2 && !nnueCalibrated) statusSub.textContent += " · NNUE calibration failed; Classical fallback";
   updateClocks();
 }
 function evalScore(){
@@ -856,12 +865,12 @@ function buildControls(){
       wasmEngine.FS.writeFile("/custom_weights.bin",new Uint8Array(await file.arrayBuffer()));
       const ok=wasmEngine.ccall("aetheris_load_nnue","number",["string"],["/custom_weights.bin"]);
       if(ok===1) {
+        nnueCalibrated = wasmEngine.ccall("aetheris_validate_nnue","number",[],[])===1;
         wasmEngine.ccall("aetheris_set_mode",null,["number"],[1]);
         const startCp=wasmEngine.ccall("aetheris_eval","number",["string"],["rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]);
-        const warning=Math.abs(startCp)>100;
-        status.textContent=warning
-          ? "Loaded "+file.name+", but its starting-position score is "+(startCp>=0?"+":"")+(startCp/100).toFixed(2)+" pawns. Check target perspective/calibration."
-          : "Loaded "+file.name+"; starting-position score is "+(startCp>=0?"+":"")+(startCp/100).toFixed(2)+" pawns.";
+        status.textContent=!nnueCalibrated
+          ? "Loaded "+file.name+", but static material calibration failed. Classical safety fallback remains active."
+          : "Loaded "+file.name+" and passed static material calibration. Starting-position evaluation: "+(startCp>=0?"+":"")+(startCp/100).toFixed(2)+" pawns.";
       } else {
         wasmEngine.ccall("aetheris_load_nnue","number",["string"],["/weights.bin"]);
         status.textContent="Rejected file: expected AETHNNUE v1, 768 features, and 128 or 512 hidden units. Restored bundled weights.";
