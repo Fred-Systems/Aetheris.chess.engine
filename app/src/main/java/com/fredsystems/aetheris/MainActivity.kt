@@ -346,6 +346,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                             pieceSet = settings.pieceSet,
                             boardTheme = BoardThemes.byId(settings.boardTheme),
                             flipped = flipped,
+                            blindfold = settings.blindfoldMode,
                             arrows = if (!settings.showBestMoveArrow && !settings.showEngineThinkingArrows) emptyList() else {
                                 val candidates = if (settings.showEngineThinkingArrows) liveAnalysisLines.take(5) else liveAnalysisLines.take(1)
                                 val colors = listOf(Color(0xFF35D07F), Color(0xFF3399FF), Color(0xFFFFB020), Color(0xFFB56BFF), Color(0xFFFF5252))
