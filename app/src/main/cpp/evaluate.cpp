@@ -2,6 +2,7 @@
 #include "nnue.h"
 #include <algorithm>
 #include <cstdlib>
+// v1.0.14 evaluation diagnostics and mode separation.
 
 namespace aetheris {
 
