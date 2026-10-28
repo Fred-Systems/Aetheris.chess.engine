@@ -1,6 +1,7 @@
 package com.fredsystems.aetheris.ui.analysis
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -29,11 +30,20 @@ fun AnalysisScreen(viewModel: GameViewModel) {
     val lines = viewModel.analysisLines.value
     val loading = viewModel.analysisLoading.value
     var autoplay by remember { mutableStateOf(false) }
+    var continuousAnalysis by remember { mutableStateOf(true) }
+    var analysisDepth by remember(index, length) { mutableStateOf(4) }
     val configuration = LocalConfiguration.current
     var pgnExpanded by remember(configuration.screenWidthDp, settings.showPgnPanel) { mutableStateOf(configuration.screenWidthDp >= 600 && settings.showPgnPanel) }
 
-    LaunchedEffect(index, length) {
-        if (!loading) viewModel.analyzePosition(settings.analysisLineCount)
+    LaunchedEffect(continuousAnalysis, index, length) {
+        while (continuousAnalysis) {
+            if (!viewModel.analysisLoading.value) {
+                viewModel.options.value = viewModel.options.value.copy(depth = analysisDepth.coerceIn(4, 12))
+                viewModel.analyzePosition(settings.analysisLineCount)
+                analysisDepth = (analysisDepth + 1).coerceAtMost(12)
+            }
+            delay(5200)
+        }
     }
     LaunchedEffect(autoplay, settings.analysisAutoplaySeconds, index, length) {
         if (autoplay) {
@@ -45,7 +55,7 @@ fun AnalysisScreen(viewModel: GameViewModel) {
         }
     }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(8.dp)) {
+    Column(Modifier.fillMaxSize().background(Color(0xFF0E0C14)).verticalScroll(rememberScrollState()).padding(8.dp)) {
         Text("Game Analysis", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(4.dp))
         Text("Position ${index + 1} of $length · Evaluation ${if (evaluation >= 0) "+" else ""}${"%.2f".format(evaluation / 100.0)}", style = MaterialTheme.typography.bodyMedium)
@@ -85,11 +95,11 @@ fun AnalysisScreen(viewModel: GameViewModel) {
             Text("${settings.analysisLineCount} lines · depth ${viewModel.options.value.depth.coerceIn(4, 12)}", style = MaterialTheme.typography.bodySmall)
         }
         Spacer(Modifier.height(4.dp))
-        Button(onClick = { viewModel.analyzePosition(settings.analysisLineCount) }, enabled = !loading, modifier = Modifier.fillMaxWidth()) {
-            Text(if (loading) "Analyzing position…" else "Analyze position")
+        Button(onClick = { continuousAnalysis = !continuousAnalysis }, modifier = Modifier.fillMaxWidth()) {
+            Text(if (continuousAnalysis) "Pause continuous analysis" else "Resume continuous analysis")
         }
         if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-        if (lines.isEmpty() && !loading) Text("No lines returned. Tap Analyze position to retry.", style = MaterialTheme.typography.bodySmall)
+        if (lines.isEmpty() && !loading) Text("No lines returned. Resume analysis to retry.", style = MaterialTheme.typography.bodySmall)
         lines.forEachIndexed { i, line ->
             Card(Modifier.fillMaxWidth().padding(top = 6.dp)) {
                 Column(Modifier.fillMaxWidth().padding(10.dp)) {
@@ -98,9 +108,7 @@ fun AnalysisScreen(viewModel: GameViewModel) {
                         Text("${if (line.scoreCp >= 0) "+" else ""}${"%.2f".format(line.scoreCp / 100.0)}", style = MaterialTheme.typography.labelLarge)
                     }
                     Spacer(Modifier.height(4.dp))
-                    Text(line.moves.chunked(2).mapIndexed { moveIndex, pair ->
-                        if (pair.size == 2) "${moveIndex + 1}. ${pair[0]} ${pair[1]}" else "${moveIndex + 1}. ${pair[0]}"
-                    }.joinToString("  "), style = MaterialTheme.typography.bodySmall)
+                    Text(viewModel.formatAnalysisLine(line.moves), color = Color(0xFFE5E0F0), style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(6.dp))
                     OutlinedButton(onClick = { autoplay = false; viewModel.playAnalysisLine(line) }, modifier = Modifier.fillMaxWidth()) { Text("Play out this line") }
                 }
