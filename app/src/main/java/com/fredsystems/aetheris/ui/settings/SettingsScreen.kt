@@ -93,7 +93,7 @@ fun SettingsScreen(
         complexity = d.complexity.toFloat()
         solidity = d.solidity.toFloat()
         depth = d.depth.toFloat()
-        selectedLevel = 11f
+        selectedLevel = 13f
         exactDepthMode = false
         showAllLevels = false
         mode = d.mode
