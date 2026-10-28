@@ -1,0 +1,144 @@
+name: Release Aetheris v1.0.17
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - app/**
+      - .github/workflows/release-v1.0.17.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aetheris-release-v1.0.17
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Configure Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Diagnose bundled NNUE weights and feature mapping
+        run: python3 training/validate_weights.py app/src/main/assets/weights.bin
+
+      - name: Set up Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26b
+
+      - name: Configure stable signing key when provided
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.AETHERIS_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -n "${KEYSTORE_B64:-}" ]; then
+            echo "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/aetheris-release.jks"
+            echo "AETHERIS_KEYSTORE_PATH=$RUNNER_TEMP/aetheris-release.jks" >> "$GITHUB_ENV"
+            echo "Stable Aetheris signing key configured."
+          else
+            echo "::warning::AETHERIS_KEYSTORE_BASE64 is not configured. This APK will use a temporary debug key and cannot update previous CI-signed installations in place."
+          fi
+
+      - name: Build release APK
+        env:
+          AETHERIS_KEYSTORE_PASSWORD: ${{ secrets.AETHERIS_KEYSTORE_PASSWORD }}
+          AETHERIS_KEY_ALIAS: ${{ secrets.AETHERIS_KEY_ALIAS }}
+          AETHERIS_KEY_PASSWORD: ${{ secrets.AETHERIS_KEY_PASSWORD }}
+        run: gradle assembleRelease
+
+      - name: Prepare hybrid and classical UCI binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets/extracted release-assets/uci release-assets/classical
+          APK="$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
+          test -n "$APK"
+          cp "$APK" release-assets/Aetheris.apk
+          unzip -q "$APK" 'lib/*/libaetheris_engine.so' 'lib/*/libaetheris_classical.so' -d release-assets/extracted
+          test -f release-assets/extracted/lib/arm64-v8a/libaetheris_engine.so
+          test -f release-assets/extracted/lib/arm64-v8a/libaetheris_classical.so
+          for abi in arm64-v8a armeabi-v7a; do
+            HYBRID="release-assets/extracted/lib/${abi}/libaetheris_engine.so"
+            CLASSICAL="release-assets/extracted/lib/${abi}/libaetheris_classical.so"
+            if [ -f "$HYBRID" ]; then
+              mkdir -p "release-assets/uci/${abi}"
+              cp "$HYBRID" "release-assets/uci/${abi}/aetheris_engine"
+              chmod +x "release-assets/uci/${abi}/aetheris_engine"
+            fi
+            if [ -f "$CLASSICAL" ]; then
+              mkdir -p "release-assets/classical/${abi}"
+              cp "$CLASSICAL" "release-assets/classical/${abi}/aetheris_classical"
+              chmod +x "release-assets/classical/${abi}/aetheris_classical"
+            fi
+          done
+          cat > release-assets/README-UCI.txt <<'EOF'
+          Aetheris Hybrid UCI engine for Android.
+          Select uci/<abi>/aetheris_engine matching the device ABI.
+          The APK is the recommended way to install the Android app.
+          EOF
+          cat > release-assets/README-CLASSICAL.txt <<'EOF'
+          Aetheris Pure Classical UCI engine for Android.
+          This binary starts in Classical evaluation mode by default.
+          Select classical/<abi>/aetheris_classical matching the device ABI.
+          EOF
+          (cd release-assets && zip -qr Aetheris-UCI-Engine-Android.zip uci README-UCI.txt)
+          (cd release-assets && zip -qr Aetheris-Classical-Engine-Android.zip classical README-CLASSICAL.txt)
+          rm -rf release-assets/extracted release-assets/uci release-assets/classical release-assets/README-UCI.txt release-assets/README-CLASSICAL.txt
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aetheris-v1.0.17-release
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish v1.0.17 release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          tag_name: v1.0.17
+          name: Aetheris v1.0.17
+          target_commitish: ${{ github.sha }}
+          body: |
+            Aetheris v1.0.17
+
+            Engine improvements:
+            - Classical evaluation now adds supported outposts, pawn-chain and protected-passer bonuses, connected-rook coordination, king shelter, and space.
+            - Search now recognises search-line repetitions and the 50-move draw, and orders tactical captures more effectively in quiescence.
+            - NNUE startup runs raw, unsearched checks for the starting position and positions with either queen missing. Logs show the exact centipawn outputs and flag calibration failures.
+            - Classical mode remains the default.
+            - Fixed the engine-selection UI so choosing NNUE is no longer silently rewritten to Classical. If the bundled network fails its static calibration, the app now clearly reports that the native safety guard is still using Classical evaluation. The current bundled weights fail the queen-material sanity check and are not claimed to be calibrated or strong; a properly trained, validated network is still required for true NNUE play.
+            - Added a long-press board shortcut for engine mode/personality controls.
+            - Streamlined home navigation: one main Analysis & Lines entry, with Play from Here beside Engine Match.
+            - Analysis variation length can now be extended to 20 plies.
+            - Website board cells now have fixed 8x8 geometry to prevent pieces shifting/resizing, and website settings now include personality sliders, analysis length, sound volume/mute, blindfold, premoves, conditional replies and experimental Chess960.
+            - Website WebAssembly now receives the personality slider values.
+            - The live-game evaluation bar uses the same EvaluationBar component and width as the analysis board.
+
+            Audio and downloads:
+            - Lichess Standard move/capture sounds are fetched from Lichess at runtime and cached privately; their non-free sound files are not bundled into the APK.
+            - Download Latest APK saves the APK to Downloads. Check for Updates downloads to private cache and opens Android's installer.
+            - Includes a separate Android Classical UCI binary package.
+
+            Android update compatibility:
+            - Version code 17 / version name 1.0.17.
+            - APK updates require the same signing certificate. CI's stable signing secrets are not configured yet, so this release falls back to a temporary debug key. Existing installs signed by a different key must be uninstalled once before installing this APK. Configure the secrets documented in docs/RELEASE_SIGNING.md to enable seamless future updates.
+          files: release-assets/*
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          make_latest: true
