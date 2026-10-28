@@ -372,8 +372,43 @@ const blackClock = document.getElementById("blackClock");
 
 function applyEngineMode(){
   if(wasmReady && wasmEngine) {
-    try { wasmEngine.ccall("aetheris_set_mode", null, ["number"], [Number(settings.engineMode)||0]); } catch(e) {}
+    try {
+      wasmEngine.ccall("aetheris_set_mode", null, ["number"], [Number(settings.engineMode)||2]);
+      applyEnginePersonality();
+    } catch(e) {}
   }
+}
+function applyEnginePersonality(){
+  if(!wasmReady || !wasmEngine) return;
+  try {
+    wasmEngine.ccall("aetheris_set_personality", null, ["number","number","number","number","number"], [
+      settings.aggression, settings.positional, settings.complexity, settings.solidity, settings.materialWeight
+    ]);
+  } catch(e) {}
+}
+const soundCache = {};
+function playLichessSound(capture=false){
+  if(!settings.moveSoundsEnabled || settings.moveSoundVolume<=0) return;
+  const key = capture ? "Capture.mp3" : "Move.mp3";
+  const url = "https://lichess1.org/assets/sound/standard/" + key;
+  try {
+    if(!soundCache[key]) soundCache[key] = new Audio(url);
+    const audio = soundCache[key].cloneNode();
+    audio.volume = Math.max(0,Math.min(1,settings.moveSoundVolume/100));
+    audio.play().catch(()=>{});
+  } catch(e) {}
+}
+function randomChess960Fen(){
+  const back = Array(8).fill("");
+  const dark = [0,2,4,6], light = [1,3,5,7];
+  back[dark[Math.floor(Math.random()*dark.length)]] = "b";
+  back[light[Math.floor(Math.random()*light.length)]] = "b";
+  const place = (p)=>{ const free=back.map((v,i)=>v? -1:i).filter(i=>i>=0); const i=free[Math.floor(Math.random()*free.length)]; back[i]=p; };
+  place("q"); place("n"); place("n");
+  const free=back.map((v,i)=>v? -1:i).filter(i=>i>=0);
+  back[free[0]]="r"; back[free[1]]="k"; back[free[2]]="r";
+  const white=back.join("").toUpperCase(), black=back.join("");
+  return black+"/pppppppp/8/8/8/8/PPPPPPPP/"+white+" w - - 0 1";
 }
 if(typeof AetherisModule === "function") {
   AetherisModule().then(mod=>{
@@ -486,7 +521,7 @@ function renderBoard(){
       if(selected===sqName) sq.classList.add("selected");
       const piece = game.get(sqName);
       if(piece && game.in_check() && piece.type==="k" && piece.color===game.turn()) sq.classList.add("check");
-      if(piece){
+      if(piece && !settings.blindfoldMode){
         const img = document.createElement("img");
         img.src = "pieces/" + settings.pieceSet + "/" + pieceCode(piece) + ".png";
         img.alt = piece.color + piece.type;
@@ -541,6 +576,25 @@ function selectSquare(sq){
   renderBoard();
 }
 function onSquare(sq){
+  if(timeoutText || game.game_over()) return;
+  const premoveTurn = mode==="play" && game.turn()!==playerColor && settings.premoveEnabled;
+  if(premoveTurn){
+    if(!selected){
+      const p=game.get(sq);
+      if(p && p.color===playerColor){ selected=sq; legal=[]; renderBoard(); }
+      return;
+    }
+    if(selected===sq){ selected=null; legal=[]; renderBoard(); return; }
+    const p=game.get(selected);
+    if(p && p.color===playerColor){
+      const queued=selected+sq;
+      pendingPremoves.push(queued);
+      if(!settings.multiplePremoves) pendingPremoves=pendingPremoves.slice(-1);
+      selected=null; legal=[]; renderBoard();
+      statusSub.textContent="Premove queued: "+queued.toUpperCase();
+    } else { selected=null; legal=[]; renderBoard(); }
+    return;
+  }
   if(!allowed()) return;
   if(selected){
     if(tryMove(selected, sq)) return;
@@ -564,6 +618,7 @@ function tryMove(from, to){
   let mv = null;
   try { mv = game.move({from:from, to:to, promotion:"q"}); } catch(e){ mv = null; }
   if(!mv) return false;
+  playLichessSound((mv.flags||"").includes("c") || (mv.flags||"").includes("e"));
   recordMove(mv);
   lastMove = {from:mv.from, to:mv.to};
   selected = null; legal = [];
@@ -585,8 +640,12 @@ function applyEngineMove(){
   let m = null;
   try { m = game.move(uci); } catch(e) { m = null; }
   if(!m) return false;
+  playLichessSound((m.flags||"").includes("c") || (m.flags||"").includes("e"));
   recordMove(m);
   lastMove = {from:m.from, to:m.to};
+  if(settings.conditionalMoves && uciForMove(m)===String(settings.conditionalOpponentMove||"").toLowerCase()){
+    pendingPremoves.unshift(String(settings.conditionalReplyMove||"").toLowerCase());
+  }
   selected = null; legal = [];
   renderBoard(); renderStatus();
   return true;
@@ -604,6 +663,10 @@ function engineMove(force){
     const moved = applyEngineMove();
     thinking = false;
     if(!moved) statusSub.textContent = "Engine could not return a legal move";
+    else if(mode==="play" && game.turn()===playerColor && pendingPremoves.length){
+      const queued=pendingPremoves.shift();
+      if(!tryMove(queued.slice(0,2),queued.slice(2,4))) statusSub.textContent="Queued premove was illegal and skipped";
+    }
     renderStatus();
   }, 20);
 }
@@ -620,7 +683,7 @@ function stopAnalysisPlayback(){
 function rebuildAt(target, preservePlayback=false){
   if(!preservePlayback) stopAnalysisPlayback();
   const index = Math.max(0, Math.min(historyMoves.length, target));
-  game = new Chess();
+  game = new Chess(initialFen);
   for(let i=0;i<index;i++){
     const u = historyMoves[i];
     try { game.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]||"q"}); } catch(e) { break; }
@@ -640,7 +703,7 @@ function analyzePosition(){
   button.disabled = true; button.textContent = "Analyzing…";
   setTimeout(()=>{
     try {
-      const raw = wasmEngine.ccall("aetheris_analyze","string",["string","number","number","number"],[game.fen(),Math.min(12,settings.depth),5000,settings.analysisLineCount]);
+      const raw = wasmEngine.ccall("aetheris_analyze","string",["string","number","number","number"],[game.fen(),Math.min(20,settings.analysisLineLength||settings.depth),5000,settings.analysisLineCount]);
       const rows = (raw||"").split("\n").filter(Boolean);
       const lines = rows.map(row=>{
         const parts=row.split("|"); const moves=(parts[0]||"").trim().split(/\s+/).filter(Boolean);
@@ -679,8 +742,9 @@ function newGame(colorChoice){
   if(color==="random") color = Math.random()<0.5 ? "white" : "black";
   playerColor = color==="black" ? "b" : "w";
   flipped = playerColor==="b";
-  game = new Chess();
-  historyMoves = []; historyIndex = 0; updateAnalysisPosition();
+  initialFen = settings.chess960Enabled ? randomChess960Fen() : new Chess().fen();
+  game = new Chess(initialFen);
+  historyMoves = []; historyIndex = 0; pendingPremoves = []; updateAnalysisPosition();
   selected = null; legal = []; lastMove = null; thinking = false; timeoutText = "";
   mode = "play";
   document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("active", b.dataset.mode==="play"));
@@ -767,6 +831,19 @@ function buildControls(){
   document.getElementById("defaultTime").onchange = (e)=>{ settings.timeControl = e.target.value; saveSettings(); resetClocks(); updateClocks(); };
   document.getElementById("engineMode").onchange = (e)=>{ settings.engineMode = Number(e.target.value); saveSettings(); applyEngineMode(); renderStatus(); renderBoard(); };
   document.getElementById("depthRange").oninput = (e)=>{ settings.depth = Number(e.target.value); saveSettings(); syncSettingsUI(); renderStatus(); };
+  ["aggression","positional","complexity","solidity"].forEach(key=>{
+    document.getElementById(key+"Range").oninput = (e)=>{ settings[key]=Number(e.target.value); saveSettings(); syncSettingsUI(); applyEnginePersonality(); };
+  });
+  document.getElementById("analysisLineLengthRange").oninput = (e)=>{ settings.analysisLineLength=Number(e.target.value); saveSettings(); syncSettingsUI(); };
+  document.getElementById("soundVolumeRange").oninput = (e)=>{ settings.moveSoundVolume=Number(e.target.value); saveSettings(); syncSettingsUI(); };
+  document.getElementById("muteSounds").onchange = (e)=>{ settings.moveSoundsEnabled=!e.target.checked; saveSettings(); syncSettingsUI(); };
+  document.getElementById("blindfoldMode").onchange = (e)=>{ settings.blindfoldMode=e.target.checked; saveSettings(); renderBoard(); };
+  document.getElementById("premoveEnabled").onchange = (e)=>{ settings.premoveEnabled=e.target.checked; if(!e.target.checked) pendingPremoves=[]; saveSettings(); };
+  document.getElementById("multiplePremoves").onchange = (e)=>{ settings.multiplePremoves=e.target.checked; saveSettings(); };
+  document.getElementById("conditionalMoves").onchange = (e)=>{ settings.conditionalMoves=e.target.checked; saveSettings(); };
+  document.getElementById("conditionalOpponentMove").oninput = (e)=>{ settings.conditionalOpponentMove=e.target.value.toLowerCase().trim(); saveSettings(); };
+  document.getElementById("conditionalReplyMove").oninput = (e)=>{ settings.conditionalReplyMove=e.target.value.toLowerCase().trim(); saveSettings(); };
+  document.getElementById("chess960Enabled").onchange = (e)=>{ settings.chess960Enabled=e.target.checked; saveSettings(); };
   document.getElementById("analysisLineCount").onchange = (e)=>{ settings.analysisLineCount = Number(e.target.value); saveSettings(); syncSettingsUI(); };
   document.getElementById("autoplayRange").oninput = (e)=>{ settings.analysisAutoplaySeconds = Number(e.target.value); saveSettings(); syncSettingsUI(); };
   document.getElementById("nnueFile").onchange = async (e)=>{
@@ -796,7 +873,7 @@ function buildControls(){
   document.getElementById("evalPlay").onchange = (e)=>{ settings.showEvalPlay = e.target.checked; saveSettings(); if(mode==="play"){ evalVisible = e.target.checked; renderBoard(); } };
   document.getElementById("evalAnalysis").onchange = (e)=>{ settings.showEvalAnalysis = e.target.checked; saveSettings(); if(mode==="analysis"){ evalVisible = e.target.checked; renderBoard(); } };
   document.querySelectorAll("#defaultColors .chip").forEach(c=> c.onclick = ()=>{ settings.playerColor = c.dataset.color; saveSettings(); syncSettingsUI(); });
-  document.getElementById("resetSettings").onclick = ()=>{ settings = Object.assign({}, DEFAULT_SETTINGS); saveSettings(); syncSettingsUI(); applyBoardSize(); renderBoard(); resetClocks(); updateClocks(); };
+  document.getElementById("resetSettings").onclick = ()=>{ settings = Object.assign({}, DEFAULT_SETTINGS); saveSettings(); syncSettingsUI(); applyEngineMode(); applyBoardSize(); renderBoard(); resetClocks(); updateClocks(); };
 }
 function syncSettingsUI(){
   setDensity(); applyBoardSize();
@@ -814,8 +891,25 @@ function syncSettingsUI(){
   document.getElementById("depthRange").value = settings.depth;
   document.getElementById("depthLabel").textContent = settings.depth;
   document.getElementById("analysisLineCount").value = settings.analysisLineCount;
+  document.getElementById("analysisLineLengthRange").value = settings.analysisLineLength;
+  document.getElementById("analysisLineLengthLabel").textContent = settings.analysisLineLength + " plies";
+  ["aggression","positional","complexity","solidity"].forEach(key=>{
+    document.getElementById(key+"Range").value = settings[key];
+    document.getElementById(key+"Label").textContent = settings[key];
+  });
+  document.getElementById("soundVolumeRange").value = settings.moveSoundVolume;
+  document.getElementById("soundVolumeLabel").textContent = settings.moveSoundVolume + "%";
+  document.getElementById("muteSounds").checked = !settings.moveSoundsEnabled;
+  document.getElementById("blindfoldMode").checked = settings.blindfoldMode;
+  document.getElementById("premoveEnabled").checked = settings.premoveEnabled;
+  document.getElementById("multiplePremoves").checked = settings.multiplePremoves;
+  document.getElementById("conditionalMoves").checked = settings.conditionalMoves;
+  document.getElementById("conditionalOpponentMove").value = settings.conditionalOpponentMove;
+  document.getElementById("conditionalReplyMove").value = settings.conditionalReplyMove;
+  document.getElementById("chess960Enabled").checked = settings.chess960Enabled;
   document.getElementById("autoplayRange").value = settings.analysisAutoplaySeconds;
   document.getElementById("autoplayLabel").textContent = settings.analysisAutoplaySeconds + "s";
+  applyEnginePersonality();
 
   document.getElementById("evalPlay").checked = settings.showEvalPlay;
   document.getElementById("evalAnalysis").checked = settings.showEvalAnalysis;
@@ -824,6 +918,7 @@ function syncSettingsUI(){
   preview.innerHTML = ["wK","wQ","wR","wB","wN","wP","bK","bQ","bR","bB","bN","bP"]
     .map(c=>`<img src="pieces/${settings.pieceSet}/${c}.png" alt="${c}">`).join("");
 }
+boardEl.addEventListener("contextmenu", (e)=>{ e.preventDefault(); document.getElementById("settingsDialog").showModal(); });
 window.addEventListener("resize", applyBoardSize);
 buildControls();
 syncSettingsUI();
