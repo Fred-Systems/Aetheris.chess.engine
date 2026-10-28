@@ -93,13 +93,12 @@ class GameViewModel(private val context: Context) : ViewModel() {
             if (NativeEngine.isNnueLoaded()) {
                 val configuredOptions = options.value
                 applyNativeOptions(configuredOptions.copy(mode = EngineMode.PURE_NNUE))
-                val startPositionCp = NativeEngine.evaluateFen(Board().fen)
+                val startFen = board.fen
+                val rawNnueCp = NativeEngine.rawNnueEvaluateFen(startFen)
+                val startPositionCp = NativeEngine.evaluateFen(startFen)
                 applyNativeOptions(configuredOptions)
-                nnueStatus.value = if (abs(startPositionCp) > 100) {
-                    "NNUE loaded with calibration warning ($startPositionCp cp at start); NNUE mode remains available."
-                } else {
-                    "NNUE loaded successfully; start position $startPositionCp cp."
-                }
+                android.util.Log.i("AetherisNNUE", "NNUE loaded; raw start score=$rawNnueCp cp; blended score=$startPositionCp cp")
+                nnueStatus.value = "NNUE loaded · raw $rawNnueCp cp · calibrated hybrid $startPositionCp cp"
             } else {
                 nnueStatus.value = "NNUE Load Failed — Classical fallback active"
                 android.util.Log.e("AetherisNNUE", "NNUE Load Failed: bundled and custom network unavailable")
