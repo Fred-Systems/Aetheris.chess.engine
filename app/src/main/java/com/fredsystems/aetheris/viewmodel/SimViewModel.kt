@@ -42,11 +42,26 @@ class SimViewModel(private val context: Context) : ViewModel() {
     var positionalB = 50
     var complexityB = 50
     var solidityB = 50
+    private var nnueCalibrationAccepted = true
 
     init {
         runCatching {
             NativeEngine.initialize()
             ensureNnue()?.let { NativeEngine.setNnue(it) }
+            val startScore = NativeEngine.evaluateFen(Board().fen)
+            if (kotlin.math.abs(startScore) > 100) {
+                nnueCalibrationAccepted = false
+                modeA = "PureClassical"
+                modeB = "PureClassical"
+                status.value = "Bundled NNUE rejected ($startScore cp at start); using classical evaluation"
+            } else {
+                status.value = "Engine ready · NNUE start score $startScore cp"
+            }
+        }.onFailure {
+            nnueCalibrationAccepted = false
+            modeA = "PureClassical"
+            modeB = "PureClassical"
+            status.value = "NNUE initialization failed; using classical evaluation"
         }
     }
 
@@ -121,9 +136,10 @@ class SimViewModel(private val context: Context) : ViewModel() {
         status.value = "Stopped"
     }
 
-    private fun modeOrdinal(mode: String): Int = when (mode) {
-        "PureNNUE" -> 1
-        "PureClassical" -> 2
+    private fun modeOrdinal(mode: String): Int = when {
+        !nnueCalibrationAccepted -> 2
+        mode == "PureNNUE" -> 1
+        mode == "PureClassical" -> 2
         else -> 0
     }
 
