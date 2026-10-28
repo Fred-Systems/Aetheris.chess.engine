@@ -2,6 +2,7 @@
 #include "nnue.h"
 #include <jni.h>
 #include <string>
+#include <cstdlib>
 #include <sstream>
 #include <android/log.h>
 #include <signal.h>
@@ -193,7 +194,7 @@ Java_com_fredsystems_aetheris_engine_NativeEngine_nativeRawNnueEvaluateFen(JNIEn
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_fredsystems_aetheris_engine_NativeEngine_nativeNnueSanityCheck(JNIEnv*, jobject) {
+Java_com_fredsystems_aetheris_engine_NativeEngine_nativeNnueSanityCheck(JNIEnv* env, jobject) {
     if (!nnueLoaded()) {
         AETH_LOGE("NNUE Load Failed: sanity check requested without a loaded network");
         return env->NewStringUTF("NNUE Load Failed");
