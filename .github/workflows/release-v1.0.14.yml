@@ -68,6 +68,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.14
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           name: Aetheris v1.0.14
           target_commitish: ${{ github.sha }}
           body: |
