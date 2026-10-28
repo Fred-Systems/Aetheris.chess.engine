@@ -26,7 +26,7 @@ int main() {
 #endif
     setNNUEPath("weights.bin");
     std::string line;
-    int depthLimit = 6;
+    int depthLimit = 8;
     int nodesLimit = 0;
     while (std::getline(std::cin, line)) {
         std::istringstream iss(line);
@@ -45,7 +45,7 @@ int main() {
             std::cout << "option name Solidity type spin default 50 min 0 max 100" << std::endl;
             std::cout << "option name MaterialWeight type spin default 50 min 0 max 100" << std::endl;
             std::cout << "option name UseOpeningBook type check default false" << std::endl;
-            std::cout << "option name Depth type spin default 6 min 1 max 64" << std::endl;
+            std::cout << "option name Depth type spin default 8 min 1 max 64" << std::endl;
 #ifdef AETHERIS_DEFAULT_CLASSICAL
             std::cout << "option name EngineMode type combo default PureClassical var DualCore var PureNNUE var PureClassical" << std::endl;
 #else
