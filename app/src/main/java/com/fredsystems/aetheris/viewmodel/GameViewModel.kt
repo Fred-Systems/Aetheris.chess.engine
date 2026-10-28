@@ -659,12 +659,21 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     fun updateOptions(o: EngineOptions) {
-        val nnueRejected = nnueStatus.value.contains("rejected", ignoreCase = true) || nnueStatus.value.contains("failed calibration", ignoreCase = true) || nnueStatus.value.contains("calibration failed", ignoreCase = true) || nnueStatus.value.contains("WARNING", ignoreCase = true) || nnueStatus.value.contains("NNUE Load Failed", ignoreCase = true)
-        val safe = if (o.mode == EngineMode.PURE_NNUE && nnueRejected) o.copy(mode = EngineMode.PURE_CLASSICAL) else o
-        options.value = safe
-        applyNativeOptions(safe)
-        if (safe.mode != o.mode) {
-            nnueStatus.value = "Pure NNUE mode blocked because these weights failed calibration; Classical evaluation remains active. Import a validated trained network to enable Pure NNUE."
+        // Do not silently rewrite the user's engine selection. The native evaluator
+        // independently guards an uncalibrated network and reports that fallback.
+        // This keeps the selected mode and its actual safety status distinguishable.
+        if (o.mode == EngineMode.PURE_NNUE && !NativeEngine.isNnueLoaded()) {
+            options.value = o.copy(mode = EngineMode.PURE_CLASSICAL)
+            applyNativeOptions(options.value)
+            nnueStatus.value = "NNUE Load Failed — no network is loaded; Classical evaluation is active."
+            return
+        }
+        options.value = o
+        applyNativeOptions(o)
+        if (o.mode == EngineMode.PURE_NNUE && (nnueStatus.value.contains("calibration failed", true) || nnueStatus.value.contains("WARNING", true))) {
+            nnueStatus.value = "NNUE selected, but the bundled network failed static calibration. Native safety guard is still using Classical evaluation; load a validated network to activate NNUE."
+        } else if (o.mode == EngineMode.PURE_NNUE) {
+            nnueStatus.value = "NNUE mode selected; search uses the loaded network with the calibrated hybrid evaluator."
         }
     }
 
