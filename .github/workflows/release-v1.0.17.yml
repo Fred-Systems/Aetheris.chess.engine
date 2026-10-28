@@ -136,7 +136,7 @@ jobs:
             - Includes a separate Android Classical UCI binary package.
 
             Android update compatibility:
-            - Version code 17 / version name 1.0.17.
+            - Version code 18 / version name 1.0.17.
             - APK updates require the same signing certificate. CI's stable signing secrets are not configured yet, so this release falls back to a temporary debug key. Existing installs signed by a different key must be uninstalled once before installing this APK. Configure the secrets documented in docs/RELEASE_SIGNING.md to enable seamless future updates.
           files: release-assets/*
           overwrite_files: true
