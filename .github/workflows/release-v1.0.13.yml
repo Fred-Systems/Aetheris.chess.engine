@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: aetheris-release-v1.0.13
+  group: aetheris-release-v1.0.13-${{ github.sha }}
   cancel-in-progress: true
 
 jobs:
