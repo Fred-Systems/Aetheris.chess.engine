@@ -42,6 +42,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.fredsystems.aetheris.domain.model.PieceColor
+import com.fredsystems.aetheris.domain.model.EngineMode
 import com.fredsystems.aetheris.domain.model.TimeControl
 import com.fredsystems.aetheris.ui.analysis.AnalysisScreen
 import com.fredsystems.aetheris.ui.board.ChessBoard
@@ -207,6 +208,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
     val blackTime by vm.blackTimeMs
     val timeControl = vm.timeControlSeconds.value
     var showNewGame by remember { mutableStateOf(false) }
+    var showPlayFromHere by remember { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
     var pgnExpanded by remember { mutableStateOf(configuration.screenWidthDp >= 600 && settings.showPgnPanel) }
 
@@ -274,6 +276,9 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                     onClick = { navController.navigate("sim") },
                     modifier = Modifier.weight(1f)
                 ) { Text("Engine match") }
+            }
+            OutlinedButton(onClick = { showPlayFromHere = true }, modifier = Modifier.fillMaxWidth()) {
+                Text("Play from Here")
             }
 
             Surface(
@@ -378,6 +383,19 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
         }
     }
 
+    if (showPlayFromHere) {
+        PlayFromHereDialog(
+            currentTimeControl = settings.timeControl,
+            currentDepth = opts.depth,
+            currentMode = opts.mode,
+            onDismiss = { showPlayFromHere = false },
+            onStart = { color, tc, depth, engineMode ->
+                vm.startGameFromHere(color, tc, depth, engineMode)
+                showPlayFromHere = false
+            }
+        )
+    }
+
     if (showNewGame) {
         NewGameDialog(
             defaultColor = when (vm.playerColor.value) {
@@ -393,6 +411,58 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
             }
         )
     }
+}
+
+@Composable
+private fun PlayFromHereDialog(
+    currentTimeControl: String,
+    currentDepth: Int,
+    currentMode: EngineMode,
+    onDismiss: () -> Unit,
+    onStart: (String, String, Int, EngineMode) -> Unit
+) {
+    var color by remember { mutableStateOf("white") }
+    var timeControl by remember { mutableStateOf(currentTimeControl) }
+    var depth by remember { mutableStateOf(currentDepth.toFloat().coerceIn(1f, 20f)) }
+    var engineMode by remember { mutableStateOf(currentMode) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Play from this position", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text("Your color", fontSize = 12.sp, color = Color(0xFF9B93B8))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("white" to "White", "black" to "Black", "random" to "Random").forEach { (id, label) ->
+                        ModeChip(label, color == id, Modifier.weight(1f)) { color = id }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("Time control", fontSize = 12.sp, color = Color(0xFF9B93B8))
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TimeControl.all.chunked(3).forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            row.forEach { tc -> ModeChip(tc.label, timeControl == tc.id, Modifier.weight(1f)) { timeControl = tc.id } }
+                            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Engine level", fontSize = 12.sp, color = Color(0xFF9B93B8))
+                    Text("Depth \${depth.toInt()}", fontWeight = FontWeight.Bold)
+                }
+                Slider(value = depth, onValueChange = { depth = it }, valueRange = 1f..20f, steps = 18)
+                Text("Engine", fontSize = 12.sp, color = Color(0xFF9B93B8))
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    ModeChip("Dual", engineMode == EngineMode.DUAL_CORE, Modifier.weight(1f)) { engineMode = EngineMode.DUAL_CORE }
+                    ModeChip("NNUE", engineMode == EngineMode.PURE_NNUE, Modifier.weight(1f)) { engineMode = EngineMode.PURE_NNUE }
+                    ModeChip("Classical", engineMode == EngineMode.PURE_CLASSICAL, Modifier.weight(1f)) { engineMode = EngineMode.PURE_CLASSICAL }
+                }
+            }
+        },
+        confirmButton = { Button(onClick = { onStart(color, timeControl, depth.toInt(), engineMode) }) { Text("Start from Here") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @Composable
