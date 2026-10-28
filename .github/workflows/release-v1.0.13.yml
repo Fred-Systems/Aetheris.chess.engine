@@ -110,6 +110,7 @@ jobs:
             - Evaluation uses a bounded alpha-beta search instead of relying only on static material evaluation.
             - Experimental NNUE output is blended with classical evaluation to reduce the impact of uncalibrated weights.
             - Analysis uses continuous progressive-depth search, preserves best-so-far lines, and shows algebraic notation on a dark background.
+            - SAN castling notation is formatted correctly.
           files: release-assets/*
           overwrite_files: true
           fail_on_unmatched_files: true
