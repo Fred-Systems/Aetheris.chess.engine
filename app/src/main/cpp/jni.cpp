@@ -124,6 +124,8 @@ Java_com_fredsystems_aetheris_engine_NativeEngine_nativeSetNnue(JNIEnv* env, job
     if (chars) {
         clearSearchTables();
         setNNUEPath(std::string(chars));
+        if (nnueLoaded()) AETH_LOGI("NNUE loaded successfully: %s", chars);
+        else AETH_LOGE("NNUE Load Failed: %s", chars);
         env->ReleaseStringUTFChars(path, chars);
     }
 }
