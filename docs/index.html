@@ -382,7 +382,7 @@ const blackClock = document.getElementById("blackClock");
 function applyEngineMode(){
   if(wasmReady && wasmEngine) {
     try {
-      wasmEngine.ccall("aetheris_set_mode", null, ["number"], [Number(settings.engineMode)||2]);
+      wasmEngine.ccall("aetheris_set_mode", null, ["number"], [Number.isFinite(Number(settings.engineMode)) ? Number(settings.engineMode) : 2]);
       applyEnginePersonality();
     } catch(e) {}
   }
