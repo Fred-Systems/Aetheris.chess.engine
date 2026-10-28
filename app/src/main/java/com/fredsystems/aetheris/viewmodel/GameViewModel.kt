@@ -389,7 +389,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         mode.value = PlayMode.PLAY
         evalVisible.value = settings.value.showEvalPlay
         engineGeneration++
-        board = Board()
+        board = if (settings.value.chess960Enabled) createChess960Board() else Board()
         moveList.clear()
         analysisLines.value = emptyList()
         positionHistory.clear()
