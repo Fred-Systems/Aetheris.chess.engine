@@ -218,7 +218,7 @@ fun SettingsScreen(
             SwitchRow("Move and check sound effects", settings.moveSoundsEnabled) {
                 viewModel.updateSettings(settings.copy(moveSoundsEnabled = it))
             }
-            Text("Uses lightweight built-in Android tones for moves and checks. Sound is disabled when muted or volume is zero.",
+            Text("Uses Lichess Standard move/capture audio, loaded from Lichess on first use and cached privately. Internet is needed for the initial sound download.",
                 color = Color(0xFF9B93B8), fontSize = 11.sp)
             LabeledSlider(
                 title = "Sound volume",
@@ -437,21 +437,62 @@ fun SettingsScreen(
         MenuRow("External Engines", onOpenExternal)
         Text("Neural network: $nnueStatus", color = Color(0xFF9B93B8), fontSize = 11.sp)
         MenuRow("Import trained NNUE weights", onImportNnue)
+        MenuRow("Run NNUE static-evaluation checks", { viewModel.runNnueDiagnostics() })
         if (context.packageName.endsWith(".crashreport")) {
             MenuRow("Export crash report", onExportCrashReport)
         }
         MenuRow(if (checkingUpdate) "Checking..." else "Check for Updates", { checkUpdate() })
-        MenuRow("Download Latest APK", {
+        MenuRow("Download Latest APK to Downloads", {
             scope.launch {
                 val json = updater.fetchLatest()
                 val url = json?.optJSONArray("assets")?.let { arr ->
                     for (i in 0 until arr.length()) {
                         val a = arr.getJSONObject(i)
-                        if (a.optString("name").endsWith(".apk")) return@let a.optString("browser_download_url")
+                        if (a.optString("name") == "Aetheris.apk") return@let a.optString("browser_download_url")
                     }
                     null
                 }
-                if (url != null) updater.downloadAndInstall(url)
+                if (!url.isNullOrBlank()) {
+                    runCatching {
+                        val request = DownloadManager.Request(Uri.parse(url))
+                            .setTitle("Aetheris latest APK")
+                            .setDescription("Download the latest Aetheris installer without installing it")
+                            .setMimeType("application/vnd.android.package-archive")
+                            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                            .setAllowedOverMetered(true)
+                            .setAllowedOverRoaming(false)
+                            .setDestinationInExternalPublicDir(
+                                Environment.DIRECTORY_DOWNLOADS,
+                                "Aetheris-${System.currentTimeMillis()}.apk"
+                            )
+                        (context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
+                        Toast.makeText(context, "APK download started. It will appear in Downloads.", Toast.LENGTH_LONG).show()
+                    }.onFailure {
+                        Toast.makeText(context, "Could not start APK download: ${it.message}", Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    Toast.makeText(context, "No APK was found in the latest release.", Toast.LENGTH_LONG).show()
+                }
+            }
+        })
+        MenuRow("Download Classical Engine Binary", {
+            runCatching {
+                val url = "https://github.com/Fred-Systems/Aetheris.chess.engine/releases/latest/download/Aetheris-Classical-Engine-Android.zip"
+                val request = DownloadManager.Request(Uri.parse(url))
+                    .setTitle("Aetheris Classical Engine")
+                    .setDescription("Downloading the standalone Classical UCI engine")
+                    .setMimeType("application/zip")
+                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    .setAllowedOverMetered(true)
+                    .setAllowedOverRoaming(false)
+                    .setDestinationInExternalPublicDir(
+                        Environment.DIRECTORY_DOWNLOADS,
+                        "Aetheris-Classical-Engine-Android-${System.currentTimeMillis()}.zip"
+                    )
+                (context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
+                Toast.makeText(context, "Classical engine download started.", Toast.LENGTH_LONG).show()
+            }.onFailure {
+                Toast.makeText(context, "Could not download Classical engine: ${it.message}", Toast.LENGTH_LONG).show()
             }
         })
         MenuRow("Download UCI Engine Package", {
