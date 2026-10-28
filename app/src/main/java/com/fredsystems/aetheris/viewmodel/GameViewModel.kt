@@ -225,6 +225,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     fun startGameFromHere(colorChoice: String, timeControlId: String, depth: Int, engineMode: EngineMode) {
+        ponderJob?.cancel()
+        ponderJob = null
+        ponderCache.clear()
         val target = historyIndex.value.coerceIn(0, positionHistory.lastIndex)
         runCatching { board.loadFromFen(positionHistory[target]) }
         while (positionHistory.size > target + 1) positionHistory.removeAt(positionHistory.lastIndex)
@@ -334,6 +337,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     fun newGame(colorChoice: String = settings.value.playerColor) {
+        ponderJob?.cancel()
+        ponderJob = null
+        ponderCache.clear()
         val chosen = when (colorChoice) {
             "black" -> PieceColor.BLACK
             "random" -> if (Random.nextBoolean()) PieceColor.WHITE else PieceColor.BLACK
@@ -364,6 +370,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
 
     fun setMode(newMode: PlayMode) {
         if (mode.value == newMode) return
+        ponderJob?.cancel()
+        ponderJob = null
+        ponderCache.clear()
         mode.value = newMode
         engineGeneration++
         engineThinking.value = false
@@ -400,6 +409,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
 
     fun goToHistoryIndex(targetIndex: Int) {
         if (positionHistory.isEmpty()) return
+        ponderJob?.cancel()
+        ponderJob = null
+        ponderCache.clear()
         val target = targetIndex.coerceIn(0, positionHistory.lastIndex)
         engineGeneration++
         engineThinking.value = false
