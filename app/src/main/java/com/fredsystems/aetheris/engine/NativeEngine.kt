@@ -28,6 +28,7 @@ object NativeEngine {
     external fun nativeEvaluate(): Int
     external fun nativeEvaluateFen(fen: String): Int
     external fun nativeRawNnueEvaluateFen(fen: String): Int
+    external fun nativeNnueSanityCheck(): String
     external fun nativeSearchEvaluationFen(fen: String, depth: Int, timeMs: Int): Int
 
     @Synchronized
@@ -87,6 +88,9 @@ object NativeEngine {
 
     @Synchronized
     fun rawNnueEvaluateFen(fen: String): Int = nativeRawNnueEvaluateFen(fen)
+
+    @Synchronized
+    fun nnueSanityCheck(): String = nativeNnueSanityCheck()
 
     @Synchronized
     fun searchEvaluationFen(fen: String, depth: Int, timeMs: Int): Int =
