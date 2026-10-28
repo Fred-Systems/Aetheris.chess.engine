@@ -46,6 +46,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
     private var board = Board()
     private val moveList = mutableListOf<String>()
     private val positionHistory = mutableListOf<String>()
+    private val pendingPremoves = mutableListOf<String>()
+    private var conditionalOpponentUci: String? = null
+    private var conditionalReplyUci: String? = null
     val historyIndex = mutableStateOf(0)
     val historyLength = mutableStateOf(1)
     private val settingsStore = store
@@ -111,34 +114,66 @@ class GameViewModel(private val context: Context) : ViewModel() {
 
     fun onSquareClick(index: Int) {
         if (boardState.value.gameOver) return
-        val playerSide = board.sideToMove == Side.WHITE
-        if (mode.value == PlayMode.PLAY) {
-            val userIsWhite = playerColor.value == PieceColor.WHITE
-            if (playerSide != userIsWhite) return
+        val userSide = if (playerColor.value == PieceColor.WHITE) Side.WHITE else Side.BLACK
+        if (mode.value == PlayMode.PLAY && board.sideToMove != userSide) {
+            if (settings.value.premoveEnabled) handlePremoveClick(index, userSide)
+            return
         }
         val sq = LibSquare.squareAt(index)
         val selected = boardState.value.selectedSquare
         if (selected != null) {
             val from = LibSquare.squareAt(selected)
             val legal = findLegalMove(from, sq)
-            if (legal != null) {
-                makeMove(legal, allowEngineReply = true)
-                return
-            }
+            if (legal != null) { makeMove(legal, allowEngineReply = true); return }
             val clicked = board.getPiece(sq)
-            if (clicked != LibPiece.NONE && clicked.pieceSide == board.sideToMove) {
-                selectSquare(index)
-            } else {
-                boardState.value = boardState.value.copy(selectedSquare = null, legalTargets = emptySet())
-            }
+            if (clicked != LibPiece.NONE && clicked.pieceSide == board.sideToMove) selectSquare(index)
+            else boardState.value = boardState.value.copy(selectedSquare = null, legalTargets = emptySet())
         } else {
             val clicked = board.getPiece(sq)
-            if (clicked != LibPiece.NONE && clicked.pieceSide == board.sideToMove) {
-                selectSquare(index)
-            }
+            if (clicked != LibPiece.NONE && clicked.pieceSide == board.sideToMove) selectSquare(index)
         }
     }
 
+    private fun handlePremoveClick(index: Int, userSide: Side) {
+        val sq = LibSquare.squareAt(index)
+        val selected = boardState.value.selectedSquare
+        if (selected == null) {
+            val piece = board.getPiece(sq)
+            if (piece != LibPiece.NONE && piece.pieceSide == userSide) {
+                boardState.value = boardState.value.copy(selectedSquare = index, legalTargets = emptySet(), statusText = "Premove: choose destination")
+            }
+            return
+        }
+        val from = LibSquare.squareAt(selected)
+        if (from == sq) { boardState.value = boardState.value.copy(selectedSquare = null, legalTargets = emptySet()); return }
+        val uci = from.toString().lowercase() + sq.toString().lowercase()
+        if (!settings.value.multiplePremoves) pendingPremoves.clear()
+        if (pendingPremoves.size < (if (settings.value.multiplePremoves) 8 else 1) && !pendingPremoves.contains(uci)) pendingPremoves.add(uci)
+        boardState.value = boardState.value.copy(selectedSquare = null, legalTargets = emptySet(), statusText = if (pendingPremoves.size > 1) "Alternative premoves queued" else "Premove queued")
+    }
+
+    fun setConditionalMove(opponentUci: String, replyUci: String) {
+        conditionalOpponentUci = opponentUci.trim().lowercase().takeIf { it.length >= 4 }
+        conditionalReplyUci = replyUci.trim().lowercase().takeIf { it.length >= 4 }
+    }
+
+    fun clearConditionalMove() { conditionalOpponentUci = null; conditionalReplyUci = null }
+
+    private fun runPendingPremove() {
+        if (mode.value != PlayMode.PLAY || boardState.value.gameOver) return
+        val userSide = if (playerColor.value == PieceColor.WHITE) Side.WHITE else Side.BLACK
+        if (board.sideToMove != userSide) return
+        val queued = pendingPremoves.toList()
+        pendingPremoves.clear()
+        for (uci in queued) {
+            if (uci.length < 4) continue
+            val from = runCatching { LibSquare.valueOf(uci.substring(0, 2).uppercase()) }.getOrNull() ?: continue
+            val to = runCatching { LibSquare.valueOf(uci.substring(2, 4).uppercase()) }.getOrNull() ?: continue
+            val legal = findLegalMove(from, to) ?: continue
+            makeMove(legal, allowEngineReply = true)
+            return
+        }
+    }
     private fun selectSquare(index: Int) {
         val sq = LibSquare.squareAt(index)
         val targets = board.legalMoves()
