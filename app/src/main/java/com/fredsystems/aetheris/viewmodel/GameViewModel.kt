@@ -498,7 +498,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
             val alternatives = replay.legalMoves().filter {
                 it.from != from && it.to == to && replay.getPiece(it.from).pieceType == piece.pieceType
             }
-            val notation = buildString {
+            val notation = if (piece.pieceType == LibPieceType.KING && kotlin.math.abs(to.file - from.file) == 2) {
+                if (to.file > from.file) "O-O" else "O-O-O"
+            } else buildString {
                 when (piece.pieceType) {
                     LibPieceType.KING -> append("K")
                     LibPieceType.QUEEN -> append("Q")
