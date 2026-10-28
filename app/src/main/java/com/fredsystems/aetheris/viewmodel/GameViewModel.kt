@@ -543,7 +543,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     fun analyzePosition(count: Int = settings.value.analysisLineCount) {
         if (analysisLoading.value) return
         val fen = board.fen
-        val requestedDepth = options.value.depth.coerceIn(4, 12)
+        val requestedDepth = options.value.depth.coerceIn(4, 20)
         analysisLoading.value = true
         viewModelScope.launch {
             val raw = withContext(Dispatchers.Default) {
