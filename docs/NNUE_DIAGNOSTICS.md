@@ -19,6 +19,18 @@ The training and C++ runtime use the same index formula:
 - The trainer's target is `white_score_cp / 100.0`, so its output is in pawn units. C++ multiplies by 100 to convert to centipawns and then negates only when Black is to move. That conversion is consistent.
 - Training augmentation mirrors the board and swaps colors before extracting the same absolute-square features. The Android runtime should not apply an extra rank mirror.
 
+## Measured result for the v1.0.16 bundled weights
+
+The release CI ran the standard-library validator against the actual root asset and measured:
+
+- Starting position: **-220 cp** (expected within ±40 cp).
+- White missing its queen: **-2402 cp** (expected -800 to -1200 cp).
+- Black missing its queen: **+1804 cp** (expected +800 to +1200 cp).
+
+The feature mapping and file dimensions passed the structural checks, but the scores failed calibration badly. In particular, the starting position is materially losing for White and the two queen-loss scores are both oversized and asymmetric. This is evidence against the weights being a well-trained, calibrated evaluator—not evidence that the parser should reverse bytes or apply a random multiplier.
+
+As a safety measure, the native sanity routine sets the NNUE calibration gate to false on this result. Hybrid and NNUE evaluation then fall back to Classical, and the UI blocks selecting Pure NNUE while the diagnostic says WARNING. The correct next step for NNUE strength is to train a new checkpoint on a much larger, representative, accurately labeled position set, export it with this exact format, and rerun these checks plus engine-match testing. The current release does not claim that the bundled network is strong.
+
 ## Why it can still play poorly
 
 The format and index mapping are internally consistent, but that does not establish that the weights learned a useful evaluator. The current data generator defaults to 20,000 random-play positions labeled at depth 12. That is a small and noisy training set for a 512-unit model; it is not enough evidence to expect Stockfish-like strength. The model also has no explicit king-relative features, so its positional understanding is limited.
