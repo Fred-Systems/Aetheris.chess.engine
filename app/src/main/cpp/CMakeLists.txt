@@ -26,3 +26,15 @@ add_executable(aetheris_engine
 set_target_properties(aetheris_engine PROPERTIES SUFFIX ".so" OUTPUT_NAME "libaetheris_engine")
 target_include_directories(aetheris_engine PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(aetheris_engine log)
+# Separate UCI binary that starts in Pure Classical mode by default.
+add_executable(aetheris_classical
+    uci.cpp
+    engine.cpp
+    search.cpp
+    evaluate.cpp
+    nnue.cpp
+)
+target_compile_definitions(aetheris_classical PRIVATE AETHERIS_DEFAULT_CLASSICAL=1)
+set_target_properties(aetheris_classical PROPERTIES SUFFIX ".so" OUTPUT_NAME "libaetheris_classical")
+target_include_directories(aetheris_classical PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(aetheris_classical log)
