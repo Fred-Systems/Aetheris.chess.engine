@@ -32,7 +32,8 @@ data class AppSettings(
     val analysisLineCount: Int = 3,
     val showBestMoveArrow: Boolean = true,
     val showEngineThinkingArrows: Boolean = false,
-    val showPgnPanel: Boolean = true
+    val showPgnPanel: Boolean = true,
+    val pondering: Boolean = false
 )
 
 class SettingsStore(context: Context) {
@@ -53,7 +54,8 @@ class SettingsStore(context: Context) {
         analysisLineCount = prefs.getInt("analysisLineCount", 3).coerceIn(1, 5),
         showBestMoveArrow = prefs.getBoolean("showBestMoveArrow", true),
         showEngineThinkingArrows = prefs.getBoolean("showEngineThinkingArrows", false),
-        showPgnPanel = prefs.getBoolean("showPgnPanel", true)
+        showPgnPanel = prefs.getBoolean("showPgnPanel", true),
+        pondering = prefs.getBoolean("pondering", false)
     )
 
     fun save(s: AppSettings) {
@@ -73,6 +75,7 @@ class SettingsStore(context: Context) {
             .putBoolean("showBestMoveArrow", s.showBestMoveArrow)
             .putBoolean("showEngineThinkingArrows", s.showEngineThinkingArrows)
             .putBoolean("showPgnPanel", s.showPgnPanel)
+            .putBoolean("pondering", s.pondering)
             .apply()
     }
 }
