@@ -194,6 +194,14 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(12.dp))
         SettingsCard("Engine") {
+            SwitchRow("Ponder during my turn", settings.pondering) {
+                viewModel.updateSettings(settings.copy(pondering = it))
+            }
+            Text(
+                "Searches replies to several plausible moves while you think. Matching cached replies can be reused; this increases CPU use, battery drain, and heat.",
+                color = Color(0xFF9B93B8), fontSize = 11.sp
+            )
+            Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Persona presets", fontWeight = FontWeight.SemiBold, color = Color(0xFFF2EEFF), fontSize = 13.sp)
                 Box {
