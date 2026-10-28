@@ -209,6 +209,9 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
     val timeControl = vm.timeControlSeconds.value
     var showNewGame by remember { mutableStateOf(false) }
     var showPlayFromHere by remember { mutableStateOf(false) }
+    var showConditionalDialog by remember { mutableStateOf(false) }
+    var conditionalOpponent by remember { mutableStateOf("e7e5") }
+    var conditionalReply by remember { mutableStateOf("g1f3") }
     val configuration = LocalConfiguration.current
     var pgnExpanded by remember { mutableStateOf(configuration.screenWidthDp >= 600 && settings.showPgnPanel) }
 
@@ -279,6 +282,11 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
             }
             OutlinedButton(onClick = { showPlayFromHere = true }, modifier = Modifier.fillMaxWidth()) {
                 Text("Play from Here")
+            }
+            if (settings.conditionalMoves) {
+                OutlinedButton(onClick = { showConditionalDialog = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Configure Conditional Reply")
+                }
             }
 
             Surface(
@@ -382,6 +390,32 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
             Spacer(Modifier.height(8.dp))
 
         }
+    }
+
+    if (showConditionalDialog) {
+        AlertDialog(
+            onDismissRequest = { showConditionalDialog = false },
+            title = { Text("Conditional move") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("If the engine plays the exact opponent UCI move, Aetheris will attempt your reply automatically. Example: e7e5 then g1f3.")
+                    OutlinedTextField(value = conditionalOpponent, onValueChange = { conditionalOpponent = it.lowercase() }, label = { Text("Opponent move (UCI)") })
+                    OutlinedTextField(value = conditionalReply, onValueChange = { conditionalReply = it.lowercase() }, label = { Text("Your reply (UCI)") })
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    vm.setConditionalMove(conditionalOpponent, conditionalReply)
+                    showConditionalDialog = false
+                }) { Text("Save conditional reply") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    vm.clearConditionalMove()
+                    showConditionalDialog = false
+                }) { Text("Clear") }
+            }
+        )
     }
 
     if (showPlayFromHere) {
