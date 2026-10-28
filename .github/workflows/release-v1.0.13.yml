@@ -1,0 +1,84 @@
+name: Release Aetheris v1.0.13
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' || (github.event.head_commit && contains(github.event.head_commit.message, 'Release Aetheris version 1.0.13'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26b
+
+      - name: Build signed release APK
+        run: gradle assembleRelease
+
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)"
+          test -n "$APK"
+          cp "$APK" release-assets/Aetheris.apk
+
+          mkdir -p release-assets/uci
+          for abi in arm64-v8a armeabi-v7a; do
+            BIN="$(find app/build -type f -name 'libaetheris_engine.so' | grep "/${abi}/" | head -n 1 || true)"
+            if [ -n "$BIN" ]; then
+              mkdir -p "release-assets/uci/${abi}"
+              cp "$BIN" "release-assets/uci/${abi}/aetheris_engine"
+              chmod +x "release-assets/uci/${abi}/aetheris_engine"
+            fi
+          done
+
+          if [ -d release-assets/uci/arm64-v8a ]; then
+            cat > release-assets/README-UCI.txt <<'EOF'
+          Aetheris UCI engine package for Android
+          The executable is provided per ABI under uci/<abi>/aetheris_engine.
+          Use the binary matching the device architecture. The engine communicates
+          using the Universal Chess Interface (UCI) over standard input/output.
+          EOF
+            (cd release-assets && zip -qr Aetheris-UCI-Engine-Android.zip uci README-UCI.txt)
+          fi
+          rm -rf release-assets/uci release-assets/README-UCI.txt
+
+      - name: Publish GitHub release and attach assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.13
+          name: Aetheris v1.0.13
+          target_commitish: ${{ github.sha }}
+          body: |
+            Aetheris v1.0.13
+
+            - Engine-vs-engine matches switch to the live board after starting.
+            - Play from Here configures color, time control, search depth, and engine mode.
+            - Optional pondering searches likely user moves and reuses cached replies when the played move matches.
+            - Evaluation uses a bounded alpha-beta search instead of relying only on static material evaluation.
+            - Experimental NNUE output is blended with classical evaluation to reduce the impact of uncalibrated weights.
+            - Analysis uses continuous progressive-depth search, a dark background, and algebraic notation.
+          files: release-assets/*
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          make_latest: true
