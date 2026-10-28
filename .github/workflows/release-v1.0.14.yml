@@ -14,7 +14,6 @@ permissions:
 concurrency:
   group: aetheris-release-v1.0.14
   cancel-in-progress: true
-  cancel-in-progress: true
 
 jobs:
   build-and-release:
