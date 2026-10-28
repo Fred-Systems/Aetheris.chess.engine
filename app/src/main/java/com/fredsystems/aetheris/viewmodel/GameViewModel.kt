@@ -603,8 +603,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch {
             val score = withContext(Dispatchers.Default) {
                 val whiteToMove = fen.split(" ").getOrNull(1) != "b"
-                val searched = runCatching { NativeEngine.analyzeFen(fen, 5, 900, 1) }.getOrDefault("")
-                val searchedCp = searched.lineSequence().firstOrNull()?.substringAfterLast("|")?.trim()?.toIntOrNull()
+                val searchedCp = runCatching { NativeEngine.searchEvaluationFen(fen, 5, 900) }.getOrNull()
                 val raw = searchedCp ?: runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
                 if (whiteToMove) raw else -raw
             }
