@@ -72,6 +72,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
     private var clockJob: Job? = null
     private var ponderJob: Job? = null
     private val ponderCache = mutableMapOf<String, String>()
+    private var bestAnalysisFen = ""
+    private var bestAnalysisDepth = 0
+    private var bestAnalysisScoreForMover = Int.MIN_VALUE
 
     init {
         positionHistory.add(board.fen)
@@ -451,22 +454,38 @@ class GameViewModel(private val context: Context) : ViewModel() {
     fun analyzePosition(count: Int = settings.value.analysisLineCount) {
         if (analysisLoading.value) return
         val fen = board.fen
+        val requestedDepth = options.value.depth.coerceIn(4, 12)
         analysisLoading.value = true
         viewModelScope.launch {
             val raw = withContext(Dispatchers.Default) {
                 runCatching {
-                    NativeEngine.analyzeFen(fen, options.value.depth.coerceIn(4, 12), 5000, count.coerceIn(1, 5))
+                    NativeEngine.analyzeFen(fen, requestedDepth, 5000, count.coerceIn(1, 5))
                 }.getOrDefault("")
             }
-            val whiteToMove = fen.split(" ").getOrNull(1) != "b"
-            analysisLines.value = raw.lineSequence().mapNotNull { row ->
-                val parts = row.split("|", limit = 2)
-                if (parts.size != 2) return@mapNotNull null
-                val moves = parts[0].trim().split(Regex("\\s+")).filter { it.length >= 4 }
-                val score = parts[1].toIntOrNull() ?: return@mapNotNull null
-                if (moves.isEmpty()) null else EngineAnalysisLine(moves, if (whiteToMove) score else -score)
-            }.toList()
-            bestMoveUci.value = analysisLines.value.firstOrNull()?.moves?.firstOrNull()
+            if (board.fen == fen) {
+                val whiteToMove = fen.split(" ").getOrNull(1) != "b"
+                val parsed = raw.lineSequence().mapNotNull { row ->
+                    val parts = row.split("|", limit = 2)
+                    if (parts.size != 2) return@mapNotNull null
+                    val moves = parts[0].trim().split(Regex("\\s+")).filter { it.length >= 4 }
+                    val score = parts[1].toIntOrNull() ?: return@mapNotNull null
+                    if (moves.isEmpty()) null else EngineAnalysisLine(moves, if (whiteToMove) score else -score)
+                }.toList()
+                val moverScore = parsed.firstOrNull()?.scoreCp?.let { if (whiteToMove) it else -it }
+                val isNewPosition = bestAnalysisFen != fen
+                val improves = isNewPosition || requestedDepth > bestAnalysisDepth ||
+                    (requestedDepth == bestAnalysisDepth && moverScore != null && moverScore >= bestAnalysisScoreForMover)
+                if (parsed.isNotEmpty() && improves) {
+                    analysisLines.value = parsed
+                    bestMoveUci.value = parsed.firstOrNull()?.moves?.firstOrNull()
+                    bestAnalysisFen = fen
+                    bestAnalysisDepth = requestedDepth
+                    bestAnalysisScoreForMover = moverScore ?: Int.MIN_VALUE
+                }
+            } else if (bestAnalysisFen != board.fen) {
+                analysisLines.value = emptyList()
+                bestMoveUci.value = null
+            }
             analysisLoading.value = false
         }
     }
