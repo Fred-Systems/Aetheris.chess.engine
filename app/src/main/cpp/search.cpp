@@ -405,7 +405,7 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode, int 
             b.side ^= 1;
             b.epSquare = -1;
             ++b.halfmove;
-            const int nullScore = -alphaBeta(b, depth - 3, -beta, -beta + 1, false);
+            const int nullScore = -alphaBeta(b, depth - 3, -beta, -beta + 1, false, ply + 1);
             b.side ^= 1;
             b.epSquare = savedEp;
             b.halfmove = savedHalfmove;
