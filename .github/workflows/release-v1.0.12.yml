@@ -2,9 +2,9 @@ name: Build and publish Aetheris 1.0.12 release
 # v1.0.12 includes startup crash mitigation by keeping routine evaluation out of native multi-PV search, direct UCI ZIP download to Android Downloads, calibrated evaluation fallback, analysis PV arrows and PGN save/copy UI.
 # Invalid NNUE calibration cannot be manually re-enabled for engine play.
 
+# Retired release workflow: manual reruns only; never republish an obsolete version.
 on:
-  push:
-    branches: [ main ]
+  workflow_dispatch:
 
 permissions:
   contents: write
