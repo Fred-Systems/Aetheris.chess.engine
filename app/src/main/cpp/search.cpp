@@ -456,6 +456,23 @@ Move searchBestMove(Board& b, int depth, int timeMs) {
 }
 
 
+int searchEvaluation(Board& b, int depth, int timeMs) {
+    depth = std::max(1, std::min(depth, 10));
+    timeMs = std::max(100, std::min(timeMs, 5000));
+    timeLimitMs = timeMs;
+    startTime = std::chrono::steady_clock::now();
+    stopSearch = false;
+    nodeCount = 0;
+    int score = evaluate(b);
+    for (int d = 1; d <= depth; ++d) {
+        const int current = alphaBeta(b, d, -INF, INF, true);
+        if (stopSearch) break;
+        score = current;
+    }
+    return score;
+}
+
+
 static std::string moveToUci(Move m) {
     const int from = m & 63, to = (m >> 6) & 63, promo = (m >> 12) & 7;
     std::string s;
