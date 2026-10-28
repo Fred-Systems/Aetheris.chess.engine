@@ -111,7 +111,7 @@ jobs:
       - name: Publish v1.0.17 release
         uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: v1.0.17
           name: Aetheris v1.0.17
           target_commitish: ${{ github.sha }}
