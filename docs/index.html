@@ -73,7 +73,7 @@ dialog::backdrop{background:#05040ac9;backdrop-filter:blur(4px)}
 .dialog-inner .sub{color:var(--muted);font-size:12px;margin-bottom:15px}
 .field{margin:13px 0}
 .field label{display:block;font-size:12px;font-weight:700;margin-bottom:7px}
-.field select,.field input[type=range]{width:100%}
+.field select,.field input[type=range],.field input[type=text]{width:100%}.field input[type=text]{background:#241e34;border:1px solid #3b3150;color:var(--text);border-radius:10px;padding:10px}
 select{background:#241e34;border:1px solid #352c4a;color:var(--text);padding:10px;border-radius:11px;outline:none}
 .row{display:flex;gap:8px}
 .row>*{flex:1}
@@ -129,6 +129,14 @@ select{background:#241e34;border:1px solid #352c4a;color:var(--text);padding:10p
         <button class="btn" id="newBtn">New</button>
         <button class="btn" id="undoBtn">Undo</button>
         <button class="btn primary" id="forceBtn">Force Move</button>
+      </div>
+      <div class="card" style="width:var(--board-size);max-width:100%;margin-top:10px">
+        <h3>PGN / Move Notebook</h3>
+        <textarea id="pgnText" readonly rows="4" style="width:100%;resize:vertical;background:#110e19;color:#e5e0f0;border:1px solid #3b3150;border-radius:10px;padding:9px;font-family:ui-monospace,monospace;font-size:11px"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn" id="copyPgnBtn" style="flex:1">Copy PGN</button>
+          <button class="btn primary" id="savePgnBtn" style="flex:1">Save PGN</button>
+        </div>
       </div>
       <div id="analysisControls" class="card" style="display:none;width:var(--board-size);max-width:100%;margin-top:10px">
         <div class="controls" style="margin-top:0">
@@ -495,6 +503,7 @@ function renderStatus(){
     (thinking ? "Aetheris is thinking…" : (mode === "play" ? "Depth " + settings.depth + " · Aetheris " + (modes[settings.engineMode] || modes[2]) : "Analysis · depth " + settings.depth));
   if(wasmReady && settings.engineMode!==2 && !nnueCalibrated) statusSub.textContent += " · NNUE calibration failed; Classical fallback";
   updateClocks();
+  updatePgnPanel();
 }
 function evalScore(){
   if(!wasmReady || !wasmEngine) return 0;
@@ -621,6 +630,24 @@ function recordMove(m){
   historyMoves.push(uciForMove(m));
   historyIndex = historyMoves.length;
   updateAnalysisPosition();
+  updatePgnPanel();
+}
+function makePgn(){
+  const replay = new Chess(initialFen);
+  for(const u of historyMoves){
+    try { replay.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]||"q"}); } catch(e) { break; }
+  }
+  const moves = replay.history();
+  const result = game.in_checkmate() ? (game.turn()==="w" ? "0-1" : "1-0") : (game.in_draw() ? "1/2-1/2" : "*");
+  const tags = ['[Event "Aetheris Web Game"]','[Site "Aetheris"]','[White "Player"]','[Black "Aetheris"]','[Result "'+result+'"]'];
+  if(settings.chess960Enabled){ tags.push('[Variant "Chess960"]','[SetUp "1"]','[FEN "'+initialFen+'"]'); }
+  const body=[];
+  for(let i=0;i<moves.length;i+=2) body.push((Math.floor(i/2)+1)+". "+moves[i]+(moves[i+1]?" "+moves[i+1]:""));
+  return tags.join("\n")+"\n\n"+body.join(" ")+(body.length?" ":"")+result;
+}
+function updatePgnPanel(){
+  const field=document.getElementById("pgnText");
+  if(field) field.value=makePgn();
 }
 function tryMove(from, to){
   if(!allowed()) return false;
@@ -814,6 +841,26 @@ function buildControls(){
   };
   document.getElementById("analyzeBtn").onclick = analyzePosition;
   document.getElementById("forceBtn").onclick = ()=>{ if(!game.game_over() && !timeoutText) applyEngineMove(); };
+  document.getElementById("playFromHereBtn").onclick = ()=>{
+    const choice=prompt("Play as White or Black from this position? Enter white or black.", game.turn()==="w"?"white":"black");
+    if(!choice) return;
+    playerColor=choice.trim().toLowerCase().startsWith("b")?"b":"w";
+    mode="play";
+    document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("active",b.dataset.mode==="play"));
+    document.getElementById("analysisControls").style.display="none";
+    evalVisible=settings.showEvalPlay;
+    updateTagline(); renderBoard(); renderStatus();
+    if(game.turn()!==playerColor) engineMove(false);
+  };
+  document.getElementById("copyPgnBtn").onclick = async ()=>{
+    try { await navigator.clipboard.writeText(makePgn()); document.getElementById("copyPgnBtn").textContent="Copied"; }
+    catch(e){ const field=document.getElementById("pgnText"); field.focus(); field.select(); document.execCommand("copy"); }
+  };
+  document.getElementById("savePgnBtn").onclick = ()=>{
+    const blob=new Blob([makePgn()],{type:"application/x-chess-pgn"});
+    const url=URL.createObjectURL(blob); const a=document.createElement("a");
+    a.href=url; a.download="aetheris-game.pgn"; a.click(); URL.revokeObjectURL(url);
+  };
 
   document.getElementById("settingsBtn").onclick = ()=> document.getElementById("settingsDialog").showModal();
   document.getElementById("settingsClose").onclick = ()=> document.getElementById("settingsDialog").close();
