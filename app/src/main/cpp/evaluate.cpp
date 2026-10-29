@@ -28,7 +28,7 @@ void setPositional(int v) { positional = std::max(0, std::min(100, v)); }
 void setComplexity(int v) { complexity = std::max(0, std::min(100, v)); }
 void setSolidity(int v) { solidity = std::max(0, std::min(100, v)); }
 void setMaterialWeight(int m) { materialWeight = std::max(0, std::min(100, m)); }
-void setEngineMode(int m) { engineMode = m; }
+void setEngineMode(int) { engineMode = ENGINE_PURE_CLASSICAL; }
 void setNNUEPath(const std::string& p) {
     setNNUECalibrationValid(false);
     if (loadNNUE(p)) __android_log_print(ANDROID_LOG_INFO, "AetherisEngine", "NNUE loaded successfully from %s", p.c_str());
@@ -312,24 +312,9 @@ static int classicalWhiteScore(const Board& b) {
 }
 
 int evaluate(const Board& b) {
-    // All evaluation terms are returned from the side-to-move perspective for negamax.
-    const int classical = classicalWhiteScore(b) * (b.side == WHITE ? 1 : -1);
-    if (engineMode == ENGINE_PURE_CLASSICAL || !nnueLoaded() || !nnueCalibrationValid) return classical;
-
-    // The bundled AETHNNUE network is a small absolute-square model, not a
-    // production HalfKP/HalfKA net. Keep it as a bounded learned residual until
-    // a properly trained and benchmarked replacement is bundled. This avoids
-    // catastrophic play when a valid file has poor calibration.
-    int neural = nnueEvaluate(b);
-    const int neuralScale = 100 + (positional - 50) / 3 + (50 - solidity) / 5;
-    neural = neural * neuralScale / 100;
-    neural = std::max(-600, std::min(600, neural));
-
-    // "NNUE" mode deliberately remains NNUE-assisted rather than raw-network-only:
-    // 55% classical anchor + 45% bounded network. Dual Core is more conservative
-    // at 75/25. Both continue to benefit from the search tree and the loaded net.
-    const int nnuePercent = engineMode == ENGINE_PURE_NNUE ? 45 : 25;
-    return (classical * (100 - nnuePercent) + neural * nnuePercent) / 100;
+    // NNUE is intentionally disabled in the shipped app until a properly trained,
+    // validated network is available. All search paths use the classical evaluator.
+    return classicalWhiteScore(b) * (b.side == WHITE ? 1 : -1);
 }
 
 } // namespace aetheris
