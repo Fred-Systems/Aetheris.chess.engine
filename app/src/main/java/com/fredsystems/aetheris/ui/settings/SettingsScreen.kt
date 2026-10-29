@@ -27,9 +27,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.fredsystems.aetheris.domain.model.EngineMode
 import com.fredsystems.aetheris.domain.model.EngineOptions
 import com.fredsystems.aetheris.domain.model.TimeControl
+import com.fredsystems.aetheris.domain.model.EngineMode
 import com.fredsystems.aetheris.ui.theme.BoardThemes
 import com.fredsystems.aetheris.ui.theme.PieceSets
 import com.fredsystems.aetheris.updater.GitHubUpdater
@@ -48,7 +48,6 @@ fun SettingsScreen(
 ) {
     val opts by viewModel.options
     val settings by viewModel.settings
-    val nnueStatus by viewModel.nnueStatus
     var aggression by remember { mutableStateOf(opts.aggression.toFloat()) }
     var positional by remember { mutableStateOf(opts.positional.toFloat()) }
     var complexity by remember { mutableStateOf(opts.complexity.toFloat()) }
@@ -64,7 +63,6 @@ fun SettingsScreen(
     ) }
     var exactDepthMode by remember { mutableStateOf(false) }
     var showAllLevels by remember { mutableStateOf(false) }
-    var mode by remember { mutableStateOf(opts.mode) }
     var presetExpanded by remember { mutableStateOf(false) }
     var pieceSetExpanded by remember { mutableStateOf(false) }
 
@@ -79,10 +77,10 @@ fun SettingsScreen(
 
     fun applyPreset(name: String) {
         when (name) {
-            "The Grandmaster" -> { aggression = 40f; positional = 80f; complexity = 30f; solidity = 80f; mode = EngineMode.DUAL_CORE }
-            "The Maverick" -> { aggression = 70f; positional = 30f; complexity = 90f; solidity = 20f; mode = EngineMode.PURE_NNUE }
-            "The Iron Wall" -> { aggression = 10f; positional = 90f; complexity = 10f; solidity = 100f; mode = EngineMode.PURE_CLASSICAL }
-            "The Tal Prodigy" -> { aggression = 100f; positional = 20f; complexity = 100f; solidity = 0f; mode = EngineMode.PURE_NNUE }
+            "The Grandmaster" -> { aggression = 40f; positional = 80f; complexity = 30f; solidity = 80f }
+            "The Maverick" -> { aggression = 70f; positional = 30f; complexity = 90f; solidity = 20f }
+            "The Iron Wall" -> { aggression = 10f; positional = 90f; complexity = 10f; solidity = 100f }
+            "The Tal Prodigy" -> { aggression = 100f; positional = 20f; complexity = 100f; solidity = 0f }
         }
     }
 
@@ -96,7 +94,6 @@ fun SettingsScreen(
         selectedLevel = 13f
         exactDepthMode = false
         showAllLevels = false
-        mode = d.mode
         viewModel.resetAllSettings()
     }
 
@@ -270,13 +267,6 @@ fun SettingsScreen(
                 }
             }
             Spacer(Modifier.height(10.dp))
-            Text("Engine mode", color = Color(0xFFB9B2CE), fontSize = 12.sp)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                ModeChip("Hybrid", mode == EngineMode.DUAL_CORE, Modifier.weight(1f)) { mode = EngineMode.DUAL_CORE }
-                ModeChip("NNUE", mode == EngineMode.PURE_NNUE, Modifier.weight(1f)) { mode = EngineMode.PURE_NNUE }
-                ModeChip("Classical", mode == EngineMode.PURE_CLASSICAL, Modifier.weight(1f)) { mode = EngineMode.PURE_CLASSICAL }
-            }
-            Spacer(Modifier.height(10.dp))
             val depthForLevel: (Int) -> Int = { level ->
                 when (level) {
                     1 -> 1; 2 -> 1; 3 -> 2; 4 -> 2; 5 -> 3
@@ -347,7 +337,7 @@ fun SettingsScreen(
                 Button(
                     onClick = {
                         viewModel.updateOptions(
-                            EngineOptions(aggression.toInt(), positional.toInt(), complexity.toInt(), solidity.toInt(), opts.materialWeight, depth.toInt(), mode)
+                            EngineOptions(aggression.toInt(), positional.toInt(), complexity.toInt(), solidity.toInt(), opts.materialWeight, depth.toInt(), EngineMode.PURE_CLASSICAL)
                         )
                     },
                     modifier = Modifier.weight(1f),
@@ -455,9 +445,6 @@ fun SettingsScreen(
         MenuRow("Engine vs Engine Simulation", onOpenSim)
         MenuRow("Game Notebook", onOpenNotebook)
         MenuRow("External Engines", onOpenExternal)
-        Text("Neural network: $nnueStatus", color = Color(0xFF9B93B8), fontSize = 11.sp)
-        MenuRow("Import trained NNUE weights", onImportNnue)
-        MenuRow("Run NNUE static-evaluation checks", { viewModel.runNnueDiagnostics() })
         if (context.packageName.endsWith(".crashreport")) {
             MenuRow("Export crash report", onExportCrashReport)
         }
