@@ -237,7 +237,7 @@ private fun EngineSetupCard(
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(label, color = Color(0xFFF2EEFF), fontWeight = FontWeight.Bold, fontSize = 13.sp)
-        EngineModePicker(mode, onMode, Modifier.fillMaxWidth())
+        Text("Engine: Aetheris Classical", color = Color(0xFFB9B2CE), fontSize = 11.sp)
         PersonaPicker(persona, onPersona, Modifier.fillMaxWidth())
         Text("Search depth: ${depth.toInt()}", color = Color(0xFFB9B2CE), fontSize = 11.sp)
         Slider(value = depth, onValueChange = onDepth, valueRange = 1f..20f, steps = 18)
