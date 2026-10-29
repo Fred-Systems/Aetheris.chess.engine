@@ -19,7 +19,29 @@ jobs:
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r26b
+      - name: Configure and verify stable signing key
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.AETHERIS_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.AETHERIS_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.AETHERIS_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.AETHERIS_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [[ -n "${KEYSTORE_B64:-}" ]] || { echo "::error::Missing AETHERIS_KEYSTORE_BASE64; refusing to build a debug-signed APK."; exit 1; }
+          [[ -n "${STORE_PASSWORD:-}" ]] || { echo "::error::Missing AETHERIS_KEYSTORE_PASSWORD."; exit 1; }
+          [[ -n "${KEY_ALIAS:-}" ]] || { echo "::error::Missing AETHERIS_KEY_ALIAS."; exit 1; }
+          [[ -n "${KEY_PASSWORD:-}" ]] || { echo "::error::Missing AETHERIS_KEY_PASSWORD."; exit 1; }
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/aetheris-release.jks"
+          test -s "$RUNNER_TEMP/aetheris-release.jks"
+          echo "AETHERIS_KEYSTORE_PATH=$RUNNER_TEMP/aetheris-release.jks" >> "$GITHUB_ENV"
+          echo "Stable signing keystore is present and decoded."
+
       - name: Build release APK
+        env:
+          AETHERIS_KEYSTORE_PASSWORD: ${{ secrets.AETHERIS_KEYSTORE_PASSWORD }}
+          AETHERIS_KEY_ALIAS: ${{ secrets.AETHERIS_KEY_ALIAS }}
+          AETHERIS_KEY_PASSWORD: ${{ secrets.AETHERIS_KEY_PASSWORD }}
         run: gradle assembleRelease
       - name: Upload APK
         uses: actions/upload-artifact@v4
