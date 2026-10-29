@@ -272,8 +272,8 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 ModeChip("Play", mode == PlayMode.PLAY, Modifier.weight(1f)) { vm.setMode(PlayMode.PLAY) }
                 Button(
                     onClick = { vm.setMode(PlayMode.ANALYSIS); navController.navigate("analysis") },
-                    modifier = Modifier.weight(1.6f)
-                ) { Text("Analysis & Lines") }
+                    modifier = Modifier.weight(1f)
+                ) { Text("Analysis") }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
@@ -310,7 +310,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                             fontSize = 14.sp
                         )
                         Text(
-                            text = if (thinking) "Aetheris is thinking..." else "Depth ${opts.depth} · ${opts.mode.label}",
+                            text = if (thinking) "Aetheris is thinking..." else "Depth ${opts.depth} · Aetheris Classical",
                             color = if (thinking) Color(0xFF7C4DFF) else Color(0xFF9B93B8),
                             fontSize = 11.sp
                         )
@@ -332,18 +332,6 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                     }
                 }
             }
-            if (opts.mode == EngineMode.PURE_NNUE &&
-                (vm.nnueStatus.value.contains("fallback", ignoreCase = true) ||
-                 vm.nnueStatus.value.contains("calibration", ignoreCase = true) ||
-                 vm.nnueStatus.value.contains("WARNING", ignoreCase = true))) {
-                Text(
-                    "NNUE selected, but its weights failed calibration; the native safety guard is using Classical evaluation.",
-                    color = Color(0xFFFFC078),
-                    fontSize = 11.sp,
-                    modifier = Modifier.padding(top = 5.dp, start = 4.dp, end = 4.dp)
-                )
-            }
-
             Spacer(Modifier.height(10.dp))
 
             Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
@@ -447,10 +435,9 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
         PlayFromHereDialog(
             currentTimeControl = settings.timeControl,
             currentDepth = opts.depth,
-            currentMode = opts.mode,
             onDismiss = { showPlayFromHere = false },
-            onStart = { color, tc, depth, engineMode ->
-                vm.startGameFromHere(color, tc, depth, engineMode)
+            onStart = { color, tc, depth ->
+                vm.startGameFromHere(color, tc, depth, EngineMode.PURE_CLASSICAL)
                 showPlayFromHere = false
             }
         )
@@ -479,7 +466,6 @@ private fun QuickEngineOptionsDialog(
     onDismiss: () -> Unit,
     onApply: (EngineOptions) -> Unit
 ) {
-    var mode by remember(current) { mutableStateOf(current.mode) }
     var aggression by remember(current) { mutableFloatStateOf(current.aggression.toFloat()) }
     var positional by remember(current) { mutableFloatStateOf(current.positional.toFloat()) }
     var complexity by remember(current) { mutableFloatStateOf(current.complexity.toFloat()) }
@@ -489,12 +475,7 @@ private fun QuickEngineOptionsDialog(
         title = { Text("Quick engine controls") },
         text = {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-                Text("Choose engine", style = MaterialTheme.typography.labelLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    ModeChip("Classical", mode == EngineMode.PURE_CLASSICAL, Modifier.weight(1f)) { mode = EngineMode.PURE_CLASSICAL }
-                    ModeChip("NNUE", mode == EngineMode.PURE_NNUE, Modifier.weight(1f)) { mode = EngineMode.PURE_NNUE }
-                    ModeChip("Hybrid", mode == EngineMode.DUAL_CORE, Modifier.weight(1f)) { mode = EngineMode.DUAL_CORE }
-                }
+                Text("Engine: Aetheris Classical", color = Color(0xFFB9B2CE), style = MaterialTheme.typography.labelLarge)
                 Text("Persona", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 10.dp))
                 QuickPersonalitySlider("Defensive", "Aggressive", aggression) { aggression = it }
                 QuickPersonalitySlider("Positional", "Tactical", positional) { positional = it }
@@ -510,7 +491,7 @@ private fun QuickEngineOptionsDialog(
                     positional = positional.toInt(),
                     complexity = complexity.toInt(),
                     solidity = solidity.toInt(),
-                    mode = mode
+                    mode = EngineMode.PURE_CLASSICAL
                 ))
             }) { Text("Apply") }
         },
@@ -533,14 +514,12 @@ private fun QuickPersonalitySlider(left: String, right: String, value: Float, on
 private fun PlayFromHereDialog(
     currentTimeControl: String,
     currentDepth: Int,
-    currentMode: EngineMode,
     onDismiss: () -> Unit,
-    onStart: (String, String, Int, EngineMode) -> Unit
+    onStart: (String, String, Int) -> Unit
 ) {
     var color by remember { mutableStateOf("white") }
     var timeControl by remember { mutableStateOf(currentTimeControl) }
     var depth by remember { mutableStateOf(currentDepth.toFloat().coerceIn(1f, 20f)) }
-    var engineMode by remember { mutableStateOf(currentMode) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Play from this position", fontWeight = FontWeight.Bold) },
@@ -568,15 +547,10 @@ private fun PlayFromHereDialog(
                     Text("Depth ${depth.toInt()}", fontWeight = FontWeight.Bold)
                 }
                 Slider(value = depth, onValueChange = { depth = it }, valueRange = 1f..20f, steps = 18)
-                Text("Engine", fontSize = 12.sp, color = Color(0xFF9B93B8))
-                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    ModeChip("Dual", engineMode == EngineMode.DUAL_CORE, Modifier.weight(1f)) { engineMode = EngineMode.DUAL_CORE }
-                    ModeChip("NNUE", engineMode == EngineMode.PURE_NNUE, Modifier.weight(1f)) { engineMode = EngineMode.PURE_NNUE }
-                    ModeChip("Classical", engineMode == EngineMode.PURE_CLASSICAL, Modifier.weight(1f)) { engineMode = EngineMode.PURE_CLASSICAL }
-                }
+                Text("Engine: Aetheris Classical", fontSize = 12.sp, color = Color(0xFF9B93B8))
             }
         },
-        confirmButton = { Button(onClick = { onStart(color, timeControl, depth.toInt(), engineMode) }) { Text("Start from Here") } },
+        confirmButton = { Button(onClick = { onStart(color, timeControl, depth.toInt()) }) { Text("Start from Here") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
