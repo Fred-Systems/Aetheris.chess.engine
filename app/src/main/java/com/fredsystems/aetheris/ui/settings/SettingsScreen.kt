@@ -58,7 +58,7 @@ fun SettingsScreen(
             1 -> 2f; 2 -> 4f; 3 -> 6f; 4 -> 8f; 5 -> 10f
             6 -> 11f; 7 -> 12f; 8 -> 13f; 9 -> 14f; 10 -> 15f
             12 -> 16f; 14 -> 17f; 16 -> 18f; 18 -> 19f; 20 -> 20f
-            else -> 11f
+            else -> 15f
         }
     ) }
     var exactDepthMode by remember { mutableStateOf(false) }
@@ -91,7 +91,7 @@ fun SettingsScreen(
         complexity = d.complexity.toFloat()
         solidity = d.solidity.toFloat()
         depth = d.depth.toFloat()
-        selectedLevel = 13f
+        selectedLevel = 15f
         exactDepthMode = false
         showAllLevels = false
         viewModel.resetAllSettings()
