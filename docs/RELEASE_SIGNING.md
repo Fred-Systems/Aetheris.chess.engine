@@ -24,13 +24,10 @@ Never commit the keystore, passwords, or private key to the repository.
 
 ## Existing installations
 
-Older CI APKs were signed with runner-generated debug keys. Those private keys are not recoverable from the APK. A new stable key therefore cannot update those installations in place. The v1.0.15 CI log confirmed that `AETHERIS_KEYSTORE_BASE64` was not configured, so it was signed with a temporary runner debug key. v1.0.16 uses the same fallback unless you add the secrets before the release workflow builds it. You cannot make an already-installed APK accept a different signing certificate.
+Earlier CI builds may have been signed with temporary runner-generated debug keys if the stable keystore secret was absent. Those private keys are not recoverable from the APK. A stable-key APK cannot update an installation signed with a different certificate; Android will reject the update.
 
-For a durable update path:
+The v1.0.18 release workflow is configured to **fail rather than publish a debug-signed APK** when any required signing secret is missing. Before running it, confirm that all four `AETHERIS_*` secrets above are present and correct. The workflow decodes the keystore into the temporary runner directory, passes the passwords and alias to Gradle through environment variables, and never prints their values.
 
-1. Add all four `AETHERIS_*` signing secrets above before building the release you intend to keep installed.
-2. Run the v1.0.16 release workflow again so the release APK is signed with that stable key.
-3. Uninstall the older debug-signed Aetheris once, then install the stable-key v1.0.16 APK. Uninstalling erases local app data, so back up Notebook games/PGNs first.
-4. Keep the keystore and passwords backed up securely. All later releases signed with the same key and a higher version code can update in place.
+If the installed app was signed with a previous temporary key, back up Notebook games/PGNs, uninstall that old app once, and install the stable-key APK. Subsequent releases signed with the same key and a higher version code can update in place.
 
-The app's updater now checks the APK's certificate before launching Android's installer and reports a clear mismatch message. Ordinary Android apps cannot silently install APKs: Android still requires the system installer confirmation. “Check for Updates” stages the APK privately and opens that installer; “Download Latest APK to Downloads” only saves the file.
+The app's updater checks the APK's certificate before launching Android's installer and reports a mismatch message. Ordinary Android apps cannot silently install APKs; Android still requires the system installer confirmation. “Check for Updates” stages the APK privately and opens that installer; “Download Latest APK to Downloads” only saves the file.
