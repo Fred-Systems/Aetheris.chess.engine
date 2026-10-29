@@ -332,14 +332,29 @@ static std::uint64_t positionKey(const Board& b) {
     key ^= static_cast<std::uint64_t>(b.side) * 0xbf58476d1ce4e5b9ULL;
     key ^= static_cast<std::uint64_t>(b.castleRights) * 0x94d049bb133111ebULL;
     key ^= static_cast<std::uint64_t>(b.epSquare + 1) * 0xd6e8feb86659fd93ULL;
+    // The same board with different halfmove clocks is not equivalent under the
+    // 50-move draw rule; keep those states distinct in the transposition table.
+    key ^= static_cast<std::uint64_t>(std::max(0, b.halfmove)) * 0xa0761d6478bd642fULL;
     return key;
+}
+
+static int scoreToTT(int score, int ply) {
+    if (score > MATE - 256) return score + ply;
+    if (score < -MATE + 256) return score - ply;
+    return score;
+}
+
+static int scoreFromTT(int score, int ply) {
+    if (score > MATE - 256) return score - ply;
+    if (score < -MATE + 256) return score + ply;
+    return score;
 }
 
 static int quiescence(Board& b, int alpha, int beta, int ply, int qply) {
     if (timeUp()) { stopSearch = true; return 0; }
     ++nodeCount;
     const bool checked = inCheck(b, b.side);
-    if (qply >= 16) {
+    if (qply >= 24) {
         if (checked) {
             std::vector<Move> evasions;
             genMoves(b, evasions, false);
@@ -407,7 +422,7 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode, int 
     std::uint64_t key = positionKey(b);
     int idx = key & (tt2.size() - 1);
     if (tt2[idx].key == key && tt2[idx].depth >= depth) {
-        int s = tt2[idx].score;
+        int s = scoreFromTT(tt2[idx].score, ply);
         if (tt2[idx].flag == 0) return s;
         if (tt2[idx].flag == 1 && s > alpha) alpha = s;
         if (tt2[idx].flag == 2 && s < beta) beta = s;
@@ -474,7 +489,7 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode, int 
         makeMove(b, move, u);
         int score;
         const bool givesCheck = inCheck(b, b.side);
-        const int childDepth = depth - 1 + ((givesCheck && ply < 12 && depth <= 10) ? 1 : 0);
+        const int childDepth = depth - 1 + ((givesCheck && ply < 18 && depth <= 14) ? 1 : 0);
         const bool reduce = i >= 4 && depth >= 3 && quiet && !givesCheck;
         if (i == 0) {
             score = -alphaBeta(b, childDepth, -beta, -alpha, pvNode, ply + 1);
@@ -512,7 +527,7 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode, int 
         }
     }
     TTEntry2 e;
-    e.key = key; e.depth = depth; e.score = bestScore; e.best = bestMove;
+    e.key = key; e.depth = depth; e.score = scoreToTT(bestScore, ply); e.best = bestMove;
     if (bestScore <= origAlpha) e.flag = 2;
     else if (bestScore >= beta) e.flag = 1;
     else e.flag = 0;
@@ -573,8 +588,8 @@ Move searchBestMove(Board& b, int depth, int timeMs) {
 
 
 int searchEvaluation(Board& b, int depth, int timeMs) {
-    depth = std::max(1, std::min(depth, 10));
-    timeMs = std::max(100, std::min(timeMs, 5000));
+    depth = std::max(1, std::min(depth, 14));
+    timeMs = std::max(100, std::min(timeMs, 10000));
     timeLimitMs = timeMs;
     startTime = std::chrono::steady_clock::now();
     stopSearch = false;
