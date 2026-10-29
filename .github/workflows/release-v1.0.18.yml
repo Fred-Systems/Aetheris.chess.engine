@@ -30,6 +30,9 @@ jobs:
 
       - name: Configure Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          # Avoid restoring the bad dependency cache that caused widespread false Maven Central 404s.
+          cache-disabled: true
 
       - name: Set up Android NDK
         uses: nttld/setup-ndk@v1
@@ -59,7 +62,7 @@ jobs:
           AETHERIS_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           AETHERIS_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           AETHERIS_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: gradle assembleRelease
+        run: gradle --no-daemon --refresh-dependencies assembleRelease
 
       - name: Verify APK signature and version
         shell: bash
