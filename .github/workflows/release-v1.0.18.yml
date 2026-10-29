@@ -1,4 +1,4 @@
-name: Release Aetheris v1.0.18
+name: Publish Aetheris v1.0.18 APK (release retry)
 # Publish only this version from main. Stable signing is mandatory; never publish a debug-signed update.
 
 on:
@@ -60,6 +60,16 @@ jobs:
           AETHERIS_KEY_ALIAS: ${{ secrets.AETHERIS_KEY_ALIAS }}
           AETHERIS_KEY_PASSWORD: ${{ secrets.AETHERIS_KEY_PASSWORD }}
         run: gradle assembleRelease
+
+      - name: Verify APK signature and version
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
+          test -n "$APK"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/aapt" dump badging "$APK" | grep -F "versionName='1.0.18'"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/aapt" dump badging "$APK" | grep -F "versionCode='19'"
 
       - name: Prepare APK and classical UCI packages
         shell: bash
