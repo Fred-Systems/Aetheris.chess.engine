@@ -56,9 +56,9 @@ fun AnalysisScreen(viewModel: GameViewModel) {
     }
 
     Column(Modifier.fillMaxSize().background(Color(0xFF0E0C14)).verticalScroll(rememberScrollState()).padding(8.dp)) {
-        Text("Game Analysis", style = MaterialTheme.typography.headlineSmall)
+        Text("Game Analysis", color = Color(0xFFF2EEFF), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(4.dp))
-        Text("Position ${index + 1} of $length · Evaluation ${if (evaluation >= 0) "+" else ""}${"%.2f".format(evaluation / 100.0)}", style = MaterialTheme.typography.bodyMedium)
+        Text("Position ${index + 1} of $length · Evaluation ${if (evaluation >= 0) "+" else ""}${"%.2f".format(evaluation / 100.0)}", color = Color(0xFFD7D0EA), style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             OutlinedButton(onClick = { autoplay = false; viewModel.goToStart() }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 2.dp)) { Text("|◀") }
@@ -100,10 +100,10 @@ fun AnalysisScreen(viewModel: GameViewModel) {
             valueRange = 4f..20f,
             steps = 15
         )
-        Text("Longer lines take more time to calculate.", color = Color(0xFF9B93B8), style = MaterialTheme.typography.bodySmall)
+        Text("Longer lines take more time to calculate.", color = Color(0xFFB9B2CE), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Engine lines", style = MaterialTheme.typography.titleMedium)
+            Text("Engine lines", color = Color(0xFFF2EEFF), style = MaterialTheme.typography.titleMedium)
             Text("${settings.analysisLineCount} lines · depth ${viewModel.options.value.depth.coerceIn(4, 20)}", style = MaterialTheme.typography.bodySmall)
         }
         Spacer(Modifier.height(4.dp))
