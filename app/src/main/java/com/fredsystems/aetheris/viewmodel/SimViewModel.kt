@@ -33,8 +33,8 @@ class SimViewModel(private val context: Context) : ViewModel() {
     var depthB = 6
     var timeMs = 800
     var games = 1
-    var modeA = "DualCore"
-    var modeB = "DualCore"
+    var modeA = "PureClassical"
+    var modeB = "PureClassical"
     var personaA = "Balanced"
     var personaB = "Balanced"
     var aggressionA = 50
@@ -45,32 +45,13 @@ class SimViewModel(private val context: Context) : ViewModel() {
     var positionalB = 50
     var complexityB = 50
     var solidityB = 50
-    private var nnueCalibrationAccepted = true
-
     init {
         runCatching {
             NativeEngine.initialize()
-            val networkPath = ensureNnue()
-            if (networkPath != null) NativeEngine.setNnue(networkPath)
-            if (!NativeEngine.isNnueLoaded()) {
-                nnueCalibrationAccepted = false
-                modeA = "PureClassical"
-                modeB = "PureClassical"
-                status.value = "NNUE Load Failed — Classical mode only"
-                android.util.Log.e("AetherisSim", "NNUE Load Failed: bundled asset could not be loaded")
-            } else {
-                val startScore = NativeEngine.evaluateFen(Board().fen)
-                status.value = if (kotlin.math.abs(startScore) > 100) {
-                    "Engine ready · NNUE loaded (calibration warning: $startScore cp)"
-                } else {
-                    "Engine ready · NNUE loaded ($startScore cp at start)"
-                }
-            }
+            NativeEngine.setParams(50, 50, 50, 50, 50, 2)
+            status.value = "Aetheris Classical ready"
         }.onFailure {
-            nnueCalibrationAccepted = false
-            modeA = "PureClassical"
-            modeB = "PureClassical"
-            status.value = "NNUE initialization failed; using classical evaluation"
+            status.value = "Classical engine initialization failed"
         }
     }
 
@@ -237,12 +218,7 @@ class SimViewModel(private val context: Context) : ViewModel() {
         status.value = "Stopped"
     }
 
-    private fun modeOrdinal(mode: String): Int = when {
-        !nnueCalibrationAccepted -> 2
-        mode == "PureNNUE" -> 1
-        mode == "PureClassical" -> 2
-        else -> 0
-    }
+    private fun modeOrdinal(mode: String): Int = 2
 
     private fun ensureNnue(): String? = try {
         val out = java.io.File(context.filesDir, "nnue/weights.bin")
