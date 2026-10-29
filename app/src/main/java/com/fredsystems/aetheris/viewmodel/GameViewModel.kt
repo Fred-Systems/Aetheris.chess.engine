@@ -86,32 +86,13 @@ class GameViewModel(private val context: Context) : ViewModel() {
         positionHistory.add(board.fen)
         runCatching {
             NativeEngine.initialize()
+            options.value = options.value.copy(mode = EngineMode.PURE_CLASSICAL)
             applyNativeOptions(options.value)
-            val bundledNnue = ensureNnueAsset()
-            val customNnue = java.io.File(context.filesDir, "nnue/custom_weights.bin")
-            (if (customNnue.isFile) customNnue.absolutePath else bundledNnue)?.let { NativeEngine.setNnue(it) }
-            if (NativeEngine.isNnueLoaded()) {
-                val configuredOptions = options.value
-                val startFen = board.fen
-                val rawNnueCp = NativeEngine.rawNnueEvaluateFen(startFen)
-                val sanity = NativeEngine.nnueSanityCheck()
-                if (sanity.contains("WARNING") || sanity.contains("NNUE Load Failed")) {
-                    options.value = configuredOptions.copy(mode = EngineMode.PURE_CLASSICAL)
-                    applyNativeOptions(options.value)
-                    nnueStatus.value = "NNUE calibration failed; Classical fallback active · raw start $rawNnueCp cp · $sanity"
-                    android.util.Log.e("AetherisNNUE", nnueStatus.value)
-                } else {
-                    applyNativeOptions(configuredOptions.copy(mode = EngineMode.PURE_NNUE))
-                    val startPositionCp = NativeEngine.evaluateFen(startFen)
-                    applyNativeOptions(configuredOptions)
-                    android.util.Log.i("AetherisNNUE", "NNUE loaded; raw start=$rawNnueCp cp; calibrated NNUE score=$startPositionCp cp; $sanity")
-                    nnueStatus.value = "NNUE calibrated · start $rawNnueCp cp · $sanity"
-                }
-            } else {
-                nnueStatus.value = "NNUE Load Failed — Classical fallback active"
-                android.util.Log.e("AetherisNNUE", "NNUE Load Failed: bundled and custom network unavailable")
-            }
-        }.onFailure { engineAvailable.value = false }
+            nnueStatus.value = "Aetheris Classical active"
+        }.onFailure {
+            engineAvailable.value = false
+            nnueStatus.value = "Native classical engine initialization failed"
+        }
         evalVisible.value = settings.value.showEvalPlay
         moveTimeSeconds.value = settings.value.moveTimeSeconds
         resetClocks()
@@ -306,7 +287,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         engineThinking.value = false
         analysisLines.value = emptyList()
         bestMoveUci.value = null
-        options.value = options.value.copy(depth = depth.coerceIn(1, 20), mode = engineMode)
+        options.value = options.value.copy(depth = depth.coerceIn(1, 20), mode = EngineMode.PURE_CLASSICAL)
         applyNativeOptions(options.value)
         val tc = TimeControl.byId(timeControlId)
         timeControlSeconds.value = tc.seconds
@@ -659,22 +640,12 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     fun updateOptions(o: EngineOptions) {
-        // Do not silently rewrite the user's engine selection. The native evaluator
-        // independently guards an uncalibrated network and reports that fallback.
-        // This keeps the selected mode and its actual safety status distinguishable.
-        if (o.mode == EngineMode.PURE_NNUE && !NativeEngine.isNnueLoaded()) {
-            options.value = o.copy(mode = EngineMode.PURE_CLASSICAL)
-            applyNativeOptions(options.value)
-            nnueStatus.value = "NNUE Load Failed — no network is loaded; Classical evaluation is active."
-            return
-        }
-        options.value = o
-        applyNativeOptions(o)
-        if (o.mode == EngineMode.PURE_NNUE && (nnueStatus.value.contains("calibration failed", true) || nnueStatus.value.contains("WARNING", true))) {
-            nnueStatus.value = "NNUE selected, but the bundled network failed static calibration. Native safety guard is still using Classical evaluation; load a validated network to activate NNUE."
-        } else if (o.mode == EngineMode.PURE_NNUE) {
-            nnueStatus.value = "NNUE mode selected; search uses the loaded network with the calibrated hybrid evaluator."
-        }
+        // NNUE weights are not sufficiently trained/calibrated for reliable play.
+        // Keep the app on its verified classical evaluator until a validated net exists.
+        val classical = o.copy(mode = EngineMode.PURE_CLASSICAL)
+        options.value = classical
+        applyNativeOptions(classical)
+        nnueStatus.value = "Aetheris Classical active"
     }
 
     private fun applyNativeOptions(o: EngineOptions) {
