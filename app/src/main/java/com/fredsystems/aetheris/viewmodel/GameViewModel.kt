@@ -119,7 +119,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     fun currentPositionFen(): String = positionHistory.getOrNull(historyIndex.value) ?: board.fen
 
     fun refreshOpeningBookMoves(fen: String = currentPositionFen()) {
-        if (!settings.value.openingBookEnabled || !openingBook.installed()) {
+        if ((!settings.value.openingBookEnabled && !settings.value.showOpeningBookArrows) || !openingBook.installed()) {
             openingBookMoves.value = emptyList()
             return
         }
@@ -922,11 +922,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
             if (mode.value == PlayMode.PLAY) maybeEngineMove()
             updateEvaluationAsync()
         }
-        if (!s.openingBookEnabled) openingBookMoves.value = emptyList()
-        else {
-            refreshOpeningBookMoves()
-            if (!bookWasEnabled && !openingBook.installed()) downloadOpeningBook()
-        }
+        if (!s.openingBookEnabled && !s.showOpeningBookArrows) openingBookMoves.value = emptyList()
+        else refreshOpeningBookMoves()
+        if (s.openingBookEnabled && !bookWasEnabled && !openingBook.installed()) downloadOpeningBook()
         if (bookPolicyChanged) refreshOpeningBookMoves()
         timeControlSeconds.value = TimeControl.byId(s.timeControl).seconds
         moveTimeSeconds.value = s.moveTimeSeconds
