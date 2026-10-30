@@ -564,6 +564,10 @@ class GameViewModel(private val context: Context) : ViewModel() {
         ponderJob = null
         ponderCache.clear()
         pendingPremoves.clear()
+        clearConditionalMove()
+        conditionalSetupActive.value = false
+        conditionalDraftBoard = null
+        conditionalDraftOpponentUci = null
         val chosen = when (colorChoice) {
             "black" -> PieceColor.BLACK
             "random" -> if (Random.nextBoolean()) PieceColor.WHITE else PieceColor.BLACK
