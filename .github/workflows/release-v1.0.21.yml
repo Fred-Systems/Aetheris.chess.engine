@@ -1,5 +1,5 @@
 name: Publish Aetheris v1.0.21 APK
-# Publish v1.0.21 from main with the final premove and conditional-move implementation. Stable signing is mandatory; never publish a debug-signed update. Includes the latest Notebook, premove, engine-match, and settings updates. Final source snapshot, including the Notebook variation parser, analysis lifecycle, and live Notebook refresh fixes; release attempt restarted after queued CI runs.
+# Publish v1.0.21 from main with the final premove queue, board-based conditional setup, fixed board layout, and settings guidance. Stable signing is mandatory; never publish a debug-signed update. Includes the latest Notebook, premove, engine-match, and settings updates. Final source snapshot, including the Notebook variation parser, analysis lifecycle, and live Notebook refresh fixes; release attempt restarted after queued CI runs.
 
 on:
   push:
