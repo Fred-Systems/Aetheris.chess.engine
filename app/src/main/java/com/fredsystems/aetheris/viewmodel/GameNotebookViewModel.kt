@@ -11,6 +11,7 @@ class GameNotebookViewModel(private val context: Context) : ViewModel() {
     val games = mutableStateOf(repo.load())
     val selected = mutableStateOf<GameRecord?>(null)
     val ply = mutableStateOf(0)
+    val activeVariation = mutableStateOf<List<String>>(emptyList())
 
     fun saveGame(title: String, pgn: String, moves: List<String>) {
         val rec = GameRecord(title = title, pgn = pgn, moves = moves)
@@ -20,10 +21,22 @@ class GameNotebookViewModel(private val context: Context) : ViewModel() {
         repo.save(list)
     }
 
-    fun select(g: GameRecord) { selected.value = g; ply.value = 0 }
+    fun select(g: GameRecord) { selected.value = g; ply.value = 0; activeVariation.value = emptyList() }
+
+    fun saveVariation(line: List<String>) {
+        val g = selected.value ?: return
+        if (line.isEmpty()) return
+        val updated = g.copy(variations = g.variations + (ply.value to line))
+        replace(updated)
+    }
+
+    fun viewVariation(line: List<String>) { activeVariation.value = line; ply.value = 0 }
+    fun returnToMainLine() { activeVariation.value = emptyList(); ply.value = 0 }
+    fun displayedMoves(): List<String> = activeVariation.value.ifEmpty { selected.value?.moves ?: emptyList() }
 
     fun addComment(text: String) {
         val g = selected.value ?: return
+        if (text.isBlank()) return
         val newComments = g.comments.toMutableMap()
         newComments[ply.value] = text
         val updated = g.copy(comments = newComments)
