@@ -12,6 +12,7 @@ on:
       - app/src/main/java/com/fredsystems/aetheris/MainActivity.kt
       - app/src/main/java/com/fredsystems/aetheris/domain/model/AppSettings.kt
       - app/src/main/java/com/fredsystems/aetheris/viewmodel/SimViewModel.kt
+      - app/src/main/java/com/fredsystems/aetheris/viewmodel/GameViewModel.kt
   workflow_dispatch:
 
 permissions:
