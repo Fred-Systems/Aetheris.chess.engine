@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -307,10 +308,10 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 shape = RoundedCornerShape(18.dp),
                 color = Color(0xFF1A1626),
                 tonalElevation = 0.dp,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().height(58.dp)
             ) {
                 Row(
-                    Modifier.padding(horizontal = 15.dp, vertical = 10.dp),
+                    Modifier.fillMaxSize().padding(horizontal = 15.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -319,12 +320,16 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                             text = state.statusText,
                             color = Color(0xFFF2EEFF),
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = if (thinking) "Aetheris is thinking..." else "Depth ${opts.depth} · Aetheris Classical",
                             color = if (thinking) Color(0xFF7C4DFF) else Color(0xFF9B93B8),
-                            fontSize = 11.sp
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                     if (timeControl > 0 && mode == PlayMode.PLAY) {
