@@ -325,7 +325,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = if (thinking) "Aetheris is thinking..." else "Depth ${opts.depth} · Aetheris Classical",
+                            text = if (thinking) "${if (settings.selectedEngine == "caissa") "Caissa" else "Aetheris"} is thinking..." else "Depth ${opts.depth} · ${if (settings.selectedEngine == "caissa") "Caissa Kotlin" else "Aetheris Classical"}",
                             color = if (thinking) Color(0xFF7C4DFF) else Color(0xFF9B93B8),
                             fontSize = 11.sp,
                             maxLines = 1,
