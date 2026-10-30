@@ -11,6 +11,9 @@ import com.fredsystems.aetheris.domain.model.Piece
 import com.fredsystems.aetheris.domain.model.PieceColor
 import com.fredsystems.aetheris.domain.model.PieceType
 import com.fredsystems.aetheris.engine.NativeEngine
+import com.fredsystems.aetheris.engine.CaissaEngine
+import com.fredsystems.aetheris.engine.OpeningBook
+import com.fredsystems.aetheris.domain.model.SettingsStore
 import com.github.bhlangonijr.chesslib.Board
 import com.github.bhlangonijr.chesslib.Piece as LibPiece
 import com.github.bhlangonijr.chesslib.PieceType as LibPieceType
@@ -23,6 +26,8 @@ import kotlinx.coroutines.withContext
 
 class SimViewModel(private val context: Context) : ViewModel() {
     private var board = Board()
+    private val openingBook = OpeningBook(context.applicationContext)
+    private val appSettings = SettingsStore(context).load()
     val boardState = mutableStateOf(toUi(board))
     val eval = mutableStateOf(0)
     val status = mutableStateOf("Idle")
@@ -73,17 +78,24 @@ class SimViewModel(private val context: Context) : ViewModel() {
                         val mode = if (white) modeA else modeB
                         val mv = withContext(Dispatchers.Default) {
                             runCatching {
-                                NativeEngine.searchConfiguredPosition(
-                                    fen = fen,
-                                    depth = depth.coerceIn(1, 24),
-                                    timeMs = timeMs.coerceIn(100, 30000),
-                                    aggression = if (white) aggressionA else aggressionB,
-                                    positional = if (white) positionalA else positionalB,
-                                    complexity = if (white) complexityA else complexityB,
-                                    solidity = if (white) solidityA else solidityB,
-                                    materialWeight = 50,
-                                    mode = modeOrdinal(mode)
-                                )
+                                val legal = board.legalMoves().map { it.toString().lowercase() }.toSet()
+                                val bookMove = if (appSettings.openingBookEnabled && openingBook.installed())
+                                    openingBook.choose(fen, legal, appSettings.openingBookPolicy) else null
+                                bookMove ?: if (mode.equals("Caissa", true)) {
+                                    CaissaEngine.bestMove(fen, depth.coerceIn(1, 4))
+                                } else {
+                                    NativeEngine.searchConfiguredPosition(
+                                        fen = fen,
+                                        depth = depth.coerceIn(1, 24),
+                                        timeMs = timeMs.coerceIn(100, 30000),
+                                        aggression = if (white) aggressionA else aggressionB,
+                                        positional = if (white) positionalA else positionalB,
+                                        complexity = if (white) complexityA else complexityB,
+                                        solidity = if (white) solidityA else solidityB,
+                                        materialWeight = 50,
+                                        mode = modeOrdinal(mode)
+                                    )
+                                }
                             }.getOrElse { error ->
                                 android.util.Log.e("AetherisSim", "Engine search failed at ply $plies", error)
                                 status.value = "Engine error at ply $plies: " + (error.message ?: error.javaClass.simpleName)
@@ -109,7 +121,10 @@ class SimViewModel(private val context: Context) : ViewModel() {
                         matchMoves.add(move.toString().lowercase())
                         boardState.value = toUi(board)
                         eval.value = withContext(Dispatchers.Default) {
-                            runCatching { NativeEngine.evaluateFen(board.fen) }.getOrDefault(eval.value)
+                            runCatching {
+                                if (mode.equals("Caissa", true)) CaissaEngine.evaluate(board.fen)
+                                else NativeEngine.evaluateFen(board.fen)
+                            }.getOrDefault(eval.value)
                         }
                         plies++
                         delay(220)
