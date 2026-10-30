@@ -100,8 +100,8 @@ class GameViewModel(private val context: Context) : ViewModel() {
             applyNativeOptions(options.value)
             nnueStatus.value = "Aetheris Classical active"
         }.onFailure {
-            engineAvailable.value = false
-            nnueStatus.value = "Native classical engine initialization failed"
+            engineAvailable.value = settings.value.selectedEngine == "caissa"
+            nnueStatus.value = if (engineAvailable.value) "Caissa Kotlin engine active" else "Native classical engine initialization failed"
         }
         evalVisible.value = settings.value.showEvalPlay
         moveTimeSeconds.value = settings.value.moveTimeSeconds
@@ -148,7 +148,6 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     fun removeOpeningBook() {
-        context.getSharedPreferences("aetheris_settings", Context.MODE_PRIVATE).edit().apply { }.apply()
         runCatching { java.io.File(context.filesDir, "opening-book/lichess-openings.tsv").delete() }
         openingBookMoves.value = emptyList()
         openingBookStatus.value = "Opening book removed"
@@ -501,7 +500,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     private fun startEngineSearch(force: Boolean) {
-        if (!engineAvailable.value) return
+        if (!engineAvailable.value && settings.value.selectedEngine != "caissa") return
         val fen = board.fen
         val searchOptions = options.value
         val depth = searchOptions.depth
@@ -906,6 +905,12 @@ class GameViewModel(private val context: Context) : ViewModel() {
             if (s.pondering) startPonderingIfNeeded()
         }
         if (s.flipped != flipped.value) flipped.value = s.flipped
+        if (s.selectedEngine != settings.value.selectedEngine) {
+            engineAvailable.value = s.selectedEngine == "caissa" || engineAvailable.value
+            nnueStatus.value = if (s.selectedEngine == "caissa") "Caissa Kotlin active" else "Aetheris Classical active"
+            if (mode.value == PlayMode.PLAY) maybeEngineMove()
+            updateEvaluationAsync()
+        }
         if (s.openingBookEnabled != settings.value.openingBookEnabled || s.openingBookPolicy != settings.value.openingBookPolicy) refreshOpeningBookMoves()
         timeControlSeconds.value = TimeControl.byId(s.timeControl).seconds
         moveTimeSeconds.value = s.moveTimeSeconds
