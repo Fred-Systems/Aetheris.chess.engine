@@ -88,8 +88,8 @@ class SimViewModel(private val context: Context) : ViewModel() {
                                 } else {
                                     NativeEngine.searchConfiguredPosition(
                                         fen = fen,
-                                        depth = depth.coerceIn(1, 24),
-                                        timeMs = timeMs.coerceIn(100, 30000),
+                                        depth = if (mode.equals("AetherisRapid", true)) depth.coerceIn(1, 12) else depth.coerceIn(1, 24),
+                                        timeMs = if (mode.equals("AetherisRapid", true)) timeMs.coerceIn(100, 1200) else timeMs.coerceIn(100, 30000),
                                         aggression = if (white) aggressionA else aggressionB,
                                         positional = if (white) positionalA else positionalB,
                                         complexity = if (white) complexityA else complexityB,
