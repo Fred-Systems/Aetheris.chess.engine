@@ -42,9 +42,9 @@ data class AppSettings(
     val conditionalMoves: Boolean = false,
     val chess960Enabled: Boolean = false,
     val selectedEngine: String = "aetheris",
-    val openingBookEnabled: Boolean = true,
+    val openingBookEnabled: Boolean = false,
     val openingBookPolicy: String = "best",
-    val showOpeningBookArrows: Boolean = true
+    val showOpeningBookArrows: Boolean = false
 )
 
 class SettingsStore(context: Context) {
@@ -75,9 +75,9 @@ class SettingsStore(context: Context) {
         conditionalMoves = prefs.getBoolean("conditionalMoves", false),
         chess960Enabled = prefs.getBoolean("chess960Enabled", false),
         selectedEngine = prefs.getString("selectedEngine", "aetheris") ?: "aetheris",
-        openingBookEnabled = prefs.getBoolean("openingBookEnabled", true),
+        openingBookEnabled = prefs.getBoolean("openingBookEnabled", false),
         openingBookPolicy = prefs.getString("openingBookPolicy", "best") ?: "best",
-        showOpeningBookArrows = prefs.getBoolean("showOpeningBookArrows", true)
+        showOpeningBookArrows = prefs.getBoolean("showOpeningBookArrows", false)
     )
 
     fun save(s: AppSettings) {
