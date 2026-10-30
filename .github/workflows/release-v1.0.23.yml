@@ -1,0 +1,168 @@
+name: Publish Aetheris v1.0.23 APK
+# Build the hotfix directly from current main and verify its stable signature and version before publishing.
+# v1.0.23 includes Lichess ECO TSV PGN-to-UCI indexing with corrected Kotlin tab parsing, SAN-to-UCI conversion, persistent book disable/remove behavior, direct engine selectors, and a fixed non-scrolling Play viewport, downloadable/importable book controls, best/random book selection, analysis arrows, and the independent Caissa Kotlin engine in Play, Analysis, and Engine Arena. Prior Notebook, ordered premove, conditional-move and board-layout changes are retained. Release requires the same stable Android signing secrets and verifies the APK signature/version before publishing.
+# Publish v1.0.23 from main with the final premove queue, board-based conditional setup, fixed board layout, and settings guidance and position-bound conditional-reply cleanup. Stable signing is mandatory; never publish a debug-signed update. Includes the latest Notebook, premove, engine-match, and settings updates. Final source snapshot, including the Notebook variation parser, analysis lifecycle, and live Notebook refresh fixes; release attempt restarted after queued CI runs.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - .github/workflows/release-v1.0.23.yml
+      - app/build.gradle.kts
+      - app/src/main/java/com/fredsystems/aetheris/MainActivity.kt
+      - app/src/main/java/com/fredsystems/aetheris/domain/model/AppSettings.kt
+      - app/src/main/java/com/fredsystems/aetheris/viewmodel/SimViewModel.kt
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aetheris-release-v1.0.23
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Configure Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          # Avoid restoring the bad dependency cache that caused widespread false Maven Central 404s.
+          cache-disabled: true
+
+      - name: Set up Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26b
+
+      - name: Configure and verify stable signing key
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [[ -n "${KEYSTORE_B64:-}" ]] || { echo "::error::Missing ANDROID_SIGNING_KEY_BASE64; refusing to publish a debug-signed APK."; exit 1; }
+          [[ -n "${STORE_PASSWORD:-}" ]] || { echo "::error::Missing AETHERIS_KEYSTORE_PASSWORD."; exit 1; }
+          [[ -n "${KEY_ALIAS:-}" ]] || { echo "::error::Missing AETHERIS_KEY_ALIAS."; exit 1; }
+          [[ -n "${KEY_PASSWORD:-}" ]] || { echo "::error::Missing AETHERIS_KEY_PASSWORD."; exit 1; }
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/aetheris-release.jks"
+          test -s "$RUNNER_TEMP/aetheris-release.jks"
+          echo "AETHERIS_KEYSTORE_PATH=$RUNNER_TEMP/aetheris-release.jks" >> "$GITHUB_ENV"
+          echo "Stable signing keystore is present and decoded."
+
+      - name: Build release APK from hotfix source
+        env:
+          AETHERIS_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          AETHERIS_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          AETHERIS_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: gradle assembleRelease
+
+      - name: Verify APK signature and version
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
+          test -n "$APK"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/aapt" dump badging "$APK" | grep -F "versionName='1.0.23'"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/aapt" dump badging "$APK" | grep -F "versionCode='24'"
+
+      - name: Prepare APK and classical UCI packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets/extracted release-assets/uci release-assets/classical
+          APK="$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
+          test -n "$APK"
+          cp "$APK" release-assets/Aetheris.apk
+          unzip -q "$APK" 'lib/*/libaetheris_engine.so' 'lib/*/libaetheris_classical.so' -d release-assets/extracted
+          test -f release-assets/extracted/lib/arm64-v8a/libaetheris_engine.so
+          test -f release-assets/extracted/lib/arm64-v8a/libaetheris_classical.so
+          for abi in arm64-v8a armeabi-v7a; do
+            ENGINE="release-assets/extracted/lib/${abi}/libaetheris_engine.so"
+            CLASSICAL="release-assets/extracted/lib/${abi}/libaetheris_classical.so"
+            if [ -f "$ENGINE" ]; then
+              mkdir -p "release-assets/uci/${abi}"
+              cp "$ENGINE" "release-assets/uci/${abi}/aetheris_engine"
+              chmod +x "release-assets/uci/${abi}/aetheris_engine"
+            fi
+            if [ -f "$CLASSICAL" ]; then
+              mkdir -p "release-assets/classical/${abi}"
+              cp "$CLASSICAL" "release-assets/classical/${abi}/aetheris_classical"
+              chmod +x "release-assets/classical/${abi}/aetheris_classical"
+            fi
+          done
+          cat > release-assets/README-UCI.txt <<'EOF'
+          Aetheris UCI engine for Android. The shipped evaluator is classical; NNUE is disabled.
+          Select uci/<abi>/aetheris_engine matching the device ABI.
+          EOF
+          cat > release-assets/README-CLASSICAL.txt <<'EOF'
+          Aetheris Classical UCI engine for Android.
+          Select classical/<abi>/aetheris_classical matching the device ABI.
+          EOF
+          (cd release-assets && zip -qr Aetheris-UCI-Engine-Android.zip uci README-UCI.txt)
+          (cd release-assets && zip -qr Aetheris-Classical-Engine-Android.zip classical README-CLASSICAL.txt)
+          rm -rf release-assets/extracted release-assets/uci release-assets/classical release-assets/README-UCI.txt release-assets/README-CLASSICAL.txt
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aetheris-v1.0.23-release
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish v1.0.23 release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
+          tag_name: v1.0.23
+          name: Aetheris v1.0.23
+          target_commitish: ${{ github.sha }}
+          body: |
+            Aetheris v1.0.23 stability hotfix
+
+            - Fixed the launch-time startup workload by making the large Lichess opening database opt-in instead of automatically downloading and indexing it on first launch.
+            - Deferred Engine Arena's native engine initialization until the user actually starts a match, avoiding competing native initialization during initial screen creation.
+            - Restored width-first board sizing with vertical scrolling only for short screens, so the board remains large instead of shrinking to fit the leftover viewport.
+            - Enabled crash diagnostics prompt in the regular release so any future startup exception can be exported from the app.
+
+            Opening book and engine choices:
+            - Added a downloadable Lichess public openings database (A-E ECO sections), TSV import, disable/remove controls, and persistent book settings.
+            - The opening book is indexed by legal position and move sequences; Best selects the most common continuation and Random Good samples by source frequency.
+            - Added opening continuation arrows and move labels in Analysis with an independent visibility toggle.
+            - Added Caissa, an independent Kotlin alpha-beta engine, selectable alongside Aetheris Classical for Play and Analysis and independently for either side in Engine Arena.
+
+            Classical engine and reliability:
+            - Removed the unvalidated NNUE weights from the APK and disabled neural evaluation. The app now uses the classical evaluator consistently and no longer offers Classical / NNUE / Hybrid mode switches. Caissa is a separate built-in alternative.
+            - Raised the default search depth and improved classical search with deeper quiescence, broader bounded check extensions, transposition-table mate-distance normalization, and halfmove-clock-aware position keys.
+            - The analysis page retains its dark background, with high-contrast headings and evaluation text. Play uses a fixed non-scrolling board viewport so dragging pieces for premoves cannot scroll the screen.
+
+            Interface:
+            - Aligned the Play and Analysis home actions with the two buttons below them.
+            - Engine match setup lets White and Black independently select Aetheris Classical or Caissa. Aetheris retains persona sliders; Caissa uses its own search.
+
+            Release compatibility:
+            - Version code 24 / version name 1.0.23.
+            - This workflow requires the stable repository signing secrets and stops if any are missing. It will not publish a debug-signed APK.
+            - Android can update an existing installation only if its signing certificate matches. Older debug-signed installs may need a one-time uninstall before installing this stable-key release.
+          files: release-assets/*
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          make_latest: true
