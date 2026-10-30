@@ -42,7 +42,8 @@ data class AppSettings(
     val conditionalMoves: Boolean = false,
     val chess960Enabled: Boolean = false,
     val selectedEngine: String = "aetheris",
-    val openingBookEnabled: Boolean = false,
+    val openingBookEnabled: Boolean = true,
+    val openingBookPromptShown: Boolean = false,
     val openingBookPolicy: String = "best",
     val showOpeningBookArrows: Boolean = false
 )
@@ -75,7 +76,8 @@ class SettingsStore(context: Context) {
         conditionalMoves = prefs.getBoolean("conditionalMoves", false),
         chess960Enabled = prefs.getBoolean("chess960Enabled", false),
         selectedEngine = prefs.getString("selectedEngine", "aetheris") ?: "aetheris",
-        openingBookEnabled = prefs.getBoolean("openingBookEnabled", false),
+        openingBookEnabled = if (prefs.getBoolean("openingBookPromptShown", false)) prefs.getBoolean("openingBookEnabled", true) else true,
+        openingBookPromptShown = prefs.getBoolean("openingBookPromptShown", false),
         openingBookPolicy = prefs.getString("openingBookPolicy", "best") ?: "best",
         showOpeningBookArrows = prefs.getBoolean("showOpeningBookArrows", false)
     )
@@ -107,6 +109,7 @@ class SettingsStore(context: Context) {
             .putBoolean("chess960Enabled", s.chess960Enabled)
             .putString("selectedEngine", s.selectedEngine)
             .putBoolean("openingBookEnabled", s.openingBookEnabled)
+            .putBoolean("openingBookPromptShown", s.openingBookPromptShown)
             .putString("openingBookPolicy", s.openingBookPolicy)
             .putBoolean("showOpeningBookArrows", s.showOpeningBookArrows)
             .apply()
