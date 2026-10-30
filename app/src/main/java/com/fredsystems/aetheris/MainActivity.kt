@@ -125,7 +125,7 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("analysis") { AnalysisScreen(vm) }
                         composable("sim") { SimScreen(simVm) { navController.popBackStack() } }
-                        composable("notebook") { NotebookScreen(notebookVm) { navController.popBackStack() } }
+                        composable("notebook") { NotebookScreen(notebookVm, onBack = { navController.popBackStack() }, onOpenAnalysis = { record -> vm.openNotebookRecord(record); navController.navigate("analysis") }) }
                         composable("external") { ExternalEnginesScreen() }
                     }
                     if (showCrashReportPrompt) {
