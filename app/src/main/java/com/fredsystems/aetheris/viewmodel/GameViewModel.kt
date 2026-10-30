@@ -898,6 +898,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     fun updateSettings(s: AppSettings) {
         val playerColorChanged = s.playerColor != settings.value.playerColor
         val ponderingChanged = s.pondering != settings.value.pondering
+        val engineChanged = s.selectedEngine != settings.value.selectedEngine
         saveSettings(s)
         if (ponderingChanged) {
             ponderJob?.cancel()
@@ -905,7 +906,8 @@ class GameViewModel(private val context: Context) : ViewModel() {
             if (s.pondering) startPonderingIfNeeded()
         }
         if (s.flipped != flipped.value) flipped.value = s.flipped
-        if (s.selectedEngine != settings.value.selectedEngine) {
+        if (engineChanged) {
+            stopEngine()
             engineAvailable.value = s.selectedEngine == "caissa" || engineAvailable.value
             nnueStatus.value = if (s.selectedEngine == "caissa") "Caissa Kotlin active" else "Aetheris Classical active"
             if (mode.value == PlayMode.PLAY) maybeEngineMove()
