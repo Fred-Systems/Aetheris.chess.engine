@@ -270,7 +270,7 @@ fun SettingsScreen(
             }
             Text("Choose how Aetheris selects a book move:", color = Color(0xFFB9B2CE), fontSize = 12.sp)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ModeChip("Best / most common", settings.openingBookPolicy == "best", Modifier.weight(1f)) {
+                ModeChip("Top book line", settings.openingBookPolicy == "best", Modifier.weight(1f)) {
                     viewModel.updateSettings(settings.copy(openingBookPolicy = "best"))
                 }
                 ModeChip("Random good", settings.openingBookPolicy == "random", Modifier.weight(1f)) {
@@ -278,7 +278,7 @@ fun SettingsScreen(
                 }
             }
             Text(viewModel.openingBookStatus.value, color = Color(0xFFB9A8FF), fontSize = 11.sp)
-            Text("The public Lichess openings database is indexed by legal UCI move sequences. Best chooses the most frequent continuation in the source; Random good samples continuations weighted by their occurrence.", color = Color(0xFF9B93B8), fontSize = 11.sp)
+            Text("The public Lichess openings database is indexed by legal UCI move sequences. Top book line chooses the continuation shared by the most named opening lines in the dataset; Random good samples among continuations weighted by how many named lines contain them.", color = Color(0xFF9B93B8), fontSize = 11.sp)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { viewModel.downloadOpeningBook() }, modifier = Modifier.weight(1f)) { Text("Download public book") }
                 OutlinedButton(onClick = { openingBookPicker.launch(arrayOf("text/*", "application/octet-stream", "*/*")) }, modifier = Modifier.weight(1f)) { Text("Import TSV") }
