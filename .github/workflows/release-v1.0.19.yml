@@ -1,5 +1,5 @@
 name: Publish Aetheris v1.0.19 APK (release retry)
-# Publish only this version from main. Stable signing is mandatory; never publish a debug-signed update.
+# Publish v1.0.19 from main. Stable signing is mandatory; never publish a debug-signed update. Includes the latest gameplay and settings updates.
 
 on:
   push:
