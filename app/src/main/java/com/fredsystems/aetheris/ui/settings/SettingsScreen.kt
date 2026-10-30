@@ -17,6 +17,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,6 +71,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val updater = remember { GitHubUpdater(context) }
     val scope = rememberCoroutineScope()
+    val openingBookPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(viewModel::importOpeningBook) }
     var updateTag by remember { mutableStateOf<String?>(null) }
     var updateUrl by remember { mutableStateOf<String?>(null) }
     var updateIsNewer by remember { mutableStateOf(false) }
@@ -258,7 +261,46 @@ fun SettingsScreen(
         }
 
         Spacer(Modifier.height(12.dp))
+        SettingsCard("Opening book") {
+            SwitchRow("Use opening book during Play", settings.openingBookEnabled) {
+                viewModel.updateSettings(settings.copy(openingBookEnabled = it))
+            }
+            SwitchRow("Show book continuation arrows in Analysis", settings.showOpeningBookArrows) {
+                viewModel.updateSettings(settings.copy(showOpeningBookArrows = it))
+            }
+            Text("Choose how Aetheris selects a book move:", color = Color(0xFFB9B2CE), fontSize = 12.sp)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ModeChip("Best / most common", settings.openingBookPolicy == "best", Modifier.weight(1f)) {
+                    viewModel.updateSettings(settings.copy(openingBookPolicy = "best"))
+                }
+                ModeChip("Random good", settings.openingBookPolicy == "random", Modifier.weight(1f)) {
+                    viewModel.updateSettings(settings.copy(openingBookPolicy = "random"))
+                }
+            }
+            Text(viewModel.openingBookStatus.value, color = Color(0xFFB9A8FF), fontSize = 11.sp)
+            Text("The public Lichess openings database is indexed by legal UCI move sequences. Best chooses the most frequent continuation in the source; Random good samples continuations weighted by their occurrence.", color = Color(0xFF9B93B8), fontSize = 11.sp)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { viewModel.downloadOpeningBook() }, modifier = Modifier.weight(1f)) { Text("Download public book") }
+                OutlinedButton(onClick = { openingBookPicker.launch(arrayOf("text/*", "application/octet-stream", "*/*")) }, modifier = Modifier.weight(1f)) { Text("Import TSV") }
+            }
+            if (viewModel.openingBookStatus.value.contains("installed", true) || viewModel.openingBookStatus.value.contains("imported", true)) {
+                TextButton(onClick = { viewModel.removeOpeningBook() }) { Text("Remove installed book") }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
         SettingsCard("Engine") {
+            Text("Built-in engine", color = Color(0xFFF2EEFF), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ModeChip("Aetheris Classical", settings.selectedEngine == "aetheris", Modifier.weight(1f)) {
+                    viewModel.updateSettings(settings.copy(selectedEngine = "aetheris"))
+                }
+                ModeChip("Caissa", settings.selectedEngine == "caissa", Modifier.weight(1f)) {
+                    viewModel.updateSettings(settings.copy(selectedEngine = "caissa"))
+                }
+            }
+            Text(if (settings.selectedEngine == "caissa") "Caissa uses its own Kotlin alpha-beta search and material/mobility evaluator." else "Aetheris Classical uses the native C++ search and evaluation engine.", color = Color(0xFF9B93B8), fontSize = 11.sp)
+            Spacer(Modifier.height(8.dp))
             SwitchRow("Ponder during my turn", settings.pondering) {
                 viewModel.updateSettings(settings.copy(pondering = it))
             }
