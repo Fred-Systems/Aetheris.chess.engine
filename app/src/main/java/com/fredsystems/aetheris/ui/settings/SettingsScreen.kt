@@ -218,8 +218,20 @@ fun SettingsScreen(
             SwitchRow("Allow multiple premoves", settings.multiplePremoves) {
                 viewModel.updateSettings(settings.copy(multiplePremoves = it))
             }
+            if (settings.multiplePremoves) {
+                Text(
+                    "Queue up to 12 premoves in order. Each is attempted on your next turn after the engine replies; if the next queued move is illegal, the entire remaining queue is cancelled.",
+                    color = Color(0xFF9B93B8), fontSize = 11.sp
+                )
+            }
             SwitchRow("Enable conditional moves", settings.conditionalMoves) {
                 viewModel.updateSettings(settings.copy(conditionalMoves = it))
+            }
+            if (settings.conditionalMoves) {
+                Text(
+                    "On the engine's turn, preview a hypothetical opponent move on the board, then make your reply. The preview is not played; your reply is triggered only if the engine later plays that exact move.",
+                    color = Color(0xFF9B93B8), fontSize = 11.sp
+                )
             }
             SwitchRow("Chess960 random starting position", settings.chess960Enabled) {
                 viewModel.updateSettings(settings.copy(chess960Enabled = it))
