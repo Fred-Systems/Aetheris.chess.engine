@@ -11,7 +11,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.fredsystems.aetheris.domain.model.SettingsStore
 import com.fredsystems.aetheris.ui.board.BoardArrow
 import com.fredsystems.aetheris.ui.board.ChessBoard
 import com.fredsystems.aetheris.ui.board.EvaluationBar
@@ -21,8 +20,7 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun AnalysisScreen(viewModel: GameViewModel) {
-    val context = LocalContext.current
-    val settings = SettingsStore(context).load()
+    val settings = viewModel.settings.value
     val board = viewModel.boardState.value
     val index = viewModel.historyIndex.value
     val length = viewModel.historyLength.value
