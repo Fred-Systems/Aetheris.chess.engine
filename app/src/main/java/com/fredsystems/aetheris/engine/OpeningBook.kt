@@ -2,7 +2,7 @@ package com.fredsystems.aetheris.engine
 
 import android.content.Context
 import com.github.bhlangonijr.chesslib.Board
-import com.github.bhlangonijr.chesslib.Square
+import com.github.bhlangonijr.chesslib.move.MoveList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -47,9 +47,9 @@ class OpeningBook(private val context: Context) {
         temp.outputStream().buffered().use { source.copyTo(it) }
         if (temp.length() == 0L) throw IllegalArgumentException("The selected book is empty")
         val validTsv = temp.bufferedReader().use { reader ->
-            val header = reader.readLine().orEmpty()
-            header.split('\\t').let { it.size >= 4 && it[0].equals("eco", true) && it[3].equals("uci", true) } &&
-                reader.lineSequence().take(20).any { it.split('\\t').size >= 4 && it.split('\\t')[3].isNotBlank() }
+            val header = reader.readLine().orEmpty().removePrefix("\\uFEFF")
+            header.split('\\t').let { it.size >= 3 && it[0].equals("eco", true) && it[2].equals("pgn", true) } &&
+                reader.lineSequence().take(20).any { it.split('\\t').size >= 3 && it.split('\\t')[2].isNotBlank() }
         }
         if (!validTsv) {
             temp.delete()
@@ -66,22 +66,18 @@ class OpeningBook(private val context: Context) {
         val counts = HashMap<String, HashMap<String, Int>>(160_000)
         file.bufferedReader().useLines { lines ->
             lines.forEachIndexed { lineNo, line ->
-                if (lineNo == 0 && line.startsWith("eco\t")) return@forEachIndexed
-                val cols = line.split('\t')
-                val uci = cols.getOrNull(3)?.trim().orEmpty()
-                if (uci.isBlank()) return@forEachIndexed
+                val cols = line.split('\\t')
+                if (cols.firstOrNull()?.equals("eco", true) == true) return@forEachIndexed
+                val pgn = cols.getOrNull(2)?.trim().orEmpty()
+                if (pgn.isBlank()) return@forEachIndexed
+                val moves = runCatching { MoveList().apply { loadFromSan(pgn) } }.getOrNull() ?: return@forEachIndexed
                 val replay = Board()
-                uci.split(Regex("\\s+")).forEach { token ->
-                    if (token.length < 4) return@forEach
-                    val from = runCatching { Square.valueOf(token.substring(0, 2).uppercase()) }.getOrNull() ?: return@forEach
-                    val to = runCatching { Square.valueOf(token.substring(2, 4).uppercase()) }.getOrNull() ?: return@forEach
-                    val move = replay.legalMoves().firstOrNull { it.from == from && it.to == to &&
-                        (token.length < 5 || it.promotion.fenSymbol.equals(token[4].toString(), true)) } ?: return@forEach
+                for (move in moves) {
                     val key = positionKey(replay.fen)
-                    val u = move.toString().lowercase()
+                    val uci = move.toString().lowercase()
                     val bucket = counts.getOrPut(key) { HashMap() }
-                    bucket[u] = (bucket[u] ?: 0) + 1
-                    if (!replay.doMove(move)) return@forEach
+                    bucket[uci] = (bucket[uci] ?: 0) + 1
+                    if (!replay.doMove(move)) break
                 }
             }
         }
