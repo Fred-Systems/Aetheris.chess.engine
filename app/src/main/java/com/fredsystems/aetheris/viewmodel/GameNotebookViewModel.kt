@@ -13,6 +13,8 @@ class GameNotebookViewModel(private val context: Context) : ViewModel() {
     val ply = mutableStateOf(0)
     val activeVariation = mutableStateOf<List<String>>(emptyList())
 
+    fun refresh() { games.value = repo.load() }
+
     fun saveGame(title: String, pgn: String, moves: List<String>) {
         val rec = GameRecord(title = title, pgn = pgn, moves = moves)
         val list = games.value.toMutableList()
