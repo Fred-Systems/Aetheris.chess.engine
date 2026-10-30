@@ -217,6 +217,67 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
+private fun SplashScreen(onFinished: () -> Unit) {
+    val transition = rememberInfiniteTransition(label = "galaxy")
+    val driftA by transition.animateFloat(-120f, 920f, infiniteRepeatable(tween(5200, easing = LinearEasing)), label = "driftA")
+    val driftB by transition.animateFloat(900f, -180f, infiniteRepeatable(tween(6800, easing = LinearEasing)), label = "driftB")
+    val rotation by transition.animateFloat(-18f, 18f, infiniteRepeatable(tween(4200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "rotation")
+    val pulse by transition.animateFloat(0.72f, 1.08f, infiniteRepeatable(tween(1800), RepeatMode.Reverse), label = "pulse")
+    LaunchedEffect(Unit) { delay(2600); onFinished() }
+    BoxWithConstraints(
+        Modifier.fillMaxSize().background(
+            Brush.verticalGradient(listOf(Color(0xFF050611), Color(0xFF151038), Color(0xFF080A20), Color(0xFF02030A)))
+        )
+    ) {
+        val w = maxWidth
+        val h = maxHeight
+        Box(Modifier.offset(x = w * 0.10f, y = h * 0.18f).size(240.dp).background(Color(0x332D48B8), RoundedCornerShape(200.dp)))
+        Box(Modifier.offset(x = w * 0.52f, y = h * 0.48f).size(190.dp).background(Color(0x222B8BBD), RoundedCornerShape(200.dp)))
+        repeat(48) { index ->
+            val x = ((index * 73) % 100) / 100f
+            val y = ((index * 137) % 100) / 100f
+            Box(
+                Modifier.offset(x = w * x, y = h * y).size(if (index % 7 == 0) 2.5.dp else 1.4.dp)
+                    .background(Color(0xFFD9E5FF), RoundedCornerShape(50))
+            )
+        }
+        val pieces = listOf("♞", "♜", "♝", "♛", "♟", "♚")
+        pieces.forEachIndexed { i, piece ->
+            val x = when (i % 3) { 0 -> w * 0.12f; 1 -> w * 0.52f; else -> w * 0.78f }
+            val y = when (i % 2) { 0 -> driftA.dp; else -> driftB.dp }
+            Text(
+                piece,
+                modifier = Modifier.offset(x = x, y = y).graphicsLayer {
+                    rotationZ = rotation * (if (i % 2 == 0) 1f else -1f)
+                    alpha = 0.35f + (pulse - 0.72f) * 0.9f
+                    scaleX = 0.85f + i * 0.06f
+                    scaleY = 0.85f + i * 0.06f
+                },
+                color = if (i % 2 == 0) Color(0xFFD7D8FF) else Color(0xFF8EA8FF),
+                fontSize = (34 + i * 7).sp
+            )
+        }
+        Column(
+            Modifier.align(Alignment.Center).graphicsLayer { scaleX = pulse; scaleY = pulse },
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("♞", fontSize = 78.sp, color = Color(0xFFE8E7FF), fontWeight = FontWeight.Light)
+            Spacer(Modifier.height(8.dp))
+            Text("AETHERIS", fontSize = 31.sp, letterSpacing = 6.sp, fontWeight = FontWeight.Black, color = Color(0xFFF3F0FF))
+            Text("CHESS ENGINE", fontSize = 10.sp, letterSpacing = 4.sp, color = Color(0xFF9FA8D8))
+        }
+        Text(
+            "Aetheris\nDeveloped by Fred-Systems",
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 34.dp),
+            textAlign = TextAlign.Center,
+            color = Color(0xFFB8B8D8),
+            fontSize = 12.sp,
+            lineHeight = 19.sp
+        )
+    }
+}
+
+@Composable
 fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavController) {
     val state by vm.boardState
     val eval by vm.evaluation
