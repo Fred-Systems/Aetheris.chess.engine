@@ -63,6 +63,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     val historyIndex = mutableStateOf(0)
     val historyLength = mutableStateOf(1)
     private val settingsStore = store
+    private var nativeEngineAvailable = false
     val settings = mutableStateOf(store.load())
 
     val boardState = mutableStateOf(toUi(board))
@@ -96,10 +97,12 @@ class GameViewModel(private val context: Context) : ViewModel() {
         positionHistory.add(board.fen)
         runCatching {
             NativeEngine.initialize()
+            nativeEngineAvailable = true
             options.value = options.value.copy(mode = EngineMode.PURE_CLASSICAL)
             applyNativeOptions(options.value)
-            nnueStatus.value = "Aetheris Classical active"
+            nnueStatus.value = if (settings.value.selectedEngine == "caissa") "Caissa Kotlin active" else "Aetheris Classical active"
         }.onFailure {
+            nativeEngineAvailable = false
             engineAvailable.value = settings.value.selectedEngine == "caissa"
             nnueStatus.value = if (engineAvailable.value) "Caissa Kotlin engine active" else "Native classical engine initialization failed"
         }
@@ -753,18 +756,18 @@ class GameViewModel(private val context: Context) : ViewModel() {
     fun analyzePosition(count: Int = settings.value.analysisLineCount) {
         if (analysisLoading.value) return
         val fen = board.fen
-        val requestedDepth = options.value.depth.coerceIn(4, 20)
+        val requestedDepth = options.value.depth.coerceIn(1, 20)
         analysisLoading.value = true
         viewModelScope.launch {
             val raw = withContext(Dispatchers.Default) {
                 runCatching {
                     if (settings.value.selectedEngine == "caissa") {
-                        val line = CaissaEngine.principalLine(fen, requestedDepth.coerceIn(1, 5))
+                        val line = CaissaEngine.principalLine(fen, requestedDepth.coerceIn(1, 4))
                         val sideScore = CaissaEngine.evaluate(fen)
                         val scoreWhite = if (fen.split(" ").getOrNull(1) == "b") -sideScore else sideScore
                         if (line.isEmpty()) "" else line.joinToString(" ") + "|" + scoreWhite
                     } else {
-                        NativeEngine.analyzeFen(fen, requestedDepth, (5000 + requestedDepth * 500).coerceAtMost(15000), count.coerceIn(1, 5))
+                        NativeEngine.analyzeFen(fen, requestedDepth.coerceAtLeast(4), (5000 + requestedDepth * 500).coerceAtMost(15000), count.coerceIn(1, 5))
                     }
                 }.getOrDefault("")
             }
@@ -910,7 +913,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         if (s.flipped != flipped.value) flipped.value = s.flipped
         if (engineChanged) {
             stopEngine()
-            engineAvailable.value = s.selectedEngine == "caissa" || engineAvailable.value
+            engineAvailable.value = if (s.selectedEngine == "caissa") true else nativeEngineAvailable
             nnueStatus.value = if (s.selectedEngine == "caissa") "Caissa Kotlin active" else "Aetheris Classical active"
             if (mode.value == PlayMode.PLAY) maybeEngineMove()
             updateEvaluationAsync()
