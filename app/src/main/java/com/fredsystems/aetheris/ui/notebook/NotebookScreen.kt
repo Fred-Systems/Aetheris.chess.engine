@@ -20,7 +20,7 @@ import com.fredsystems.aetheris.ui.board.ChessBoard
 import com.fredsystems.aetheris.viewmodel.GameNotebookViewModel
 
 @Composable
-fun NotebookScreen(viewModel: GameNotebookViewModel, onBack: () -> Unit) {
+fun NotebookScreen(viewModel: GameNotebookViewModel, onBack: () -> Unit, onOpenAnalysis: (GameRecord) -> Unit = {}) {
     val games by viewModel.games
     val selected by viewModel.selected
     val ply by viewModel.ply
@@ -34,7 +34,7 @@ fun NotebookScreen(viewModel: GameNotebookViewModel, onBack: () -> Unit) {
             Button(onClick = onBack) { Text("Back") }
             Spacer(Modifier.height(8.dp))
             games.forEach { g ->
-                TextButton(onClick = { viewModel.select(g) }) { Text(g.title) }
+                TextButton(onClick = { viewModel.select(g); onOpenAnalysis(g) }) { Text(g.title) }
             }
             if (games.isEmpty()) Text("No saved games yet.")
         }
@@ -45,7 +45,7 @@ fun NotebookScreen(viewModel: GameNotebookViewModel, onBack: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(g.title, style = MaterialTheme.typography.titleMedium)
-            TextButton(onClick = { viewModel.selected.value = null }) { Text("Back") }
+            Row { TextButton(onClick = { onOpenAnalysis(g) }) { Text("Open Analysis") }; TextButton(onClick = { viewModel.selected.value = null }) { Text("Back") } }
         }
         Box(Modifier.weight(1f)) {
             ChessBoard(board = boardState, onSquareClick = {}, modifier = Modifier.fillMaxSize())
