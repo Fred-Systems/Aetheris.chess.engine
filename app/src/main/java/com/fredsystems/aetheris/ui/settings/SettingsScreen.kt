@@ -507,6 +507,25 @@ fun SettingsScreen(
             })
         }
 
+        SettingsCard("Standalone Engines") {
+            Text("Download the Aetheris Classic UCI engine for compatible external chess applications.", color = Color(0xFFB9B2CE), fontSize = 12.sp)
+            MenuRow("Download Aetheris Classic", {
+                runCatching {
+                    val url = "https://github.com/Fred-Systems/Aetheris.chess.engine/releases/latest/download/Aetheris-Classical-Engine-Android.zip"
+                    val request = DownloadManager.Request(Uri.parse(url))
+                        .setTitle("Aetheris Classic")
+                        .setDescription("Standalone Android UCI engine")
+                        .setMimeType("application/zip")
+                        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                        .setAllowedOverMetered(true)
+                        .setAllowedOverRoaming(false)
+                        .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "Aetheris-Classic-Android.zip")
+                    (context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
+                    Toast.makeText(context, "Aetheris Classic download started.", Toast.LENGTH_LONG).show()
+                }.onFailure { Toast.makeText(context, "Download failed: ${it.message}", Toast.LENGTH_LONG).show() }
+            })
+        }
+
         Spacer(Modifier.height(30.dp))
         Text(
             "Developed by Fred-Systems",
