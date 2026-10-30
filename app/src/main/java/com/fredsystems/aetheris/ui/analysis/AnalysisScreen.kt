@@ -61,6 +61,19 @@ fun AnalysisScreen(viewModel: GameViewModel) {
 
     Column(Modifier.fillMaxSize().background(Color(0xFF0E0C14)).verticalScroll(rememberScrollState()).padding(8.dp)) {
         Text("Game Analysis", color = Color(0xFFF2EEFF), style = MaterialTheme.typography.headlineSmall)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text("Engine", color = Color(0xFF9B93B8), style = MaterialTheme.typography.labelSmall)
+            FilterChip(
+                selected = settings.selectedEngine == "aetheris",
+                onClick = { viewModel.updateSettings(settings.copy(selectedEngine = "aetheris")) },
+                label = { Text("Aetheris Classical") }
+            )
+            FilterChip(
+                selected = settings.selectedEngine == "caissa",
+                onClick = { viewModel.updateSettings(settings.copy(selectedEngine = "caissa")) },
+                label = { Text("Caissa") }
+            )
+        }
         Spacer(Modifier.height(4.dp))
         Text("Position ${index + 1} of $length · Evaluation ${if (evaluation >= 0) "+" else ""}${"%.2f".format(evaluation / 100.0)}", color = Color(0xFFD7D0EA), style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(8.dp))
