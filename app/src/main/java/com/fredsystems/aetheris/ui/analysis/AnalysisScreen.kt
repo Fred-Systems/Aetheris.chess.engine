@@ -72,6 +72,13 @@ fun AnalysisScreen(viewModel: GameViewModel) {
             OutlinedButton(onClick = { autoplay = false; viewModel.goToEnd() }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 2.dp)) { Text("▶|") }
         }
         Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text("Opening book arrows", color = Color(0xFFD69BFF), style = MaterialTheme.typography.labelSmall)
+            Switch(
+                checked = settings.showOpeningBookArrows,
+                onCheckedChange = { viewModel.updateSettings(settings.copy(showOpeningBookArrows = it)) }
+            )
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ChessBoard(
                 board = board,
