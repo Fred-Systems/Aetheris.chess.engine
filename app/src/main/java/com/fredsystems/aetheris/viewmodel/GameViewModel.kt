@@ -400,6 +400,33 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val fen = blackBack + "/pppppppp/8/8/8/8/PPPPPPPP/" + whiteBack + " w " + rights + " - 0 1"
         return Board().also { it.loadFromFen(fen) }
     }
+    fun openNotebookRecord(record: GameRecord) {
+        ponderJob?.cancel()
+        clockJob?.cancel()
+        engineGeneration++
+        board = Board()
+        initialFen = board.fen
+        moveList.clear()
+        positionHistory.clear()
+        positionHistory.add(board.fen)
+        historyIndex.value = 0
+        historyLength.value = 1
+        pendingPremoves.clear()
+        setMode(PlayMode.ANALYSIS)
+        record.moves.forEach { uci ->
+            val from = runCatching { LibSquare.valueOf(uci.take(2).uppercase()) }.getOrNull() ?: return@forEach
+            val to = runCatching { LibSquare.valueOf(uci.substring(2, 4).uppercase()) }.getOrNull() ?: return@forEach
+            val candidates = board.legalMoves().filter { it.from == from && it.to == to }
+            val promo = uci.getOrNull(4)?.lowercaseChar() ?: 'q'
+            val desired = when (promo) { 'n' -> LibPieceType.KNIGHT; 'b' -> LibPieceType.BISHOP; 'r' -> LibPieceType.ROOK; else -> LibPieceType.QUEEN }
+            val move = candidates.firstOrNull { it.promotion != LibPiece.NONE && it.promotion.pieceType == desired }
+                ?: candidates.firstOrNull { it.promotion == LibPiece.NONE } ?: candidates.firstOrNull()
+            if (move != null) makeMove(move, allowEngineReply = false)
+        }
+        goToStart()
+        evalVisible.value = settings.value.showEvalAnalysis
+    }
+
     fun newGame(colorChoice: String = settings.value.playerColor) {
         ponderJob?.cancel()
         ponderJob = null
