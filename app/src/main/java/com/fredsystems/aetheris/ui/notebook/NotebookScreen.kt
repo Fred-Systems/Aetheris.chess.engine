@@ -85,7 +85,7 @@ fun NotebookScreen(viewModel: GameNotebookViewModel, onBack: () -> Unit, onOpenA
         TextButton(onClick = { showEditor = !showEditor }) { Text(if (showEditor) "Close annotation editor" else "Open annotation and variation editor") }
         if (showEditor) {
             OutlinedTextField(value = variationText, onValueChange = { variationText = it }, label = { Text("Alternative UCI line: e2e4 e7e5") }, modifier = Modifier.fillMaxWidth())
-            Button(onClick = { val line = variationText.trim().split(Regex("\\\\s+")).filter { it.matches(Regex("[a-h][1-8][a-h][1-8][qrbn]?")) }; viewModel.saveVariation(line); variationText = "" }, enabled = variationText.isNotBlank()) { Text("Save line at this position") }
+            Button(onClick = { val line = variationText.trim().split(Regex("\\s+")).filter { it.matches(Regex("[a-h][1-8][a-h][1-8][qrbn]?")) }; viewModel.saveVariation(line); variationText = "" }, enabled = variationText.isNotBlank()) { Text("Save line at this position") }
             g.variations.forEach { (at, line) -> TextButton(onClick = { viewModel.viewVariation(line) }) { Text("View line from ply " + at + ": " + line.joinToString(" ")) } }
             if (viewModel.activeVariation.value.isNotEmpty()) TextButton(onClick = { viewModel.returnToMainLine() }) { Text("Return to main game") }
         }
