@@ -30,7 +30,7 @@ class GameNotebookViewModel(private val context: Context) : ViewModel() {
         replace(updated)
     }
 
-    fun viewVariation(line: List<String>) { activeVariation.value = line; ply.value = 0 }
+    fun viewVariation(line: List<String>) { val g = selected.value ?: return; activeVariation.value = g.moves.take(ply.value) + line; ply.value = 0 }
     fun returnToMainLine() { activeVariation.value = emptyList(); ply.value = 0 }
     fun displayedMoves(): List<String> = activeVariation.value.ifEmpty { selected.value?.moves ?: emptyList() }
 
