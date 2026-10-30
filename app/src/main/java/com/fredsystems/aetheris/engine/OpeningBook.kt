@@ -48,8 +48,8 @@ class OpeningBook(private val context: Context) {
         if (temp.length() == 0L) throw IllegalArgumentException("The selected book is empty")
         val validTsv = temp.bufferedReader().use { reader ->
             val header = reader.readLine().orEmpty().removePrefix("\\uFEFF")
-            header.split('\\t').let { it.size >= 3 && it[0].equals("eco", true) && it[2].equals("pgn", true) } &&
-                reader.lineSequence().take(20).any { it.split('\\t').size >= 3 && it.split('\\t')[2].isNotBlank() }
+            header.split('\t').let { it.size >= 3 && it[0].equals("eco", true) && it[2].equals("pgn", true) } &&
+                reader.lineSequence().take(20).any { it.split('\t').size >= 3 && it.split('\t')[2].isNotBlank() }
         }
         if (!validTsv) {
             temp.delete()
@@ -66,7 +66,7 @@ class OpeningBook(private val context: Context) {
         val counts = HashMap<String, HashMap<String, Int>>(160_000)
         file.bufferedReader().useLines { lines ->
             lines.forEach { line ->
-                val cols = line.split('\\t')
+                val cols = line.split('\t')
                 if (cols.firstOrNull()?.equals("eco", true) == true) return@forEach
                 val pgn = cols.getOrNull(2)?.trim().orEmpty()
                 if (pgn.isBlank()) return@forEachIndexed
