@@ -1,5 +1,5 @@
 name: Publish Aetheris v1.0.22 APK
-# v1.0.22 includes Lichess ECO TSV PGN-to-UCI indexing with corrected Kotlin tab parsing and persistent book disable/remove behavior, downloadable/importable book controls, best/random book selection, analysis arrows, and the independent Caissa Kotlin engine in Play, Analysis, and Engine Arena. Prior Notebook, ordered premove, conditional-move and board-layout changes are retained. Release requires the same stable Android signing secrets and verifies the APK signature/version before publishing.
+# v1.0.22 includes Lichess ECO TSV PGN-to-UCI indexing with corrected Kotlin tab parsing, SAN-to-UCI conversion, persistent book disable/remove behavior, direct engine selectors, and a fixed non-scrolling Play viewport, downloadable/importable book controls, best/random book selection, analysis arrows, and the independent Caissa Kotlin engine in Play, Analysis, and Engine Arena. Prior Notebook, ordered premove, conditional-move and board-layout changes are retained. Release requires the same stable Android signing secrets and verifies the APK signature/version before publishing.
 # Publish v1.0.22 from main with the final premove queue, board-based conditional setup, fixed board layout, and settings guidance and position-bound conditional-reply cleanup. Stable signing is mandatory; never publish a debug-signed update. Includes the latest Notebook, premove, engine-match, and settings updates. Final source snapshot, including the Notebook variation parser, analysis lifecycle, and live Notebook refresh fixes; release attempt restarted after queued CI runs.
 
 on:
@@ -139,11 +139,11 @@ jobs:
             Classical engine and reliability:
             - Removed the unvalidated NNUE weights from the APK and disabled neural evaluation. The app now uses the classical evaluator consistently and no longer offers Classical / NNUE / Hybrid mode switches. Caissa is a separate built-in alternative.
             - Raised the default search depth and improved classical search with deeper quiescence, broader bounded check extensions, transposition-table mate-distance normalization, and halfmove-clock-aware position keys.
-            - The analysis page retains its dark background, with high-contrast headings and evaluation text.
+            - The analysis page retains its dark background, with high-contrast headings and evaluation text. Play uses a fixed non-scrolling board viewport so dragging pieces for premoves cannot scroll the screen.
 
             Interface:
             - Aligned the Play and Analysis home actions with the two buttons below them.
-            - Engine match setup identifies the active built-in engine as Aetheris Classical and keeps persona sliders and depth controls.
+            - Engine match setup lets White and Black independently select Aetheris Classical or Caissa. Aetheris retains persona sliders; Caissa uses its own search.
 
             Release compatibility:
             - Version code 23 / version name 1.0.22.
