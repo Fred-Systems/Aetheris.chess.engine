@@ -100,7 +100,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
             nativeEngineAvailable = true
             options.value = options.value.copy(mode = EngineMode.PURE_CLASSICAL)
             applyNativeOptions(options.value)
-            nnueStatus.value = if (settings.value.selectedEngine == "caissa") "Caissa Kotlin active" else "Aetheris Classical active"
+            nnueStatus.value = when (settings.value.selectedEngine) { "caissa" -> "Caissa Kotlin active"; "aetheris_rapid" -> "Aetheris Rapid active"; else -> "Aetheris Classical active" }
         }.onFailure {
             nativeEngineAvailable = false
             engineAvailable.value = settings.value.selectedEngine == "caissa"
@@ -510,7 +510,8 @@ class GameViewModel(private val context: Context) : ViewModel() {
         if (!engineAvailable.value && settings.value.selectedEngine != "caissa") return
         val fen = board.fen
         val searchOptions = options.value
-        val depth = searchOptions.depth
+        val rapidProfile = settings.value.selectedEngine == "aetheris_rapid"
+        val depth = if (rapidProfile) searchOptions.depth.coerceAtMost(12) else searchOptions.depth
         val perMove = moveTimeSeconds.value
         val timed = timeControlSeconds.value > 0
         val remaining = if (board.sideToMove == Side.WHITE) whiteTimeMs.value else blackTimeMs.value
@@ -518,7 +519,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
             perMove > 0 -> (perMove * 1000L).coerceAtMost(30000L)
             timed && remaining > 0 -> min((250L + depth.toLong() * depth.toLong() * 35L).coerceAtMost(8000L), remaining / 12 + 80L)
             else -> (250L + depth.toLong() * depth.toLong() * 35L).coerceIn(500L, 8000L)
-        }
+        }.let { if (rapidProfile) it.coerceAtMost(1400L) else it }
         val generation = ++engineGeneration
         engineThinking.value = true
         viewModelScope.launch {
@@ -919,7 +920,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         if (engineChanged) {
             stopEngine()
             engineAvailable.value = if (s.selectedEngine == "caissa") true else nativeEngineAvailable
-            nnueStatus.value = if (s.selectedEngine == "caissa") "Caissa Kotlin active" else "Aetheris Classical active"
+            nnueStatus.value = when (s.selectedEngine) { "caissa" -> "Caissa Kotlin active"; "aetheris_rapid" -> "Aetheris Rapid active"; else -> "Aetheris Classical active" }
             if (mode.value == PlayMode.PLAY) maybeEngineMove()
             updateEvaluationAsync()
         }
