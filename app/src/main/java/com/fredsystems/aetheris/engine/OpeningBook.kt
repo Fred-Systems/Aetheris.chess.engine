@@ -53,7 +53,7 @@ class OpeningBook(private val context: Context) {
         }
         if (!validTsv) {
             temp.delete()
-            throw IllegalArgumentException("Import a Lichess openings TSV file with eco, name, pgn and uci columns")
+            throw IllegalArgumentException("Import a Lichess openings TSV file with eco, name and pgn columns")
         }
         if (file.exists()) file.delete()
         if (!temp.renameTo(file)) throw IllegalStateException("Could not save imported book")
@@ -65,9 +65,9 @@ class OpeningBook(private val context: Context) {
         if (indexedForLength == file.length()) return
         val counts = HashMap<String, HashMap<String, Int>>(160_000)
         file.bufferedReader().useLines { lines ->
-            lines.forEachIndexed { lineNo, line ->
+            lines.forEach { line ->
                 val cols = line.split('\\t')
-                if (cols.firstOrNull()?.equals("eco", true) == true) return@forEachIndexed
+                if (cols.firstOrNull()?.equals("eco", true) == true) return@forEach
                 val pgn = cols.getOrNull(2)?.trim().orEmpty()
                 if (pgn.isBlank()) return@forEachIndexed
                 val moves = runCatching { MoveList().apply { loadFromSan(pgn) } }.getOrNull() ?: return@forEachIndexed
