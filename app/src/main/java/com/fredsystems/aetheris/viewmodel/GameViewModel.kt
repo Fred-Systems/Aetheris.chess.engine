@@ -50,6 +50,10 @@ class GameViewModel(private val context: Context) : ViewModel() {
     private val pendingPremoves = mutableListOf<String>()
     private var conditionalOpponentUci: String? = null
     private var conditionalReplyUci: String? = null
+    val conditionalSetupActive = mutableStateOf(false)
+    val conditionalSetupStep = mutableStateOf("opponent")
+    private var conditionalDraftBoard: Board? = null
+    private var conditionalDraftOpponentUci: String? = null
     val historyIndex = mutableStateOf(0)
     val historyLength = mutableStateOf(1)
     private val settingsStore = store
@@ -102,6 +106,10 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     fun onSquareClick(index: Int) {
+        if (conditionalSetupActive.value) {
+            handleConditionalSetupClick(index)
+            return
+        }
         if (boardState.value.gameOver) return
         val userSide = if (playerColor.value == PieceColor.WHITE) Side.WHITE else Side.BLACK
         if (mode.value == PlayMode.PLAY && board.sideToMove != userSide) {
@@ -155,6 +163,83 @@ class GameViewModel(private val context: Context) : ViewModel() {
             statusText = if (settings.value.multiplePremoves) "Premove ${pendingPremoves.size} queued · in order" else "Premove queued",
             premoveHighlights = queuedPremoveSquares()
         )
+    }
+
+    fun beginConditionalSetup() {
+        if (mode.value != PlayMode.PLAY || engineThinking.value) return
+        ponderJob?.cancel()
+        ponderJob = null
+        val engineSide = if (playerColor.value == PieceColor.WHITE) Side.BLACK else Side.WHITE
+        val draft = Board()
+        val fenParts = board.fen.split(" ").toMutableList()
+        if (fenParts.size >= 2 && board.sideToMove != engineSide) {
+            fenParts[1] = if (engineSide == Side.WHITE) "w" else "b"
+            runCatching { draft.loadFromFen(fenParts.joinToString(" ")) }.onFailure { return }
+        } else {
+            runCatching { draft.loadFromFen(board.fen) }.onFailure { return }
+        }
+        conditionalDraftBoard = draft
+        conditionalDraftOpponentUci = null
+        conditionalSetupStep.value = "opponent"
+        conditionalSetupActive.value = true
+        boardState.value = toUi(draft).copy(statusText = "Conditional setup: make the opponent's hypothetical move")
+    }
+
+    fun cancelConditionalSetup() {
+        conditionalSetupActive.value = false
+        conditionalDraftBoard = null
+        conditionalDraftOpponentUci = null
+        boardState.value = toUi(board).copy(statusText = "Conditional setup cancelled")
+        maybeEngineMove()
+    }
+
+    private fun handleConditionalSetupClick(index: Int) {
+        val draft = conditionalDraftBoard ?: return
+        val sq = LibSquare.squareAt(index)
+        val selected = boardState.value.selectedSquare
+        if (selected == null) {
+            val piece = draft.getPiece(sq)
+            if (piece != LibPiece.NONE && piece.pieceSide == draft.sideToMove) {
+                val targets = draft.legalMoves().filter { it.from == sq }.map { it.to.ordinal }.toSet()
+                boardState.value = toUi(draft).copy(selectedSquare = index, legalTargets = targets, statusText = if (conditionalSetupStep.value == "opponent") "Choose the opponent's destination" else "Choose your conditional reply")
+            }
+            return
+        }
+        val from = LibSquare.squareAt(selected)
+        val candidates = draft.legalMoves().filter { it.from == from && it.to == sq }
+        val move = candidates.firstOrNull { it.promotion != LibPiece.NONE && it.promotion.pieceType == LibPieceType.QUEEN }
+            ?: candidates.firstOrNull()
+        if (move == null) {
+            val piece = draft.getPiece(sq)
+            if (piece != LibPiece.NONE && piece.pieceSide == draft.sideToMove) {
+                val targets = draft.legalMoves().filter { it.from == sq }.map { it.to.ordinal }.toSet()
+                boardState.value = toUi(draft).copy(selectedSquare = index, legalTargets = targets, statusText = "Choose a destination")
+            } else {
+                boardState.value = boardState.value.copy(selectedSquare = null, legalTargets = emptySet())
+            }
+            return
+        }
+        val uci = move.toString().lowercase()
+        if (!draft.doMove(move)) return
+        if (conditionalSetupStep.value == "opponent") {
+            conditionalDraftOpponentUci = uci
+            conditionalSetupStep.value = "reply"
+            boardState.value = toUi(draft).copy(
+                lastMoveFrom = move.from.ordinal,
+                lastMoveTo = move.to.ordinal,
+                statusText = "Opponent move previewed (not played). Now make your conditional reply."
+            )
+        } else {
+            val opponentMove = conditionalDraftOpponentUci ?: run { cancelConditionalSetup(); return }
+            conditionalOpponentUci = opponentMove
+            conditionalReplyUci = uci
+            conditionalSetupActive.value = false
+            conditionalDraftBoard = null
+            conditionalDraftOpponentUci = null
+            pendingPremoves.clear()
+            boardState.value = toUi(board).copy(statusText = "Conditional reply saved: $opponentMove → $uci")
+            maybeEngineMove()
+        }
     }
 
     fun setConditionalMove(opponentUci: String, replyUci: String) {
