@@ -233,7 +233,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 )
             )
     ) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 14.dp).verticalScroll(rememberScrollState())) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 14.dp)) {
             Row(
                 Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -351,15 +351,14 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
             }
             Spacer(Modifier.height(10.dp))
 
-            Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-                BoxWithConstraints(Modifier.fillMaxWidth().heightIn(min = 160.dp), contentAlignment = Alignment.Center) {
-                    // This screen is scrollable, so a larger board pushes the controls down
-                    // instead of drawing over them. Keep the board inside the device width.
+            Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+                BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    // Keep the board inside the fixed Play viewport. The parent is deliberately
+                    // non-scrollable so a drag-to-premove cannot scroll the whole screen.
                     val widthLimit = (maxWidth - if (evalVisible) 52.dp else 22.dp).coerceAtLeast(160.dp)
-                    // Prioritize a large, readable board. The screen scrolls vertically,
-                    // so the board does not need to be shrunk to leave room for controls.
-                    val boardSize = (widthLimit * settings.boardScale.coerceIn(0.75f, 3f))
-                        .coerceIn(200.dp, widthLimit)
+                    val heightLimit = maxHeight.coerceAtLeast(160.dp)
+                    val boardSize = minOf(widthLimit * settings.boardScale.coerceIn(0.75f, 3f), heightLimit)
+                        .coerceIn(160.dp, widthLimit)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (evalVisible) {
                             EvaluationBar(score = eval, modifier = Modifier.height(boardSize).width(22.dp))
@@ -394,7 +393,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
             }
             if (pgnExpanded) {
                 Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = Color(0xFF1A1626)) {
-                    Column(Modifier.padding(12.dp)) {
+                    Column(Modifier.padding(12.dp).heightIn(max = 150.dp).verticalScroll(rememberScrollState())) {
                         Text("Game notation (PGN)", color = Color(0xFFF2EEFF), fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(6.dp))
                         Text(vm.currentPgn(), color = Color(0xFFB9B2CE), fontSize = 12.sp, fontFamily = FontFamily.Monospace)
