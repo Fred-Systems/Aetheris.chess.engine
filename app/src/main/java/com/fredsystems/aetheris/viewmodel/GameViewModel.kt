@@ -20,6 +20,8 @@ import com.fredsystems.aetheris.domain.model.PieceType
 import com.fredsystems.aetheris.domain.model.SettingsStore
 import com.fredsystems.aetheris.domain.model.TimeControl
 import com.fredsystems.aetheris.engine.NativeEngine
+import com.fredsystems.aetheris.engine.OpeningBook
+import com.fredsystems.aetheris.engine.CaissaEngine
 import com.github.bhlangonijr.chesslib.Board
 import com.github.bhlangonijr.chesslib.Piece as LibPiece
 import com.github.bhlangonijr.chesslib.PieceType as LibPieceType
@@ -43,6 +45,9 @@ data class EngineAnalysisLine(val moves: List<String>, val scoreCp: Int)
 class GameViewModel(private val context: Context) : ViewModel() {
     private val store = SettingsStore(context)
     private val soundPlayer = LichessSoundPlayer(context.applicationContext)
+    private val openingBook = OpeningBook(context.applicationContext)
+    val openingBookStatus = mutableStateOf(if (openingBook.installed()) "Opening book installed" else "No opening book installed")
+    val openingBookMoves = mutableStateOf<List<String>>(emptyList())
     private var board = Board()
     private val moveList = mutableListOf<String>()
     private val positionHistory = mutableListOf<String>()
@@ -103,7 +108,50 @@ class GameViewModel(private val context: Context) : ViewModel() {
         resetClocks()
         startClockLoop()
         updateEvaluationAsync()
+        refreshOpeningBookMoves(board.fen)
         maybeEngineMove()
+    }
+
+    fun currentPositionFen(): String = positionHistory.getOrNull(historyIndex.value) ?: board.fen
+
+    fun refreshOpeningBookMoves(fen: String = currentPositionFen()) {
+        if (!settings.value.openingBookEnabled || !openingBook.installed()) {
+            openingBookMoves.value = emptyList()
+            return
+        }
+        viewModelScope.launch {
+            val moves = withContext(Dispatchers.IO) { runCatching { openingBook.continuations(fen) }.getOrDefault(emptyList()) }
+            if (currentPositionFen() == fen) openingBookMoves.value = moves
+        }
+    }
+
+    fun downloadOpeningBook() {
+        viewModelScope.launch {
+            openingBookStatus.value = "Downloading public Lichess opening database…"
+            runCatching { openingBook.download { openingBookStatus.value = it } }
+                .onSuccess { openingBookStatus.value = "Lichess opening database installed"; refreshOpeningBookMoves() }
+                .onFailure { openingBookStatus.value = "Opening book download failed: ${it.message ?: "unknown error"}" }
+        }
+    }
+
+    fun importOpeningBook(uri: android.net.Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                context.contentResolver.openInputStream(uri)?.use { openingBook.importFile(it) }
+                    ?: error("Could not open selected file")
+            }
+            withContext(Dispatchers.Main) {
+                openingBookStatus.value = result.fold({ "Opening book imported" }, { "Import failed: ${it.message}" })
+                if (result.isSuccess) refreshOpeningBookMoves()
+            }
+        }
+    }
+
+    fun removeOpeningBook() {
+        context.getSharedPreferences("aetheris_settings", Context.MODE_PRIVATE).edit().apply { }.apply()
+        runCatching { java.io.File(context.filesDir, "opening-book/lichess-openings.tsv").delete() }
+        openingBookMoves.value = emptyList()
+        openingBookStatus.value = "Opening book removed"
     }
 
     fun onSquareClick(index: Int) {
@@ -342,6 +390,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
             moveNumber = historyIndex.value
         )
         boardState.value = next
+        refreshOpeningBookMoves(board.fen)
         if (moveTimeSeconds.value > 0) resetClocks()
         updateEvaluationAsync()
         if (allowEngineReply) {
@@ -468,16 +517,23 @@ class GameViewModel(private val context: Context) : ViewModel() {
         engineThinking.value = true
         viewModelScope.launch {
             val move = withContext(Dispatchers.Default) {
-                CrashDiagnostics.searchStarted(context, fen, depth, timeMs.toInt())
                 runCatching {
-                    NativeEngine.searchPositionConfigured(
-                        fen, depth, timeMs.toInt(),
-                        searchOptions.aggression, searchOptions.positional, searchOptions.complexity,
-                        searchOptions.solidity, searchOptions.materialWeight, searchOptions.mode.ordinal
-                    ).also { move ->
-                        CrashDiagnostics.searchCompleted(context, move)
+                    val legal = Board().apply { loadFromFen(fen) }.legalMoves().map { it.toString().lowercase() }.toSet()
+                    if (settings.value.openingBookEnabled && openingBook.installed()) {
+                        openingBook.choose(fen, legal, settings.value.openingBookPolicy)
+                    } else null
+                }.getOrNull() ?: runCatching {
+                    if (settings.value.selectedEngine == "caissa") {
+                        CaissaEngine.bestMove(fen, depth.coerceIn(1, 4))
+                    } else {
+                        CrashDiagnostics.searchStarted(context, fen, depth, timeMs.toInt())
+                        NativeEngine.searchPositionConfigured(
+                            fen, depth, timeMs.toInt(),
+                            searchOptions.aggression, searchOptions.positional, searchOptions.complexity,
+                            searchOptions.solidity, searchOptions.materialWeight, searchOptions.mode.ordinal
+                        ).also { CrashDiagnostics.searchCompleted(context, it) }
                     }
-                }.onFailure { error -> CrashDiagnostics.recordException(context, "NativeEngine.searchPosition", error) }.getOrNull()
+                }.onFailure { error -> CrashDiagnostics.recordException(context, "Engine.searchPosition", error) }.getOrNull()
             }
             CrashDiagnostics.recordStage(context, "SEARCH_RESULT_HANDOFF", "generation=$generation currentGeneration=$engineGeneration move=${move ?: "<null>"}")
             if (generation != engineGeneration) {
@@ -702,7 +758,13 @@ class GameViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch {
             val raw = withContext(Dispatchers.Default) {
                 runCatching {
-                    NativeEngine.analyzeFen(fen, requestedDepth, (5000 + requestedDepth * 500).coerceAtMost(15000), count.coerceIn(1, 5))
+                    if (settings.value.selectedEngine == "caissa") {
+                        val line = CaissaEngine.principalLine(fen, requestedDepth.coerceIn(1, 5))
+                        val score = CaissaEngine.evaluate(fen)
+                        if (line.isEmpty()) "" else line.joinToString(" ") + "|" + score
+                    } else {
+                        NativeEngine.analyzeFen(fen, requestedDepth, (5000 + requestedDepth * 500).coerceAtMost(15000), count.coerceIn(1, 5))
+                    }
                 }.getOrDefault("")
             }
             if (board.fen == fen) {
@@ -844,6 +906,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
             if (s.pondering) startPonderingIfNeeded()
         }
         if (s.flipped != flipped.value) flipped.value = s.flipped
+        if (s.openingBookEnabled != settings.value.openingBookEnabled || s.openingBookPolicy != settings.value.openingBookPolicy) refreshOpeningBookMoves()
         timeControlSeconds.value = TimeControl.byId(s.timeControl).seconds
         moveTimeSeconds.value = s.moveTimeSeconds
         evalVisible.value = if (mode.value == PlayMode.ANALYSIS) s.showEvalAnalysis else s.showEvalPlay
@@ -878,8 +941,12 @@ class GameViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch {
             val score = withContext(Dispatchers.Default) {
                 val whiteToMove = fen.split(" ").getOrNull(1) != "b"
-                val searchedCp = runCatching { NativeEngine.searchEvaluationFen(fen, 5, 900) }.getOrNull()
-                val raw = searchedCp ?: runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
+                val raw = if (settings.value.selectedEngine == "caissa") {
+                    runCatching { CaissaEngine.evaluate(fen) }.getOrDefault(0)
+                } else {
+                    val searchedCp = runCatching { NativeEngine.searchEvaluationFen(fen, 5, 900) }.getOrNull()
+                    searchedCp ?: runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
+                }
                 if (whiteToMove) raw else -raw
             }
             if (board.fen == fen) {
