@@ -197,8 +197,8 @@ class SimViewModel(private val context: Context) : ViewModel() {
         return "[Event \"Aetheris Engine Match\"]\n[Site \"Aetheris Android\"]\n[Result \"$result\"]\n\n$body $result".trim()
     }
 
-    fun saveMatchToNotebook(editedPgn: String, comment: String) {
-        runCatching {
+    fun saveMatchToNotebook(editedPgn: String, comment: String): GameRecord? {
+        return runCatching {
             val repository = GameRepository(context)
             val games = repository.load()
             val comments = if (comment.isBlank()) emptyMap() else mapOf(0 to comment.trim())
@@ -211,7 +211,11 @@ class SimViewModel(private val context: Context) : ViewModel() {
             games.add(0, record)
             repository.save(games)
             status.value = "Saved engine match to Notebook"
-        }.onFailure { status.value = "Could not save match: " + (it.message ?: "unknown error") }
+            record
+        }.getOrElse { error ->
+            status.value = "Could not save match: " + (error.message ?: "unknown error")
+            null
+        }
     }
     fun stop() {
         running.value = false
