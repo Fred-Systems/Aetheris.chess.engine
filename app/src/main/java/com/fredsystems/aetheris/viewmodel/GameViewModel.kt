@@ -154,7 +154,8 @@ class GameViewModel(private val context: Context) : ViewModel() {
     fun removeOpeningBook() {
         runCatching { java.io.File(context.filesDir, "opening-book/lichess-openings.tsv").delete() }
         openingBookMoves.value = emptyList()
-        openingBookStatus.value = "Opening book removed"
+        saveSettings(settings.value.copy(openingBookEnabled = false))
+        openingBookStatus.value = "Opening book removed · book use disabled"
     }
 
     fun onSquareClick(index: Int) {
@@ -905,6 +906,8 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val playerColorChanged = s.playerColor != settings.value.playerColor
         val ponderingChanged = s.pondering != settings.value.pondering
         val engineChanged = s.selectedEngine != settings.value.selectedEngine
+        val bookWasEnabled = settings.value.openingBookEnabled
+        val bookPolicyChanged = s.openingBookPolicy != settings.value.openingBookPolicy
         saveSettings(s)
         if (ponderingChanged) {
             ponderJob?.cancel()
@@ -919,7 +922,12 @@ class GameViewModel(private val context: Context) : ViewModel() {
             if (mode.value == PlayMode.PLAY) maybeEngineMove()
             updateEvaluationAsync()
         }
-        if (s.openingBookEnabled != settings.value.openingBookEnabled || s.openingBookPolicy != settings.value.openingBookPolicy) refreshOpeningBookMoves()
+        if (!s.openingBookEnabled) openingBookMoves.value = emptyList()
+        else {
+            refreshOpeningBookMoves()
+            if (!bookWasEnabled && !openingBook.installed()) downloadOpeningBook()
+        }
+        if (bookPolicyChanged) refreshOpeningBookMoves()
         timeControlSeconds.value = TimeControl.byId(s.timeControl).seconds
         moveTimeSeconds.value = s.moveTimeSeconds
         evalVisible.value = if (mode.value == PlayMode.ANALYSIS) s.showEvalAnalysis else s.showEvalPlay
