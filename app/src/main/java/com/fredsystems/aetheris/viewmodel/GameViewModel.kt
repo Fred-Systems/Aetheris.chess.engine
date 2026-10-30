@@ -402,7 +402,6 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
     fun openNotebookRecord(record: GameRecord) {
         ponderJob?.cancel()
-        clockJob?.cancel()
         engineGeneration++
         board = Board()
         initialFen = board.fen
