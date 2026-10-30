@@ -29,7 +29,13 @@ class GameRepository(private val context: Context) {
                 val a = arrowsObj.getJSONArray(k)
                 arrows[k.toInt()] = (0 until a.length()).map { a.getString(it) }
             }
-            out.add(GameRecord(o.getLong("id"), o.getString("title"), o.getString("pgn"), moves, comments, glyphs, arrows))
+            val variationsObj = o.optJSONObject("variations") ?: JSONObject()
+            val variations = mutableMapOf<Int, List<String>>()
+            variationsObj.keys().forEach { k ->
+                val a = variationsObj.getJSONArray(k)
+                variations[k.toInt()] = (0 until a.length()).map { a.getString(it) }
+            }
+            out.add(GameRecord(o.getLong("id"), o.getString("title"), o.getString("pgn"), moves, comments, glyphs, arrows, variations))
         }
         return out
     }
@@ -57,6 +63,13 @@ class GameRepository(private val context: Context) {
                 ao.put(k.toString(), a)
             }
             o.put("arrows", ao)
+            val vo = JSONObject()
+            r.variations.forEach { (k, v) ->
+                val a = JSONArray()
+                v.forEach { a.put(it) }
+                vo.put(k.toString(), a)
+            }
+            o.put("variations", vo)
             arr.put(o)
         }
         file.writeText(arr.toString())
