@@ -166,18 +166,19 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     fun beginConditionalSetup() {
-        if (mode.value != PlayMode.PLAY || engineThinking.value) return
+        if (mode.value != PlayMode.PLAY) return
+        val engineSide = if (playerColor.value == PieceColor.WHITE) Side.BLACK else Side.WHITE
+        if (board.sideToMove != engineSide) {
+            boardState.value = boardState.value.copy(statusText = "Conditional setup is available during the engine's turn")
+            return
+        }
+        // Pause the live search without changing the position so the user can
+        // choose a hypothetical opponent move from the exact current position.
+        stopEngine()
         ponderJob?.cancel()
         ponderJob = null
-        val engineSide = if (playerColor.value == PieceColor.WHITE) Side.BLACK else Side.WHITE
         val draft = Board()
-        val fenParts = board.fen.split(" ").toMutableList()
-        if (fenParts.size >= 2 && board.sideToMove != engineSide) {
-            fenParts[1] = if (engineSide == Side.WHITE) "w" else "b"
-            runCatching { draft.loadFromFen(fenParts.joinToString(" ")) }.onFailure { return }
-        } else {
-            runCatching { draft.loadFromFen(board.fen) }.onFailure { return }
-        }
+        runCatching { draft.loadFromFen(board.fen) }.onFailure { return }
         conditionalDraftBoard = draft
         conditionalDraftOpponentUci = null
         conditionalSetupStep.value = "opponent"
