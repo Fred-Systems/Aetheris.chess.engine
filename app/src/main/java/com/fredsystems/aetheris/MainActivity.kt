@@ -21,6 +21,11 @@ import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.Undo
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Psychology
+import androidx.compose.animation.core.*
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.delay
 import androidx.compose.material3.*
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -111,7 +116,12 @@ class MainActivity : ComponentActivity() {
                         fontScale = baseDensity.fontScale
                     )
                 ) {
-                    NavHost(navController = navController, startDestination = "game") {
+                    NavHost(navController = navController, startDestination = "splash") {
+                        composable("splash") {
+                            SplashScreen {
+                                navController.navigate("game") { popUpTo("splash") { inclusive = true } }
+                            }
+                        }
                         composable("game") { GameScreen(vm, navController) }
                         composable("settings") {
                             SettingsScreen(
@@ -222,6 +232,8 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
     val blackTime by vm.blackTimeMs
     val timeControl = vm.timeControlSeconds.value
     var showNewGame by remember { mutableStateOf(false) }
+    var showEnginePicker by remember { mutableStateOf(false) }
+    var showOpeningBookPrompt by remember(settings.openingBookPromptShown) { mutableStateOf(!settings.openingBookPromptShown) }
     var showPlayFromHere by remember { mutableStateOf(false) }
     var showConditionalDialog by remember { mutableStateOf(false) }
     var showQuickEngineOptions by remember { mutableStateOf(false) }
@@ -265,6 +277,18 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 IconButton(onClick = { vm.toggleFlip() }, modifier = Modifier.size(34.dp)) {
                     Icon(Icons.Outlined.SwapVert, "Flip board", tint = if (flipped) Color(0xFFB9A8FF) else Color(0xFFC9C1E5), modifier = Modifier.size(19.dp))
                 }
+                IconButton(onClick = { showEnginePicker = true }, modifier = Modifier.size(34.dp)) {
+                    Icon(Icons.Outlined.Psychology, "Choose engine", tint = Color(0xFFB9A8FF), modifier = Modifier.size(19.dp))
+                }
+                IconButton(
+                    onClick = {
+                        if (!settings.openingBookEnabled && !vm.openingBookStatus.value.contains("installed", true)) showOpeningBookPrompt = true
+                        else vm.updateSettings(settings.copy(openingBookEnabled = !settings.openingBookEnabled, openingBookPromptShown = true))
+                    },
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Icon(Icons.Outlined.MenuBook, "Toggle opening book", tint = if (settings.openingBookEnabled) Color(0xFF7CDBA1) else Color(0xFFC9C1E5), modifier = Modifier.size(19.dp))
+                }
                 IconButton(onClick = { vm.toggleEval() }, modifier = Modifier.size(34.dp)) {
                     Icon(
                         if (evalVisible) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
@@ -287,15 +311,6 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                     onClick = { vm.setMode(PlayMode.ANALYSIS); navController.navigate("analysis") },
                     modifier = Modifier.weight(1f)
                 ) { Text("Analysis") }
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Engine", color = Color(0xFF9B93B8), fontSize = 11.sp)
-                ModeChip("Aetheris", settings.selectedEngine == "aetheris", Modifier.weight(1f)) {
-                    vm.updateSettings(settings.copy(selectedEngine = "aetheris"))
-                }
-                ModeChip("Caissa", settings.selectedEngine == "caissa", Modifier.weight(1f)) {
-                    vm.updateSettings(settings.copy(selectedEngine = "caissa"))
-                }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
@@ -423,6 +438,43 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
         }
     }
 
+    if (showEnginePicker) {
+        EnginePickerDialog(settings.selectedEngine, { engine ->
+            vm.updateSettings(settings.copy(selectedEngine = engine))
+            showEnginePicker = false
+        }, { showEnginePicker = false })
+    }
+
+    if (showOpeningBookPrompt) {
+        AlertDialog(
+            onDismissRequest = {
+                vm.updateSettings(settings.copy(openingBookPromptShown = true))
+                showOpeningBookPrompt = false
+            },
+            title = { Text("Download the opening book?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Aetheris can use the Lichess opening database to choose established opening moves and show opening continuations.")
+                    Text("Recommended · Download now", color = Color(0xFF7CDBA1), fontWeight = FontWeight.SemiBold)
+                    Text(vm.openingBookStatus.value, color = Color(0xFF9B93B8), fontSize = 12.sp)
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    vm.updateSettings(settings.copy(openingBookEnabled = true, openingBookPromptShown = true))
+                    vm.downloadOpeningBook()
+                    showOpeningBookPrompt = false
+                }) { Text("Download opening book") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    vm.updateSettings(settings.copy(openingBookEnabled = true, openingBookPromptShown = true))
+                    showOpeningBookPrompt = false
+                }) { Text("Not now") }
+            }
+        )
+    }
+
     if (showQuickEngineOptions) {
         QuickEngineOptionsDialog(
             current = opts,
@@ -430,6 +482,10 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
             onDismiss = { showQuickEngineOptions = false },
             onApply = { updated ->
                 vm.updateOptions(updated)
+                showQuickEngineOptions = false
+            },
+            onReset = {
+                vm.updateOptions(EngineOptions())
                 showQuickEngineOptions = false
             }
         )
@@ -488,9 +544,10 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 PieceColor.BLACK -> "black"
             },
             currentTimeControl = settings.timeControl,
+            currentEngine = settings.selectedEngine,
             onDismiss = { showNewGame = false },
-            onStart = { color, tc, depth ->
-                if (tc != settings.timeControl) vm.updateSettings(vm.settings.value.copy(timeControl = tc))
+            onStart = { color, tc, depth, engine ->
+                vm.updateSettings(vm.settings.value.copy(timeControl = tc, selectedEngine = engine, openingBookPromptShown = true))
                 vm.updateOptions(vm.options.value.copy(depth = depth))
                 vm.newGame(color)
                 showNewGame = false
@@ -500,11 +557,42 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
 }
 
 @Composable
+private fun EnginePickerDialog(selectedEngine: String, onSelect: (String) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Choose your engine") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(
+                    Triple("aetheris", "Aetheris Classical", "Full-strength native Aetheris engine"),
+                    Triple("caissa", "Caissa", "Independent Kotlin chess engine"),
+                    Triple("aetheris_rapid", "Aetheris Rapid", "Fast-play preset using the Aetheris search core")
+                ).forEach { (id, title, description) ->
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (selectedEngine == id) Color(0xFF302448) else Color(0xFF1A1626),
+                        onClick = { onSelect(id) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text(title, color = Color(0xFFF2EEFF), fontWeight = FontWeight.Bold)
+                            Text(description, color = Color(0xFF9B93B8), fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+    )
+}
+
+@Composable
 private fun QuickEngineOptionsDialog(
     current: EngineOptions,
     selectedEngine: String,
     onDismiss: () -> Unit,
-    onApply: (EngineOptions) -> Unit
+    onApply: (EngineOptions) -> Unit,
+    onReset: () -> Unit
 ) {
     var aggression by remember(current) { mutableFloatStateOf(current.aggression.toFloat()) }
     var positional by remember(current) { mutableFloatStateOf(current.positional.toFloat()) }
@@ -543,7 +631,12 @@ private fun QuickEngineOptionsDialog(
                 ))
             }) { Text("Apply") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onReset) { Text("Reset to default") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        }
     )
 }
 
@@ -649,11 +742,13 @@ private fun ModeChip(label: String, selected: Boolean, modifier: Modifier = Modi
 private fun NewGameDialog(
     defaultColor: String,
     currentTimeControl: String,
+    currentEngine: String,
     onDismiss: () -> Unit,
-    onStart: (String, String, Int) -> Unit
+    onStart: (String, String, Int, String) -> Unit
 ) {
     var color by remember { mutableStateOf(defaultColor) }
     var timeControl by remember { mutableStateOf(currentTimeControl) }
+    var engine by remember { mutableStateOf(currentEngine) }
     var depth by remember { mutableFloatStateOf(6f) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -668,6 +763,13 @@ private fun NewGameDialog(
                     }
                 }
                 Spacer(Modifier.height(14.dp))
+                Text("Choose engine", fontSize = 12.sp, color = Color(0xFF9B93B8))
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    listOf("aetheris" to "Aetheris Classical", "caissa" to "Caissa", "aetheris_rapid" to "Aetheris Rapid").forEach { (id, label) ->
+                        ModeChip(label, engine == id, Modifier.fillMaxWidth()) { engine = id }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
                 Text("Engine strength · depth ${depth.toInt()}", fontSize = 12.sp, color = Color(0xFF9B93B8))
                 Slider(value = depth, onValueChange = { depth = it }, valueRange = 1f..20f, steps = 18)
                 Spacer(Modifier.height(14.dp))
@@ -681,7 +783,7 @@ private fun NewGameDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { onStart(color, timeControl, depth.toInt()) }) { Text("Start") }
+            Button(onClick = { onStart(color, timeControl, depth.toInt(), engine) }) { Text("Start") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
