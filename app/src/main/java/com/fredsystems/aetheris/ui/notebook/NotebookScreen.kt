@@ -26,6 +26,8 @@ fun NotebookScreen(viewModel: GameNotebookViewModel, onBack: () -> Unit, onOpenA
     val ply by viewModel.ply
     var comment by remember { mutableStateOf(TextFieldValue("")) }
     var arrowMode by remember { mutableStateOf(false) }
+    var variationText by remember { mutableStateOf("") }
+    var showEditor by remember { mutableStateOf(false) }
 
     if (selected == null) {
         Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -41,7 +43,8 @@ fun NotebookScreen(viewModel: GameNotebookViewModel, onBack: () -> Unit, onOpenA
         return
     }
     val g = selected!!
-    val boardState = remember(g, ply) { buildBoard(g, ply) }
+    val activeMoves = viewModel.displayedMoves()
+    val boardState = remember(g, ply, activeMoves) { buildBoard(g.copy(moves = activeMoves), ply) }
     Column(Modifier.fillMaxSize().padding(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(g.title, style = MaterialTheme.typography.titleMedium)
@@ -66,9 +69,9 @@ fun NotebookScreen(viewModel: GameNotebookViewModel, onBack: () -> Unit, onOpenA
         Row {
             Button(onClick = { if (ply > 0) viewModel.ply.value = ply - 1 }) { Text("Prev") }
             Spacer(Modifier.width(8.dp))
-            Button(onClick = { if (ply < g.moves.size) viewModel.ply.value = ply + 1 }) { Text("Next") }
+            Button(onClick = { if (ply < activeMoves.size) viewModel.ply.value = ply + 1 }) { Text("Next") }
             Spacer(Modifier.width(8.dp))
-            Text("Ply ${ply}/${g.moves.size}")
+            Text("Ply ${ply}/${activeMoves.size}")
         }
         Text("Glyphs: ${g.glyphs[ply] ?: ""}")
         Row {
@@ -79,6 +82,13 @@ fun NotebookScreen(viewModel: GameNotebookViewModel, onBack: () -> Unit, onOpenA
         OutlinedTextField(value = comment, onValueChange = { comment = it }, label = { Text("Comment") }, modifier = Modifier.fillMaxWidth())
         Button(onClick = { viewModel.addComment(comment.text); comment = TextFieldValue("") }) { Text("Save Comment") }
         Text(g.comments[ply] ?: "")
+        TextButton(onClick = { showEditor = !showEditor }) { Text(if (showEditor) "Close annotation editor" else "Open annotation and variation editor") }
+        if (showEditor) {
+            OutlinedTextField(value = variationText, onValueChange = { variationText = it }, label = { Text("Alternative UCI line: e2e4 e7e5") }, modifier = Modifier.fillMaxWidth())
+            Button(onClick = { val line = variationText.trim().split(Regex("\\\\s+")).filter { it.matches(Regex("[a-h][1-8][a-h][1-8][qrbn]?")) }; viewModel.saveVariation(line); variationText = "" }, enabled = variationText.isNotBlank()) { Text("Save line at this position") }
+            g.variations.forEach { (at, line) -> TextButton(onClick = { viewModel.viewVariation(line) }) { Text("View line from ply " + at + ": " + line.joinToString(" ")) } }
+            if (viewModel.activeVariation.value.isNotEmpty()) TextButton(onClick = { viewModel.returnToMainLine() }) { Text("Return to main game") }
+        }
     }
 }
 
