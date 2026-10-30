@@ -69,8 +69,8 @@ class OpeningBook(private val context: Context) {
                 val cols = line.split('\t')
                 if (cols.firstOrNull()?.equals("eco", true) == true) return@forEach
                 val pgn = cols.getOrNull(2)?.trim().orEmpty()
-                if (pgn.isBlank()) return@forEachIndexed
-                val moves = runCatching { MoveList().apply { loadFromSan(pgn) } }.getOrNull() ?: return@forEachIndexed
+                if (pgn.isBlank()) return@forEach
+                val moves = runCatching { MoveList().apply { loadFromSan(pgn) } }.getOrNull() ?: return@forEach
                 val replay = Board()
                 for (move in moves) {
                     val key = positionKey(replay.fen)
