@@ -136,9 +136,16 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val from = LibSquare.squareAt(selected)
         if (from == sq) { boardState.value = boardState.value.copy(selectedSquare = null, legalTargets = emptySet()); return }
         val uci = from.toString().lowercase() + sq.toString().lowercase()
+        // FIFO sequence for successive user turns, not alternative candidate moves.
         if (!settings.value.multiplePremoves) pendingPremoves.clear()
-        if (pendingPremoves.size < (if (settings.value.multiplePremoves) 8 else 1) && !pendingPremoves.contains(uci)) pendingPremoves.add(uci)
-        boardState.value = boardState.value.copy(selectedSquare = null, legalTargets = emptySet(), lastMoveFrom = selected, lastMoveTo = index, statusText = if (pendingPremoves.size > 1) "Alternative premoves queued" else "Premove queued")
+        if (pendingPremoves.size < (if (settings.value.multiplePremoves) 12 else 1)) pendingPremoves.add(uci)
+        boardState.value = boardState.value.copy(
+            selectedSquare = null,
+            legalTargets = emptySet(),
+            lastMoveFrom = selected,
+            lastMoveTo = index,
+            statusText = if (settings.value.multiplePremoves) "Premove ${pendingPremoves.size} queued · in order" else "Premove queued"
+        )
     }
 
     fun setConditionalMove(opponentUci: String, replyUci: String) {
@@ -152,16 +159,34 @@ class GameViewModel(private val context: Context) : ViewModel() {
         if (mode.value != PlayMode.PLAY || boardState.value.gameOver) return
         val userSide = if (playerColor.value == PieceColor.WHITE) Side.WHITE else Side.BLACK
         if (board.sideToMove != userSide) return
-        val queued = pendingPremoves.toList()
-        pendingPremoves.clear()
-        for (uci in queued) {
-            if (uci.length < 4) continue
-            val from = runCatching { LibSquare.valueOf(uci.substring(0, 2).uppercase()) }.getOrNull() ?: continue
-            val to = runCatching { LibSquare.valueOf(uci.substring(2, 4).uppercase()) }.getOrNull() ?: continue
-            val legal = findLegalMove(from, to) ?: continue
-            makeMove(legal, allowEngineReply = true)
+        val uci = pendingPremoves.firstOrNull() ?: return
+        // Validate only the next queued move against the real position. If it
+        // fails, cancel the entire remaining sequence rather than skipping ahead.
+        val from = runCatching { LibSquare.valueOf(uci.take(2).uppercase()) }.getOrNull()
+        val to = runCatching { LibSquare.valueOf(uci.substring(2, 4).uppercase()) }.getOrNull()
+        val candidates = if (from != null && to != null) board.legalMoves().filter { it.from == from && it.to == to } else emptyList()
+        val promotion = uci.getOrNull(4)?.lowercaseChar() ?: 'q'
+        val desired = when (promotion) {
+            'n' -> LibPieceType.KNIGHT
+            'b' -> LibPieceType.BISHOP
+            'r' -> LibPieceType.ROOK
+            else -> LibPieceType.QUEEN
+        }
+        val legal = candidates.firstOrNull { it.promotion != LibPiece.NONE && it.promotion.pieceType == desired }
+            ?: candidates.firstOrNull { it.promotion == LibPiece.NONE }
+        if (legal == null) {
+            pendingPremoves.clear()
+            boardState.value = boardState.value.copy(
+                statusText = "Premove sequence cancelled: next move is no longer legal",
+                selectedSquare = null,
+                legalTargets = emptySet()
+            )
             return
         }
+        pendingPremoves.removeAt(0)
+        val remaining = pendingPremoves.size
+        makeMove(legal, allowEngineReply = true)
+        if (remaining > 0) boardState.value = boardState.value.copy(statusText = "Premove played · $remaining remaining")
     }
     private fun selectSquare(index: Int) {
         val sq = LibSquare.squareAt(index)
