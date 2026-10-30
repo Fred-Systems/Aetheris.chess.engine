@@ -471,6 +471,7 @@ private fun QuickEngineOptionsDialog(
     var positional by remember(current) { mutableFloatStateOf(current.positional.toFloat()) }
     var complexity by remember(current) { mutableFloatStateOf(current.complexity.toFloat()) }
     var solidity by remember(current) { mutableFloatStateOf(current.solidity.toFloat()) }
+    var depth by remember(current) { mutableFloatStateOf(current.depth.toFloat()) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Quick engine controls") },
@@ -483,7 +484,6 @@ private fun QuickEngineOptionsDialog(
                 QuickPersonalitySlider("Simplify", "Complexity", complexity) { complexity = it }
                 QuickPersonalitySlider("Solid", "Active", solidity) { solidity = it }
                 Text("Search depth: ${current.depth}", style = MaterialTheme.typography.labelLarge, color = Color(0xFFEDE8FF))
-                var depth by remember(current) { mutableFloatStateOf(current.depth.toFloat()) }
                 Slider(value = depth, onValueChange = { depth = it }, valueRange = 1f..20f, steps = 18)
                 Text("Long-press the board again any time to reopen these controls.", color = Color(0xFF9B93B8), style = MaterialTheme.typography.bodySmall)
             }
