@@ -21,6 +21,7 @@ import com.fredsystems.aetheris.viewmodel.GameNotebookViewModel
 
 @Composable
 fun NotebookScreen(viewModel: GameNotebookViewModel, onBack: () -> Unit, onOpenAnalysis: (GameRecord) -> Unit = {}) {
+    LaunchedEffect(Unit) { viewModel.refresh() }
     val games by viewModel.games
     val selected by viewModel.selected
     val ply by viewModel.ply
