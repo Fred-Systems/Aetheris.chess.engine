@@ -273,7 +273,7 @@ private fun SplashScreen(onFinished: () -> Unit) {
             Text("CHESS ENGINE", fontSize = 10.sp, letterSpacing = 4.sp, color = Color(0xFF9FA8D8))
         }
         Text(
-            "Aetheris\nDeveloped by Fred-Systems",
+            "Aetheris · Developed by Fred-Systems",
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 34.dp),
             textAlign = TextAlign.Center,
             color = Color(0xFFB8B8D8),
