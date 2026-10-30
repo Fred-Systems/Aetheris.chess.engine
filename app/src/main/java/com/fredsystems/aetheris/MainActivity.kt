@@ -282,6 +282,15 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                     modifier = Modifier.weight(1f)
                 ) { Text("Analysis") }
             }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Engine", color = Color(0xFF9B93B8), fontSize = 11.sp)
+                ModeChip("Aetheris", settings.selectedEngine == "aetheris", Modifier.weight(1f)) {
+                    vm.updateSettings(settings.copy(selectedEngine = "aetheris"))
+                }
+                ModeChip("Caissa", settings.selectedEngine == "caissa", Modifier.weight(1f)) {
+                    vm.updateSettings(settings.copy(selectedEngine = "caissa"))
+                }
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
                     onClick = { navController.navigate("sim") },
