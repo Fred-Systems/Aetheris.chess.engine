@@ -28,6 +28,7 @@ fun AnalysisScreen(viewModel: GameViewModel) {
     val length = viewModel.historyLength.value
     val evaluation = viewModel.evaluation.value
     val lines = viewModel.analysisLines.value
+    val bookMoves = viewModel.openingBookMoves.value
     val loading = viewModel.analysisLoading.value
     var autoplay by remember { mutableStateOf(false) }
     var continuousAnalysis by remember { mutableStateOf(true) }
@@ -35,6 +36,10 @@ fun AnalysisScreen(viewModel: GameViewModel) {
     var showDepthControls by remember { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
     var pgnExpanded by remember(configuration.screenWidthDp, settings.showPgnPanel) { mutableStateOf(configuration.screenWidthDp >= 600 && settings.showPgnPanel) }
+
+    LaunchedEffect(index, length, settings.openingBookEnabled) {
+        viewModel.refreshOpeningBookMoves(viewModel.currentPositionFen())
+    }
 
     LaunchedEffect(continuousAnalysis, index, length) {
         while (continuousAnalysis) {
@@ -77,18 +82,33 @@ fun AnalysisScreen(viewModel: GameViewModel) {
                 pieceSet = settings.pieceSet,
                 boardTheme = BoardThemes.byId(settings.boardTheme),
                 flipped = viewModel.flipped.value,
-                arrows = if (settings.showBestMoveArrow || settings.showEngineThinkingArrows) {
-                    lines.take(if (settings.showEngineThinkingArrows) 3 else 1).mapIndexedNotNull { arrowIndex, line ->
-                        val move = line.moves.firstOrNull() ?: return@mapIndexedNotNull null
-                        if (move.length < 4) return@mapIndexedNotNull null
-                        val from = (move[0] - 'a') + (move[1] - '1') * 8
-                        val to = (move[2] - 'a') + (move[3] - '1') * 8
-                        val color = listOf(Color(0xFF42D66B), Color(0xFF42B8FF), Color(0xFFFFB547))[arrowIndex % 3]
-                        BoardArrow(from, to, color)
+                arrows = buildList {
+                    if (settings.showBestMoveArrow || settings.showEngineThinkingArrows) {
+                        addAll(lines.take(if (settings.showEngineThinkingArrows) 3 else 1).mapIndexedNotNull { arrowIndex, line ->
+                            val move = line.moves.firstOrNull() ?: return@mapIndexedNotNull null
+                            if (move.length < 4) return@mapIndexedNotNull null
+                            val from = (move[0] - 'a') + (move[1] - '1') * 8
+                            val to = (move[2] - 'a') + (move[3] - '1') * 8
+                            val color = listOf(Color(0xFF42D66B), Color(0xFF42B8FF), Color(0xFFFFB547))[arrowIndex % 3]
+                            BoardArrow(from, to, color)
+                        })
                     }
-                } else emptyList()
+                    if (settings.showOpeningBookArrows) {
+                        addAll(bookMoves.take(5).mapNotNull { move ->
+                            if (move.length < 4) null else BoardArrow(
+                                (move[0] - 'a') + (move[1] - '1') * 8,
+                                (move[2] - 'a') + (move[3] - '1') * 8,
+                                Color(0xFFD69BFF)
+                            )
+                        })
+                    }
+                }
             )
             EvaluationBar(score = evaluation, modifier = Modifier.height(280.dp).width(22.dp))
+        }
+        if (settings.showOpeningBookArrows && bookMoves.isNotEmpty()) {
+            Text("Opening book · ${bookMoves.size} continuations", color = Color(0xFFD69BFF), style = MaterialTheme.typography.labelMedium)
+            Text(bookMoves.take(5).joinToString("   ") { it.uppercase() }, color = Color(0xFFC7B0E8), style = MaterialTheme.typography.bodySmall)
         }
         Spacer(Modifier.height(10.dp))
         TextButton(onClick = { showDepthControls = !showDepthControls }) {
