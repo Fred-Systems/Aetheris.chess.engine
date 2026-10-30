@@ -325,26 +325,26 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Aetheris", fontSize = 23.sp, fontWeight = FontWeight.Black, color = Color(0xFFF2EEFF))
+                    Text("Aetheris", fontSize = 21.sp, fontWeight = FontWeight.Black, color = Color(0xFFF2EEFF))
                     Text(
                         if (mode == PlayMode.PLAY) "Play vs Engine" else "Analysis Board",
                         fontSize = 10.sp,
                         color = Color(0xFF9B93B8)
                     )
                 }
-                IconButton(onClick = { showNewGame = true }, modifier = Modifier.size(34.dp)) {
+                IconButton(onClick = { showNewGame = true }, modifier = Modifier.size(30.dp)) {
                     Icon(Icons.Outlined.Refresh, "New game", tint = Color(0xFFB9A8FF), modifier = Modifier.size(19.dp))
                 }
-                IconButton(onClick = { vm.undoMove() }, modifier = Modifier.size(34.dp)) {
+                IconButton(onClick = { vm.undoMove() }, modifier = Modifier.size(30.dp)) {
                     Icon(Icons.Outlined.Undo, "Undo move", tint = Color(0xFFB9A8FF), modifier = Modifier.size(19.dp))
                 }
-                IconButton(onClick = { vm.forceEngineMove() }, modifier = Modifier.size(34.dp)) {
+                IconButton(onClick = { vm.forceEngineMove() }, modifier = Modifier.size(30.dp)) {
                     Icon(Icons.Outlined.AutoAwesome, "Force engine move", tint = Color(0xFFB9A8FF), modifier = Modifier.size(19.dp))
                 }
-                IconButton(onClick = { vm.toggleFlip() }, modifier = Modifier.size(34.dp)) {
+                IconButton(onClick = { vm.toggleFlip() }, modifier = Modifier.size(30.dp)) {
                     Icon(Icons.Outlined.SwapVert, "Flip board", tint = if (flipped) Color(0xFFB9A8FF) else Color(0xFFC9C1E5), modifier = Modifier.size(19.dp))
                 }
-                IconButton(onClick = { showEnginePicker = true }, modifier = Modifier.size(34.dp)) {
+                IconButton(onClick = { showEnginePicker = true }, modifier = Modifier.size(30.dp)) {
                     Icon(Icons.Outlined.Psychology, "Choose engine", tint = Color(0xFFB9A8FF), modifier = Modifier.size(19.dp))
                 }
                 IconButton(
@@ -352,11 +352,11 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                         if (!settings.openingBookEnabled && !vm.openingBookStatus.value.contains("installed", true)) showOpeningBookPrompt = true
                         else vm.updateSettings(settings.copy(openingBookEnabled = !settings.openingBookEnabled, openingBookPromptShown = true))
                     },
-                    modifier = Modifier.size(34.dp)
+                    modifier = Modifier.size(30.dp)
                 ) {
                     Icon(Icons.Outlined.MenuBook, "Toggle opening book", tint = if (settings.openingBookEnabled) Color(0xFF7CDBA1) else Color(0xFFC9C1E5), modifier = Modifier.size(19.dp))
                 }
-                IconButton(onClick = { vm.toggleEval() }, modifier = Modifier.size(34.dp)) {
+                IconButton(onClick = { vm.toggleEval() }, modifier = Modifier.size(30.dp)) {
                     Icon(
                         if (evalVisible) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
                         "Toggle evaluation bar",
@@ -364,7 +364,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                         modifier = Modifier.size(19.dp)
                     )
                 }
-                IconButton(onClick = { navController.navigate("settings") }, modifier = Modifier.size(34.dp)) {
+                IconButton(onClick = { navController.navigate("settings") }, modifier = Modifier.size(30.dp)) {
                     Icon(Icons.Outlined.Settings, "Settings", tint = Color(0xFFC9C1E5), modifier = Modifier.size(19.dp))
                 }
             }
@@ -515,7 +515,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
     if (showOpeningBookPrompt) {
         AlertDialog(
             onDismissRequest = {
-                vm.updateSettings(settings.copy(openingBookPromptShown = true))
+                vm.updateSettings(settings.copy(openingBookEnabled = false, openingBookPromptShown = true))
                 showOpeningBookPrompt = false
             },
             title = { Text("Download the opening book?") },
@@ -535,7 +535,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
             },
             dismissButton = {
                 TextButton(onClick = {
-                    vm.updateSettings(settings.copy(openingBookEnabled = true, openingBookPromptShown = true))
+                    vm.updateSettings(settings.copy(openingBookEnabled = false, openingBookPromptShown = true))
                     showOpeningBookPrompt = false
                 }) { Text("Not now") }
             }
