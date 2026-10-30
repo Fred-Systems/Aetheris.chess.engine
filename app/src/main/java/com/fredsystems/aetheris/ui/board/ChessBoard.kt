@@ -203,6 +203,10 @@ fun ChessBoard(
                     val index = displayToIndex(row, col)
                     val topLeft = Offset(col * cell, row * cell)
                     val full = Size(cell, cell)
+                    if (index in board.premoveHighlights) {
+                        drawRect(Color(0x6655C7FF), topLeft, full)
+                        drawRect(Color(0xCC55C7FF), topLeft, full, style = Stroke(width = cell * 0.045f))
+                    }
                     if (index == board.lastMoveFrom || index == board.lastMoveTo) {
                         drawRect(LastMoveTint, topLeft, full)
                     }
