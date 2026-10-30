@@ -123,6 +123,14 @@ class GameViewModel(private val context: Context) : ViewModel() {
         }
     }
 
+    private fun queuedPremoveSquares(): Set<Int> = pendingPremoves.flatMap { uci ->
+        if (uci.length < 4) emptyList() else {
+            val from = runCatching { LibSquare.valueOf(uci.substring(0, 2).uppercase()).ordinal }.getOrNull()
+            val to = runCatching { LibSquare.valueOf(uci.substring(2, 4).uppercase()).ordinal }.getOrNull()
+            listOfNotNull(from, to)
+        }
+    }.toSet()
+
     private fun handlePremoveClick(index: Int, userSide: Side) {
         val sq = LibSquare.squareAt(index)
         val selected = boardState.value.selectedSquare
@@ -144,7 +152,8 @@ class GameViewModel(private val context: Context) : ViewModel() {
             legalTargets = emptySet(),
             lastMoveFrom = selected,
             lastMoveTo = index,
-            statusText = if (settings.value.multiplePremoves) "Premove ${pendingPremoves.size} queued · in order" else "Premove queued"
+            statusText = if (settings.value.multiplePremoves) "Premove ${pendingPremoves.size} queued · in order" else "Premove queued",
+            premoveHighlights = queuedPremoveSquares()
         )
     }
 
@@ -179,14 +188,18 @@ class GameViewModel(private val context: Context) : ViewModel() {
             boardState.value = boardState.value.copy(
                 statusText = "Premove sequence cancelled: next move is no longer legal",
                 selectedSquare = null,
-                legalTargets = emptySet()
+                legalTargets = emptySet(),
+                premoveHighlights = emptySet()
             )
             return
         }
         pendingPremoves.removeAt(0)
         val remaining = pendingPremoves.size
         makeMove(legal, allowEngineReply = true)
-        if (remaining > 0) boardState.value = boardState.value.copy(statusText = "Premove played · $remaining remaining")
+        boardState.value = boardState.value.copy(
+            statusText = if (remaining > 0) "Premove played · $remaining remaining" else boardState.value.statusText,
+            premoveHighlights = queuedPremoveSquares()
+        )
     }
     private fun selectSquare(index: Int) {
         val sq = LibSquare.squareAt(index)
