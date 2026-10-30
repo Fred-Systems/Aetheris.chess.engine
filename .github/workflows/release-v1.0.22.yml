@@ -1,4 +1,5 @@
 name: Publish Aetheris v1.0.22 APK
+# Reuse the successful signed APK artifact from the exact 3bea9f3 source commit; re-verify its signature and v1.0.22/versionCode 23 before attaching release assets.
 # v1.0.22 includes Lichess ECO TSV PGN-to-UCI indexing with corrected Kotlin tab parsing, SAN-to-UCI conversion, persistent book disable/remove behavior, direct engine selectors, and a fixed non-scrolling Play viewport, downloadable/importable book controls, best/random book selection, analysis arrows, and the independent Caissa Kotlin engine in Play, Analysis, and Engine Arena. Prior Notebook, ordered premove, conditional-move and board-layout changes are retained. Release requires the same stable Android signing secrets and verifies the APK signature/version before publishing.
 # Publish v1.0.22 from main with the final premove queue, board-based conditional setup, fixed board layout, and settings guidance and position-bound conditional-reply cleanup. Stable signing is mandatory; never publish a debug-signed update. Includes the latest Notebook, premove, engine-match, and settings updates. Final source snapshot, including the Notebook variation parser, analysis lifecycle, and live Notebook refresh fixes; release attempt restarted after queued CI runs.
 
@@ -14,7 +15,7 @@ permissions:
 
 concurrency:
   group: aetheris-release-v1.0.22
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-and-release:
@@ -58,12 +59,14 @@ jobs:
           echo "AETHERIS_KEYSTORE_PATH=$RUNNER_TEMP/aetheris-release.jks" >> "$GITHUB_ENV"
           echo "Stable signing keystore is present and decoded."
 
-      - name: Build signed release APK
-        env:
-          AETHERIS_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          AETHERIS_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          AETHERIS_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: gradle --no-daemon --refresh-dependencies assembleRelease
+      - name: Download the successful signed APK built from this exact source commit
+        uses: actions/download-artifact@v4
+        with:
+          name: aetheris-release-apk
+          path: app/build/outputs/apk/release
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: 41098460803
 
       - name: Verify APK signature and version
         shell: bash
