@@ -760,8 +760,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
                 runCatching {
                     if (settings.value.selectedEngine == "caissa") {
                         val line = CaissaEngine.principalLine(fen, requestedDepth.coerceIn(1, 5))
-                        val score = CaissaEngine.evaluate(fen)
-                        if (line.isEmpty()) "" else line.joinToString(" ") + "|" + score
+                        val sideScore = CaissaEngine.evaluate(fen)
+                        val scoreWhite = if (fen.split(" ").getOrNull(1) == "b") -sideScore else sideScore
+                        if (line.isEmpty()) "" else line.joinToString(" ") + "|" + scoreWhite
                     } else {
                         NativeEngine.analyzeFen(fen, requestedDepth, (5000 + requestedDepth * 500).coerceAtMost(15000), count.coerceIn(1, 5))
                     }
