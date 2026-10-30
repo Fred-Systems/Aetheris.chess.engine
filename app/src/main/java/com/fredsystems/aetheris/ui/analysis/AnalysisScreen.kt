@@ -31,14 +31,15 @@ fun AnalysisScreen(viewModel: GameViewModel) {
     val loading = viewModel.analysisLoading.value
     var autoplay by remember { mutableStateOf(false) }
     var continuousAnalysis by remember { mutableStateOf(true) }
-    var analysisDepth by remember(index, length) { mutableStateOf(viewModel.options.value.depth.coerceIn(4, 20)) }
+    var analysisDepth by remember(index, length) { mutableStateOf(viewModel.options.value.depth.coerceIn(1, 20)) }
+    var showDepthControls by remember { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
     var pgnExpanded by remember(configuration.screenWidthDp, settings.showPgnPanel) { mutableStateOf(configuration.screenWidthDp >= 600 && settings.showPgnPanel) }
 
     LaunchedEffect(continuousAnalysis, index, length) {
         while (continuousAnalysis) {
             if (!viewModel.analysisLoading.value) {
-                viewModel.options.value = viewModel.options.value.copy(depth = analysisDepth.coerceIn(4, 20))
+                viewModel.options.value = viewModel.options.value.copy(depth = analysisDepth.coerceIn(1, 20))
                 viewModel.analyzePosition(settings.analysisLineCount)
                 analysisDepth = (analysisDepth + 1).coerceAtMost(20)
             }
@@ -90,17 +91,17 @@ fun AnalysisScreen(viewModel: GameViewModel) {
             EvaluationBar(score = evaluation, modifier = Modifier.height(280.dp).width(22.dp))
         }
         Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Variation length", style = MaterialTheme.typography.labelLarge)
-            Text("${analysisDepth} plies", style = MaterialTheme.typography.labelMedium, color = Color(0xFFB9A8FF))
+        TextButton(onClick = { showDepthControls = !showDepthControls }) {
+            Text(if (showDepthControls) "Hide depth controls" else "Change depth")
         }
-        Slider(
-            value = analysisDepth.toFloat(),
-            onValueChange = { analysisDepth = it.toInt().coerceIn(4, 20) },
-            valueRange = 4f..20f,
-            steps = 15
-        )
-        Text("Longer lines take more time to calculate.", color = Color(0xFFB9B2CE), style = MaterialTheme.typography.bodySmall)
+        if (showDepthControls) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Search depth", style = MaterialTheme.typography.labelLarge)
+                Text("$analysisDepth", style = MaterialTheme.typography.labelMedium, color = Color(0xFFB9A8FF))
+            }
+            Slider(value = analysisDepth.toFloat(), onValueChange = { analysisDepth = it.toInt().coerceIn(1, 20) }, valueRange = 1f..20f, steps = 18)
+            Text("Higher depth takes longer to calculate.", color = Color(0xFFB9B2CE), style = MaterialTheme.typography.bodySmall)
+        }
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Engine lines", color = Color(0xFFF2EEFF), style = MaterialTheme.typography.titleMedium)
