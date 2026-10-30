@@ -22,10 +22,10 @@ jobs:
       - name: Configure and verify stable signing key
         shell: bash
         env:
-          KEYSTORE_B64: ${{ secrets.AETHERIS_KEYSTORE_BASE64 }}
-          STORE_PASSWORD: ${{ secrets.AETHERIS_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.AETHERIS_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.AETHERIS_KEY_PASSWORD }}
+          KEYSTORE_B64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           [[ -n "${KEYSTORE_B64:-}" ]] || { echo "::error::Missing AETHERIS_KEYSTORE_BASE64; refusing to build a debug-signed APK."; exit 1; }
@@ -39,9 +39,9 @@ jobs:
 
       - name: Build release APK
         env:
-          AETHERIS_KEYSTORE_PASSWORD: ${{ secrets.AETHERIS_KEYSTORE_PASSWORD }}
-          AETHERIS_KEY_ALIAS: ${{ secrets.AETHERIS_KEY_ALIAS }}
-          AETHERIS_KEY_PASSWORD: ${{ secrets.AETHERIS_KEY_PASSWORD }}
+          AETHERIS_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          AETHERIS_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          AETHERIS_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: gradle assembleRelease
       - name: Upload APK
         uses: actions/upload-artifact@v4
