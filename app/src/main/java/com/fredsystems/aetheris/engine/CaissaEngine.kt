@@ -31,8 +31,8 @@ object CaissaEngine {
     fun principalLine(fen: String, depth: Int): List<String> {
         val line = mutableListOf<String>()
         val b = Board().apply { loadFromFen(fen) }
-        repeat(depth.coerceIn(1, 5)) {
-            val moveText = bestMove(b.fen, 2) ?: return@repeat
+        repeat(8) {
+            val moveText = bestMove(b.fen, depth.coerceIn(1, 4)) ?: return@repeat
             val move = parseLegal(b, moveText) ?: return@repeat
             if (!b.doMove(move)) return@repeat
             line.add(moveText)
