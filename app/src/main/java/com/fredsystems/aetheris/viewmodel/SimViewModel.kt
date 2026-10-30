@@ -50,18 +50,20 @@ class SimViewModel(private val context: Context) : ViewModel() {
     var positionalB = 50
     var complexityB = 50
     var solidityB = 50
-    init {
-        runCatching {
-            NativeEngine.initialize()
-            NativeEngine.setParams(50, 50, 50, 50, 50, 2)
-            status.value = "Aetheris Classical ready"
-        }.onFailure {
-            status.value = "Classical engine initialization failed"
-        }
-    }
+    private var nativeEngineInitialized = false
 
     fun start() {
         if (running.value) return
+        val needsNative = !modeA.equals("Caissa", true) || !modeB.equals("Caissa", true)
+        if (needsNative && !nativeEngineInitialized) {
+            runCatching {
+                NativeEngine.initialize()
+                nativeEngineInitialized = true
+            }.onFailure {
+                status.value = "Aetheris Classical initialization failed: ${it.message ?: it.javaClass.simpleName}"
+                return
+            }
+        }
         running.value = true
         viewModelScope.launch {
             try {
