@@ -66,8 +66,14 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 class MainActivity : ComponentActivity() {
+    override fun onDestroy() {
+        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        super.onDestroy()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val crashReportPending = CrashDiagnostics.initialize(this) && packageName.endsWith(".crashreport")
         setContent {
             var showCrashReportPrompt by remember { mutableStateOf(crashReportPending) }
