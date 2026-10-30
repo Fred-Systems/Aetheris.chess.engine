@@ -1,0 +1,148 @@
+name: Publish Aetheris v1.0.19 APK (release retry)
+# Publish only this version from main. Stable signing is mandatory; never publish a debug-signed update.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - .github/workflows/release-v1.0.19.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aetheris-release-v1.0.19
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Configure Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          # Avoid restoring the bad dependency cache that caused widespread false Maven Central 404s.
+          cache-disabled: true
+
+      - name: Set up Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26b
+
+      - name: Configure and verify stable signing key
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [[ -n "${KEYSTORE_B64:-}" ]] || { echo "::error::Missing AETHERIS_KEYSTORE_BASE64; refusing to publish a debug-signed APK."; exit 1; }
+          [[ -n "${STORE_PASSWORD:-}" ]] || { echo "::error::Missing AETHERIS_KEYSTORE_PASSWORD."; exit 1; }
+          [[ -n "${KEY_ALIAS:-}" ]] || { echo "::error::Missing AETHERIS_KEY_ALIAS."; exit 1; }
+          [[ -n "${KEY_PASSWORD:-}" ]] || { echo "::error::Missing AETHERIS_KEY_PASSWORD."; exit 1; }
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/aetheris-release.jks"
+          test -s "$RUNNER_TEMP/aetheris-release.jks"
+          echo "AETHERIS_KEYSTORE_PATH=$RUNNER_TEMP/aetheris-release.jks" >> "$GITHUB_ENV"
+          echo "Stable signing keystore is present and decoded."
+
+      - name: Build signed release APK
+        env:
+          AETHERIS_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          AETHERIS_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          AETHERIS_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: gradle --no-daemon --refresh-dependencies assembleRelease
+
+      - name: Verify APK signature and version
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
+          test -n "$APK"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/aapt" dump badging "$APK" | grep -F "versionName='1.0.19'"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/aapt" dump badging "$APK" | grep -F "versionCode='20'"
+
+      - name: Prepare APK and classical UCI packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets/extracted release-assets/uci release-assets/classical
+          APK="$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
+          test -n "$APK"
+          cp "$APK" release-assets/Aetheris.apk
+          unzip -q "$APK" 'lib/*/libaetheris_engine.so' 'lib/*/libaetheris_classical.so' -d release-assets/extracted
+          test -f release-assets/extracted/lib/arm64-v8a/libaetheris_engine.so
+          test -f release-assets/extracted/lib/arm64-v8a/libaetheris_classical.so
+          for abi in arm64-v8a armeabi-v7a; do
+            ENGINE="release-assets/extracted/lib/${abi}/libaetheris_engine.so"
+            CLASSICAL="release-assets/extracted/lib/${abi}/libaetheris_classical.so"
+            if [ -f "$ENGINE" ]; then
+              mkdir -p "release-assets/uci/${abi}"
+              cp "$ENGINE" "release-assets/uci/${abi}/aetheris_engine"
+              chmod +x "release-assets/uci/${abi}/aetheris_engine"
+            fi
+            if [ -f "$CLASSICAL" ]; then
+              mkdir -p "release-assets/classical/${abi}"
+              cp "$CLASSICAL" "release-assets/classical/${abi}/aetheris_classical"
+              chmod +x "release-assets/classical/${abi}/aetheris_classical"
+            fi
+          done
+          cat > release-assets/README-UCI.txt <<'EOF'
+          Aetheris UCI engine for Android. The shipped evaluator is classical; NNUE is disabled.
+          Select uci/<abi>/aetheris_engine matching the device ABI.
+          EOF
+          cat > release-assets/README-CLASSICAL.txt <<'EOF'
+          Aetheris Classical UCI engine for Android.
+          Select classical/<abi>/aetheris_classical matching the device ABI.
+          EOF
+          (cd release-assets && zip -qr Aetheris-UCI-Engine-Android.zip uci README-UCI.txt)
+          (cd release-assets && zip -qr Aetheris-Classical-Engine-Android.zip classical README-CLASSICAL.txt)
+          rm -rf release-assets/extracted release-assets/uci release-assets/classical release-assets/README-UCI.txt release-assets/README-CLASSICAL.txt
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aetheris-v1.0.19-release
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish v1.0.19 release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: v1.0.19
+          name: Aetheris v1.0.19
+          target_commitish: ${{ github.sha }}
+          body: |
+            Aetheris v1.0.19
+
+            Classical engine and reliability:
+            - Removed the unvalidated NNUE weights from the APK and disabled neural evaluation. The app now uses the classical evaluator consistently and no longer offers Classical / NNUE / Hybrid mode switches.
+            - Raised the default search depth and improved classical search with deeper quiescence, broader bounded check extensions, transposition-table mate-distance normalization, and halfmove-clock-aware position keys.
+            - The analysis page retains its dark background, with high-contrast headings and evaluation text.
+
+            Interface:
+            - Aligned the Play and Analysis home actions with the two buttons below them.
+            - Engine match setup identifies the active built-in engine as Aetheris Classical and keeps persona sliders and depth controls.
+
+            Release compatibility:
+            - Version code 19 / version name 1.0.19.
+            - This workflow requires the stable repository signing secrets and stops if any are missing. It will not publish a debug-signed APK.
+            - Android can update an existing installation only if its signing certificate matches. Older debug-signed installs may need a one-time uninstall before installing this stable-key release.
+          files: release-assets/*
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          make_latest: true
