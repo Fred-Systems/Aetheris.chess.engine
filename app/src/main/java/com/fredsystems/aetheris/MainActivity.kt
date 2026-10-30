@@ -38,7 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -76,11 +76,19 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val crashReportPending = CrashDiagnostics.initialize(this)
+
+        // Construct ViewModels before Compose starts taking its initial snapshot.
+        // Their constructors initialize mutableStateOf fields and perform startup
+        // work; doing that from viewModel() inside composition can publish state
+        // into an unapplied snapshot and crash on Android 11 during first launch.
+        val vm = ViewModelProvider(this, GameViewModelFactory(applicationContext))[GameViewModel::class.java]
+        val simVm = ViewModelProvider(this, SimViewModelFactory(applicationContext))[SimViewModel::class.java]
+        val notebookVm = ViewModelProvider(this, NotebookViewModelFactory(applicationContext))[GameNotebookViewModel::class.java]
+
         setContent {
             var showCrashReportPrompt by remember { mutableStateOf(crashReportPending) }
             AetherisTheme {
                 val navController = rememberNavController()
-                val vm: GameViewModel = viewModel(factory = GameViewModelFactory(this))
                 val nnueImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                     uri?.let { selectedUri ->
                         runCatching {
@@ -94,8 +102,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                val simVm: SimViewModel = viewModel(factory = SimViewModelFactory(this))
-                val notebookVm: GameNotebookViewModel = viewModel(factory = NotebookViewModelFactory(this))
                 val updater = remember { GitHubUpdater(this) }
                 val settings by vm.settings
                 val baseDensity = LocalDensity.current
