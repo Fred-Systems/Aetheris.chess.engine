@@ -419,6 +419,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     private fun startPonderingIfNeeded() {
+        if (settings.value.selectedEngine == "caissa") return
         if (!settings.value.pondering || mode.value != PlayMode.PLAY ||
             boardState.value.gameOver || !engineAvailable.value || engineThinking.value) return
         val userSide = if (playerColor.value == PieceColor.WHITE) Side.WHITE else Side.BLACK
