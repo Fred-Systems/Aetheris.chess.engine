@@ -67,7 +67,7 @@ jobs:
         with:
           name: aetheris-release-apk
           path: app/build/outputs/apk/release
-          github-token: ${{ github.token }}
+          github-token: ${{ secrets.RELEASE_TOKEN || github.token }}
           repository: ${{ github.repository }}
           run-id: 41098460803
 
