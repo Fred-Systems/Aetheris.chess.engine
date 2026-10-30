@@ -23,6 +23,7 @@ data class BoardState(
     val legalTargets: Set<Int> = emptySet(),
     val lastMoveFrom: Int? = null,
     val lastMoveTo: Int? = null,
+    val premoveHighlights: Set<Int> = emptySet(),
     val checkSquare: Int? = null,
     val moveNumber: Int = 0,
     val gameOver: Boolean = false,
