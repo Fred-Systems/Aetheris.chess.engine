@@ -112,7 +112,8 @@ class GameViewModel(private val context: Context) : ViewModel() {
         startClockLoop()
         updateEvaluationAsync()
         refreshOpeningBookMoves(board.fen)
-        if (settings.value.openingBookEnabled && !openingBook.installed()) downloadOpeningBook()
+        // Opening-book downloads are user-initiated from Settings; never perform a large
+        // network transfer or index build during application startup.
         maybeEngineMove()
     }
 
