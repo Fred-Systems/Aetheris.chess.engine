@@ -138,7 +138,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val uci = from.toString().lowercase() + sq.toString().lowercase()
         if (!settings.value.multiplePremoves) pendingPremoves.clear()
         if (pendingPremoves.size < (if (settings.value.multiplePremoves) 8 else 1) && !pendingPremoves.contains(uci)) pendingPremoves.add(uci)
-        boardState.value = boardState.value.copy(selectedSquare = null, legalTargets = emptySet(), statusText = if (pendingPremoves.size > 1) "Alternative premoves queued" else "Premove queued")
+        boardState.value = boardState.value.copy(selectedSquare = null, legalTargets = emptySet(), lastMoveFrom = selected, lastMoveTo = index, statusText = if (pendingPremoves.size > 1) "Alternative premoves queued" else "Premove queued")
     }
 
     fun setConditionalMove(opponentUci: String, replyUci: String) {
