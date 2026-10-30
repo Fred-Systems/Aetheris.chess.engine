@@ -138,39 +138,24 @@ jobs:
           name: Aetheris v1.0.25
           target_commitish: ${{ github.sha }}
           body: |
-            Aetheris v1.0.25 startup crash hotfix
+            Aetheris v1.0.25
 
-            - Added an animated galaxy splash screen with the Aetheris launcher icon, drifting chess pieces, and "Aetheris · Developed by Fred-Systems" credit.
-            - Removed the inline engine buttons from the Play page. Engine selection is now opened from a top-bar icon, and New Game also lets the player select an engine.
-            - Added Aetheris Rapid as a third named engine choice: a fast-play profile using the native Aetheris search core with a capped think budget. Engine Arena lets White and Black independently choose Classical, Caissa, or Rapid.
-            - Added a top-bar opening-book toggle. The opening book defaults to enabled, and first launch asks whether to download the Lichess opening database, with an immediate recommended download action.
-            - Added a Reset to default action to the board long-press engine-personality controls.
-            - Retains the v1.0.24 Compose startup snapshot fix and earlier stability safeguards.
+            - New animated galaxy splash screen with the Aetheris launcher icon, animated chess pieces, and Fred-Systems credit.
+            - Engine selection moved out of the Play page into a top-bar engine icon. The New Game dialog also includes engine selection.
+            - Added Aetheris Rapid, a fast-play profile using the native Aetheris search core with a capped think budget. White and Black can independently select Classical, Caissa, or Rapid in Engine Arena.
+            - Added a top-bar opening-book on/off control. The book is enabled by default; first launch offers the recommended Lichess opening database download directly.
+            - Added Reset to default in the long-press board engine-personality dialog.
+            - Retains the v1.0.24 Compose startup snapshot crash fix, stable board sizing, deferred Engine Arena initialization, and crash diagnostics.
 
-            - Fixed the launch-time startup workload by making the large Lichess opening database opt-in instead of automatically downloading and indexing it on first launch.
-            - Deferred Engine Arena's native engine initialization until the user actually starts a match, avoiding competing native initialization during initial screen creation.
-            - Restored width-first board sizing with vertical scrolling only for short screens, so the board remains large instead of shrinking to fit the leftover viewport.
-            - Enabled crash diagnostics prompt in the regular release so any future startup exception can be exported from the app.
-
-            Opening book and engine choices:
-            - Added a downloadable Lichess public openings database (A-E ECO sections), TSV import, disable/remove controls, and persistent book settings.
-            - The opening book is indexed by legal position and move sequences; Best selects the most common continuation and Random Good samples by source frequency.
-            - Added opening continuation arrows and move labels in Analysis with an independent visibility toggle.
-            - Added Caissa, an independent Kotlin alpha-beta engine, selectable alongside Aetheris Classical for Play and Analysis and independently for either side in Engine Arena.
-
-            Classical engine and reliability:
-            - Removed the unvalidated NNUE weights from the APK and disabled neural evaluation. The app now uses the classical evaluator consistently and no longer offers Classical / NNUE / Hybrid mode switches. Caissa is a separate built-in alternative.
-            - Raised the default search depth and improved classical search with deeper quiescence, broader bounded check extensions, transposition-table mate-distance normalization, and halfmove-clock-aware position keys.
-            - The analysis page retains its dark background, with high-contrast headings and evaluation text. Play uses a fixed non-scrolling board viewport so dragging pieces for premoves cannot scroll the screen.
-
-            Interface:
-            - Aligned the Play and Analysis home actions with the two buttons below them.
-            - Engine match setup lets White and Black independently select Aetheris Classical or Caissa. Aetheris retains persona sliders; Caissa uses its own search.
+            Engine and opening-book details:
+            - Aetheris Classical remains the native C++ engine. Caissa remains the independent Kotlin alpha-beta engine.
+            - Aetheris Rapid uses the native Aetheris search core with a faster move-time profile; it is a speed-oriented configuration rather than a separately compiled engine binary.
+            - The opening database can be downloaded, imported, disabled, and removed from Settings. Opening-book selection remains subject to legal move validation.
 
             Release compatibility:
-            - Version code 24 / version name 1.0.25.
-            - This workflow requires the stable repository signing secrets and stops if any are missing. It will not publish a debug-signed APK.
-            - Android can update an existing installation only if its signing certificate matches. Older debug-signed installs may need a one-time uninstall before installing this stable-key release.
+            - Version code 26 / version name 1.0.25.
+            - This workflow requires the same stable repository signing secrets and refuses to publish a debug-signed APK.
+            - Android can update an existing installation only when its signing certificate matches.
           files: release-assets/*
           overwrite_files: true
           fail_on_unmatched_files: true
