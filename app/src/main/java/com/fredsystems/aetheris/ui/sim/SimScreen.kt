@@ -20,7 +20,7 @@ import com.fredsystems.aetheris.ui.theme.BoardThemes
 import com.fredsystems.aetheris.viewmodel.SimViewModel
 
 @Composable
-fun SimScreen(viewModel: SimViewModel, onBack: () -> Unit) {
+fun SimScreen(viewModel: SimViewModel, onBack: () -> Unit, onOpenAnalysis: (com.fredsystems.aetheris.domain.model.GameRecord) -> Unit = {}) {
     val board by viewModel.boardState
     val eval by viewModel.eval
     val settings = com.fredsystems.aetheris.domain.model.SettingsStore(androidx.compose.ui.platform.LocalContext.current).load()
@@ -202,6 +202,12 @@ fun SimScreen(viewModel: SimViewModel, onBack: () -> Unit) {
                         shape = RoundedCornerShape(14.dp)
                     ) { Text("Stop Match / Back to Setup") }
                 }
+                if (!viewModel.running.value && viewModel.status.value == "Finished") {
+                    Button(onClick = {
+                        val record = viewModel.saveMatchToNotebook(viewModel.currentPgn(), "")
+                        if (record != null) onOpenAnalysis(record)
+                    }, modifier = Modifier.weight(1f)) { Text("Save & Analyze") }
+                }
                 OutlinedButton(
                     onClick = {
                         pgnDraft = viewModel.currentPgn()
@@ -256,7 +262,7 @@ private fun EngineSetupCard(
 @Composable
 private fun EngineModePicker(current: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
-    val options = listOf("DualCore" to "Dual", "PureNNUE" to "NNUE", "PureClassical" to "Classical")
+    val options = listOf("PureClassical" to "Aetheris")
     Box(modifier) {
         OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)) {
             Text(options.firstOrNull { it.first == current }?.second ?: current, fontSize = 11.sp)
