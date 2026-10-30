@@ -8,6 +8,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -261,8 +263,12 @@ private fun SplashScreen(onFinished: () -> Unit) {
             Modifier.align(Alignment.Center).graphicsLayer { scaleX = pulse; scaleY = pulse },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("♞", fontSize = 78.sp, color = Color(0xFFE8E7FF), fontWeight = FontWeight.Light)
-            Spacer(Modifier.height(8.dp))
+            Image(
+                painter = painterResource(id = R.mipmap.ic_launcher),
+                contentDescription = "Aetheris app icon",
+                modifier = Modifier.size(88.dp)
+            )
+            Spacer(Modifier.height(14.dp))
             Text("AETHERIS", fontSize = 31.sp, letterSpacing = 6.sp, fontWeight = FontWeight.Black, color = Color(0xFFF3F0FF))
             Text("CHESS ENGINE", fontSize = 10.sp, letterSpacing = 4.sp, color = Color(0xFF9FA8D8))
         }
@@ -416,7 +422,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = if (thinking) "${if (settings.selectedEngine == "caissa") "Caissa" else "Aetheris"} is thinking..." else "Depth ${opts.depth} · ${if (settings.selectedEngine == "caissa") "Caissa Kotlin" else "Aetheris Classical"}",
+                            text = if (thinking) "${when (settings.selectedEngine) { "caissa" -> "Caissa"; "aetheris_rapid" -> "Aetheris Rapid"; else -> "Aetheris" }} is thinking..." else "Depth ${opts.depth} · ${when (settings.selectedEngine) { "caissa" -> "Caissa Kotlin"; "aetheris_rapid" -> "Aetheris Rapid"; else -> "Aetheris Classical" }}",
                             color = if (thinking) Color(0xFF7C4DFF) else Color(0xFF9B93B8),
                             fontSize = 11.sp,
                             maxLines = 1,
@@ -665,7 +671,7 @@ private fun QuickEngineOptionsDialog(
         title = { Text("Quick engine controls") },
         text = {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-                Text("Engine: ${if (selectedEngine == "caissa") "Caissa Kotlin" else "Aetheris Classical"}", color = Color(0xFFB9B2CE), style = MaterialTheme.typography.labelLarge)
+                Text("Engine: ${when (selectedEngine) { "caissa" -> "Caissa Kotlin"; "aetheris_rapid" -> "Aetheris Rapid"; else -> "Aetheris Classical" }}", color = Color(0xFFB9B2CE), style = MaterialTheme.typography.labelLarge)
                 if (selectedEngine == "caissa") {
                     Text("Caissa uses its independent search and evaluator. Style sliders are available only for Aetheris Classical.", color = Color(0xFF9B93B8), fontSize = 12.sp)
                 } else {
