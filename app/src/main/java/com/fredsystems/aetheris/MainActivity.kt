@@ -414,6 +414,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
     if (showQuickEngineOptions) {
         QuickEngineOptionsDialog(
             current = opts,
+            selectedEngine = settings.selectedEngine,
             onDismiss = { showQuickEngineOptions = false },
             onApply = { updated ->
                 vm.updateOptions(updated)
@@ -489,6 +490,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
 @Composable
 private fun QuickEngineOptionsDialog(
     current: EngineOptions,
+    selectedEngine: String,
     onDismiss: () -> Unit,
     onApply: (EngineOptions) -> Unit
 ) {
@@ -502,12 +504,16 @@ private fun QuickEngineOptionsDialog(
         title = { Text("Quick engine controls") },
         text = {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-                Text("Engine: Aetheris", color = Color(0xFFB9B2CE), style = MaterialTheme.typography.labelLarge)
-                Text("Persona", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 10.dp))
-                QuickPersonalitySlider("Defensive", "Aggressive", aggression) { aggression = it }
-                QuickPersonalitySlider("Positional", "Tactical", positional) { positional = it }
-                QuickPersonalitySlider("Simplify", "Complexity", complexity) { complexity = it }
-                QuickPersonalitySlider("Solid", "Active", solidity) { solidity = it }
+                Text("Engine: ${if (selectedEngine == "caissa") "Caissa Kotlin" else "Aetheris Classical"}", color = Color(0xFFB9B2CE), style = MaterialTheme.typography.labelLarge)
+                if (selectedEngine == "caissa") {
+                    Text("Caissa uses its independent search and evaluator. Style sliders are available only for Aetheris Classical.", color = Color(0xFF9B93B8), fontSize = 12.sp)
+                } else {
+                    Text("Persona", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 10.dp))
+                    QuickPersonalitySlider("Defensive", "Aggressive", aggression) { aggression = it }
+                    QuickPersonalitySlider("Positional", "Tactical", positional) { positional = it }
+                    QuickPersonalitySlider("Simplify", "Complexity", complexity) { complexity = it }
+                    QuickPersonalitySlider("Solid", "Active", solidity) { solidity = it }
+                }
                 Text("Search depth: ${current.depth}", style = MaterialTheme.typography.labelLarge, color = Color(0xFFEDE8FF))
                 Slider(value = depth, onValueChange = { depth = it }, valueRange = 1f..20f, steps = 18)
                 Text("Long-press the board again any time to reopen these controls.", color = Color(0xFF9B93B8), style = MaterialTheme.typography.bodySmall)
