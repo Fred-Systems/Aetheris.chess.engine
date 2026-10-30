@@ -292,8 +292,14 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 ) { Text("Play from Here") }
             }
             if (settings.conditionalMoves) {
-                OutlinedButton(onClick = { showConditionalDialog = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Configure Conditional Reply")
+                OutlinedButton(
+                    onClick = {
+                        if (vm.conditionalSetupActive.value) vm.cancelConditionalSetup()
+                        else showConditionalDialog = true
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (vm.conditionalSetupActive.value) "Cancel Conditional Setup" else "Configure Conditional Reply")
                 }
             }
 
@@ -417,7 +423,15 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
             title = { Text("Conditional move") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("If the engine plays the exact opponent UCI move, Aetheris will attempt your reply automatically. Example: e7e5 then g1f3.")
+                    Text("Preview an opponent move without playing it, then make your reply on the preview board. When the engine later plays that exact move, your saved reply is played automatically.")
+                    OutlinedButton(
+                        onClick = {
+                            vm.beginConditionalSetup()
+                            showConditionalDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Set up by moving pieces on the board") }
+                    Text("Or enter UCI moves manually:", style = MaterialTheme.typography.labelMedium)
                     OutlinedTextField(value = conditionalOpponent, onValueChange = { conditionalOpponent = it.lowercase() }, label = { Text("Opponent move (UCI)") })
                     OutlinedTextField(value = conditionalReply, onValueChange = { conditionalReply = it.lowercase() }, label = { Text("Your reply (UCI)") })
                 }
