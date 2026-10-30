@@ -75,7 +75,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        val crashReportPending = CrashDiagnostics.initialize(this) && packageName.endsWith(".crashreport")
+        val crashReportPending = CrashDiagnostics.initialize(this)
         setContent {
             var showCrashReportPrompt by remember { mutableStateOf(crashReportPending) }
             AetherisTheme {
@@ -233,7 +233,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 )
             )
     ) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 14.dp)) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 14.dp).verticalScroll(rememberScrollState())) {
             Row(
                 Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -360,39 +360,37 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
             }
             Spacer(Modifier.height(10.dp))
 
-            Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
-                BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    // Keep the board inside the fixed Play viewport. The parent is deliberately
-                    // non-scrollable so a drag-to-premove cannot scroll the whole screen.
-                    val widthLimit = (maxWidth - if (evalVisible) 52.dp else 22.dp).coerceAtLeast(160.dp)
-                    val heightLimit = maxHeight.coerceAtLeast(160.dp)
-                    val boardSize = minOf(widthLimit * settings.boardScale.coerceIn(0.75f, 3f), heightLimit)
-                        .coerceIn(160.dp, widthLimit)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (evalVisible) {
-                            EvaluationBar(score = eval, modifier = Modifier.height(boardSize).width(22.dp))
-                            Spacer(Modifier.width(10.dp))
-                        }
-                        ChessBoard(
-                            board = state,
-                            onSquareClick = { vm.onSquareClick(it) },
-                            modifier = Modifier.size(boardSize),
-                            pieceSet = settings.pieceSet,
-                            boardTheme = BoardThemes.byId(settings.boardTheme),
-                            flipped = flipped,
-                            blindfold = settings.blindfoldMode,
-                            onBoardLongPress = { showQuickEngineOptions = true },
-                            arrows = if (!settings.showBestMoveArrow && !settings.showEngineThinkingArrows) emptyList() else {
-                                val candidates = if (settings.showEngineThinkingArrows) liveAnalysisLines.take(5) else liveAnalysisLines.take(1)
-                                val colors = listOf(Color(0xFF35D07F), Color(0xFF3399FF), Color(0xFFFFB020), Color(0xFFB56BFF), Color(0xFFFF5252))
-                                candidates.mapIndexedNotNull { lineIndex, line ->
-                                    val uci = line.moves.firstOrNull() ?: return@mapIndexedNotNull null
-                                    if (uci.length < 4) return@mapIndexedNotNull null
-                                    BoardArrow((uci[1] - '1') * 8 + (uci[0] - 'a'), (uci[3] - '1') * 8 + (uci[2] - 'a'), colors[lineIndex % colors.size])
-                                }
-                            }
-                        )
+            BoxWithConstraints(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+                // Size the board from the available width, not the leftover screen height.
+                // The parent remains scrollable on short displays, preserving a large board
+                // without allowing a drag gesture to resize or scroll the board viewport.
+                val widthLimit = (maxWidth - if (evalVisible) 52.dp else 22.dp).coerceAtLeast(160.dp)
+                val boardSize = (widthLimit * settings.boardScale.coerceIn(0.75f, 3f))
+                    .coerceIn(160.dp, widthLimit)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (evalVisible) {
+                        EvaluationBar(score = eval, modifier = Modifier.height(boardSize).width(22.dp))
+                        Spacer(Modifier.width(10.dp))
                     }
+                    ChessBoard(
+                        board = state,
+                        onSquareClick = { vm.onSquareClick(it) },
+                        modifier = Modifier.size(boardSize),
+                        pieceSet = settings.pieceSet,
+                        boardTheme = BoardThemes.byId(settings.boardTheme),
+                        flipped = flipped,
+                        blindfold = settings.blindfoldMode,
+                        onBoardLongPress = { showQuickEngineOptions = true },
+                        arrows = if (!settings.showBestMoveArrow && !settings.showEngineThinkingArrows) emptyList() else {
+                            val candidates = if (settings.showEngineThinkingArrows) liveAnalysisLines.take(5) else liveAnalysisLines.take(1)
+                            val colors = listOf(Color(0xFF35D07F), Color(0xFF3399FF), Color(0xFFFFB020), Color(0xFFB56BFF), Color(0xFFFF5252))
+                            candidates.mapIndexedNotNull { lineIndex, line ->
+                                val uci = line.moves.firstOrNull() ?: return@mapIndexedNotNull null
+                                if (uci.length < 4) return@mapIndexedNotNull null
+                                BoardArrow((uci[1] - '1') * 8 + (uci[0] - 'a'), (uci[3] - '1') * 8 + (uci[2] - 'a'), colors[lineIndex % colors.size])
+                            }
+                        }
+                    )
                 }
             }
 
