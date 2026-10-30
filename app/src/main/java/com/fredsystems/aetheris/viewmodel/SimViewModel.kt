@@ -122,8 +122,10 @@ class SimViewModel(private val context: Context) : ViewModel() {
                         boardState.value = toUi(board)
                         eval.value = withContext(Dispatchers.Default) {
                             runCatching {
-                                if (mode.equals("Caissa", true)) CaissaEngine.evaluate(board.fen)
-                                else NativeEngine.evaluateFen(board.fen)
+                                if (mode.equals("Caissa", true)) {
+                                    val sideScore = CaissaEngine.evaluate(board.fen)
+                                    if (board.sideToMove == Side.WHITE) sideScore else -sideScore
+                                } else NativeEngine.evaluateFen(board.fen)
                             }.getOrDefault(eval.value)
                         }
                         plies++
