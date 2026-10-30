@@ -46,6 +46,15 @@ class OpeningBook(private val context: Context) {
         val temp = File(file.parentFile, "imported-openings.tmp")
         temp.outputStream().buffered().use { source.copyTo(it) }
         if (temp.length() == 0L) throw IllegalArgumentException("The selected book is empty")
+        val validTsv = temp.bufferedReader().use { reader ->
+            val header = reader.readLine().orEmpty()
+            header.split('\\t').let { it.size >= 4 && it[0].equals("eco", true) && it[3].equals("uci", true) } &&
+                reader.lineSequence().take(20).any { it.split('\\t').size >= 4 && it.split('\\t')[3].isNotBlank() }
+        }
+        if (!validTsv) {
+            temp.delete()
+            throw IllegalArgumentException("Import a Lichess openings TSV file with eco, name, pgn and uci columns")
+        }
         if (file.exists()) file.delete()
         if (!temp.renameTo(file)) throw IllegalStateException("Could not save imported book")
         indexedForLength = -1
