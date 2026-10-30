@@ -451,8 +451,9 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
             },
             currentTimeControl = settings.timeControl,
             onDismiss = { showNewGame = false },
-            onStart = { color, tc ->
+            onStart = { color, tc, depth ->
                 if (tc != settings.timeControl) vm.updateSettings(vm.settings.value.copy(timeControl = tc))
+                vm.updateOptions(vm.options.value.copy(depth = depth))
                 vm.newGame(color)
                 showNewGame = false
             }
@@ -475,12 +476,15 @@ private fun QuickEngineOptionsDialog(
         title = { Text("Quick engine controls") },
         text = {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-                Text("Engine: Aetheris Classical", color = Color(0xFFB9B2CE), style = MaterialTheme.typography.labelLarge)
+                Text("Engine: Aetheris", color = Color(0xFFB9B2CE), style = MaterialTheme.typography.labelLarge)
                 Text("Persona", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 10.dp))
                 QuickPersonalitySlider("Defensive", "Aggressive", aggression) { aggression = it }
                 QuickPersonalitySlider("Positional", "Tactical", positional) { positional = it }
                 QuickPersonalitySlider("Simplify", "Complexity", complexity) { complexity = it }
                 QuickPersonalitySlider("Solid", "Active", solidity) { solidity = it }
+                Text("Search depth: ${current.depth}", style = MaterialTheme.typography.labelLarge, color = Color(0xFFEDE8FF))
+                var depth by remember(current) { mutableFloatStateOf(current.depth.toFloat()) }
+                Slider(value = depth, onValueChange = { depth = it }, valueRange = 1f..20f, steps = 18)
                 Text("Long-press the board again any time to reopen these controls.", color = Color(0xFF9B93B8), style = MaterialTheme.typography.bodySmall)
             }
         },
@@ -491,6 +495,7 @@ private fun QuickEngineOptionsDialog(
                     positional = positional.toInt(),
                     complexity = complexity.toInt(),
                     solidity = solidity.toInt(),
+                    depth = depth.toInt(),
                     mode = EngineMode.PURE_CLASSICAL
                 ))
             }) { Text("Apply") }
@@ -602,10 +607,11 @@ private fun NewGameDialog(
     defaultColor: String,
     currentTimeControl: String,
     onDismiss: () -> Unit,
-    onStart: (String, String) -> Unit
+    onStart: (String, String, Int) -> Unit
 ) {
     var color by remember { mutableStateOf(defaultColor) }
     var timeControl by remember { mutableStateOf(currentTimeControl) }
+    var depth by remember { mutableFloatStateOf(6f) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("New Game", fontWeight = FontWeight.Bold) },
@@ -619,6 +625,9 @@ private fun NewGameDialog(
                     }
                 }
                 Spacer(Modifier.height(14.dp))
+                Text("Engine strength · depth ${depth.toInt()}", fontSize = 12.sp, color = Color(0xFF9B93B8))
+                Slider(value = depth, onValueChange = { depth = it }, valueRange = 1f..20f, steps = 18)
+                Spacer(Modifier.height(14.dp))
                 Text("Time control", fontSize = 12.sp, color = Color(0xFF9B93B8))
                 Spacer(Modifier.height(6.dp))
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -629,7 +638,7 @@ private fun NewGameDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { onStart(color, timeControl) }) { Text("Start") }
+            Button(onClick = { onStart(color, timeControl, depth.toInt()) }) { Text("Start") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
