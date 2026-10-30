@@ -482,47 +482,30 @@ fun SettingsScreen(
                 }
             }
         })
-        MenuRow("Download Classical Engine Binary", {
-            runCatching {
-                val url = "https://github.com/Fred-Systems/Aetheris.chess.engine/releases/latest/download/Aetheris-Classical-Engine-Android.zip"
-                val request = DownloadManager.Request(Uri.parse(url))
-                    .setTitle("Aetheris Classical Engine")
-                    .setDescription("Downloading the standalone Classical UCI engine")
-                    .setMimeType("application/zip")
-                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                    .setAllowedOverMetered(true)
-                    .setAllowedOverRoaming(false)
-                    .setDestinationInExternalPublicDir(
-                        Environment.DIRECTORY_DOWNLOADS,
-                        "Aetheris-Classical-Engine-Android-${System.currentTimeMillis()}.zip"
-                    )
-                (context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
-                Toast.makeText(context, "Classical engine download started.", Toast.LENGTH_LONG).show()
-            }.onFailure {
-                Toast.makeText(context, "Could not download Classical engine: ${it.message}", Toast.LENGTH_LONG).show()
-            }
-        })
-        MenuRow("Download UCI Engine Package", {
-            runCatching {
-                val url = "https://github.com/Fred-Systems/Aetheris.chess.engine/releases/latest/download/Aetheris-UCI-Engine-Android.zip"
-                val request = DownloadManager.Request(Uri.parse(url))
-                    .setTitle("Aetheris UCI Engine")
-                    .setDescription("Downloading the Android chess engine package to Downloads")
-                    .setMimeType("application/zip")
-                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                    .setAllowedOverMetered(true)
-                    .setAllowedOverRoaming(false)
-                    .setDestinationInExternalPublicDir(
-                        Environment.DIRECTORY_DOWNLOADS,
-                        "Aetheris-UCI-Engine-Android-${System.currentTimeMillis()}.zip"
-                    )
-                val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                manager.enqueue(request)
-                Toast.makeText(context, "UCI engine download started. Check Downloads and notifications.", Toast.LENGTH_LONG).show()
-            }.onFailure {
-                Toast.makeText(context, "Could not start UCI download: ${it.localizedMessage ?: "unknown error"}", Toast.LENGTH_LONG).show()
-            }
-        })
+        SettingsCard("Aetheris Neural Network") {
+            Text(
+                "This is the beginning of training for the Neural Network edition of Aetheris. The current playable engine remains the classical Aetheris engine; neural evaluation is not enabled in this release.",
+                color = Color(0xFFB9B2CE), fontSize = 12.sp
+            )
+            Spacer(Modifier.height(8.dp))
+            MenuRow("Download Neural Network training preview", {
+                runCatching {
+                    val url = "https://raw.githubusercontent.com/Fred-Systems/Aetheris.chess.engine/main/app/src/main/assets/nnue/weights.bin"
+                    val request = DownloadManager.Request(Uri.parse(url))
+                        .setTitle("Aetheris Neural Network training preview")
+                        .setDescription("Early training asset; not an active engine")
+                        .setMimeType("application/octet-stream")
+                        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                        .setAllowedOverMetered(true)
+                        .setAllowedOverRoaming(false)
+                        .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "Aetheris-NN-Training-Preview.bin")
+                    (context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
+                    Toast.makeText(context, "Neural Network training preview download started.", Toast.LENGTH_LONG).show()
+                }.onFailure {
+                    Toast.makeText(context, "Could not download preview: ${it.message}", Toast.LENGTH_LONG).show()
+                }
+            })
+        }
 
         Spacer(Modifier.height(30.dp))
         Text(
