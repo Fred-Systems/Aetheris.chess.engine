@@ -277,7 +277,7 @@ fun SettingsScreen(
             }
             if (settings.conditionalMoves) {
                 Text(
-                    "On the engine's turn, preview a hypothetical opponent move on the board, then make your reply. The preview is not played; your reply is triggered only if the engine later plays that exact move.",
+                    "On the engine's turn, move an opponent piece and then make your reply directly on the board. Continue with more opponent/reply pairs to build a conditional sequence, including moving the same piece again from its previewed square. Empty-square taps cancel the setup; use Done to arm the saved sequence.",
                     color = Color(0xFF9B93B8), fontSize = 11.sp
                 )
             }
