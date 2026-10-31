@@ -269,16 +269,21 @@ fun SettingsScreen(
                 viewModel.updateSettings(settings.copy(showOpeningBookArrows = it))
             }
             Text("Choose how Aetheris selects a book move:", color = Color(0xFFB9B2CE), fontSize = 12.sp)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ModeChip("Top book line", settings.openingBookPolicy == "best", Modifier.weight(1f)) {
-                    viewModel.updateSettings(settings.copy(openingBookPolicy = "best"))
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ModeChip("Random good", settings.openingBookPolicy == "random", Modifier.weight(1f)) {
+                        viewModel.updateSettings(settings.copy(openingBookPolicy = "random"))
+                    }
+                    ModeChip("Unorthodox", settings.openingBookPolicy == "unorthodox", Modifier.weight(1f)) {
+                        viewModel.updateSettings(settings.copy(openingBookPolicy = "unorthodox"))
+                    }
                 }
-                ModeChip("Random good", settings.openingBookPolicy == "random", Modifier.weight(1f)) {
-                    viewModel.updateSettings(settings.copy(openingBookPolicy = "random"))
+                ModeChip("Aggressive", settings.openingBookPolicy == "aggressive", Modifier.fillMaxWidth()) {
+                    viewModel.updateSettings(settings.copy(openingBookPolicy = "aggressive"))
                 }
             }
             Text(viewModel.openingBookStatus.value, color = Color(0xFFB9A8FF), fontSize = 11.sp)
-            Text("The public Lichess openings database is indexed by legal UCI move sequences. Top book line chooses the continuation shared by the most named opening lines in the dataset; Random good samples among continuations weighted by how many named lines contain them.", color = Color(0xFF9B93B8), fontSize = 11.sp)
+            Text("Random good favors popular, well-established continuations while varying the choice. Unorthodox favors less common book lines. Aggressive favors active, centralizing and capture-oriented continuations where the book offers them.", color = Color(0xFF9B93B8), fontSize = 11.sp)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { viewModel.downloadOpeningBook() }, modifier = Modifier.weight(1f)) { Text("Download public book") }
                 OutlinedButton(onClick = { openingBookPicker.launch(arrayOf("text/*", "application/octet-stream", "*/*")) }, modifier = Modifier.weight(1f)) { Text("Import TSV") }
