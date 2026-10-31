@@ -24,6 +24,12 @@ import androidx.compose.material.icons.outlined.Undo
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.LockOpen
+import androidx.compose.material.icons.outlined.FirstPage
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.LastPage
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.animation.core.*
 import androidx.compose.ui.graphics.graphicsLayer
@@ -304,6 +310,9 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
     var showPlayFromHere by remember { mutableStateOf(false) }
     var showConditionalDialog by remember { mutableStateOf(false) }
     var showQuickEngineOptions by remember { mutableStateOf(false) }
+    var boardLocked by remember { mutableStateOf(false) }
+    val historyIndex by vm.historyIndex
+    val historyLength by vm.historyLength
     var conditionalOpponent by remember { mutableStateOf("e7e5") }
     var conditionalReply by remember { mutableStateOf("g1f3") }
     val configuration = LocalConfiguration.current
@@ -318,7 +327,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 )
             )
     ) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 14.dp).verticalScroll(rememberScrollState())) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 14.dp).then(if (boardLocked) Modifier else Modifier.verticalScroll(rememberScrollState()))) {
             Row(
                 Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -389,15 +398,9 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                     modifier = Modifier.weight(1f)
                 ) { Text("Play from Here") }
             }
-            if (settings.conditionalMoves) {
-                OutlinedButton(
-                    onClick = {
-                        if (vm.conditionalSetupActive.value) vm.cancelConditionalSetup()
-                        else showConditionalDialog = true
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(if (vm.conditionalSetupActive.value) "Cancel Conditional Setup" else "Configure Conditional Reply")
+            if (settings.conditionalMoves && vm.conditionalSetupActive.value) {
+                TextButton(onClick = { vm.cancelConditionalSetup() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Cancel conditional setup")
                 }
             }
 
@@ -412,20 +415,22 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(Modifier.weight(1f)) {
+                    Column(Modifier.weight(1f).padding(end = 6.dp)) {
                         Text(
                             text = state.statusText,
                             color = Color(0xFFF2EEFF),
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp,
+                            fontSize = 12.sp,
                             maxLines = 1,
+                            softWrap = false,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = if (thinking) "${when (settings.selectedEngine) { "caissa" -> "Caissa"; "aetheris_rapid" -> "Aetheris Rapid"; else -> "Aetheris" }} is thinking..." else "Depth ${opts.depth} · ${when (settings.selectedEngine) { "caissa" -> "Caissa Kotlin"; "aetheris_rapid" -> "Aetheris Rapid"; else -> "Aetheris Classical" }}",
+                            text = if (thinking) "${when (settings.selectedEngine) { "caissa" -> "Caissa"; "aetheris_rapid" -> "Rapid"; else -> "Aetheris" }} thinking · d${opts.depth}" else "${when (settings.selectedEngine) { "caissa" -> "Caissa"; "aetheris_rapid" -> "Rapid"; else -> "Aetheris" }} · Depth ${opts.depth}",
                             color = if (thinking) Color(0xFF7C4DFF) else Color(0xFF9B93B8),
-                            fontSize = 11.sp,
+                            fontSize = 9.sp,
                             maxLines = 1,
+                            softWrap = false,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
@@ -462,7 +467,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                     }
                     ChessBoard(
                         board = state,
-                        onSquareClick = { vm.onSquareClick(it) },
+                        onSquareClick = { if (historyIndex >= historyLength - 1) vm.onSquareClick(it) },
                         modifier = Modifier.size(boardSize),
                         pieceSet = settings.pieceSet,
                         boardTheme = BoardThemes.byId(settings.boardTheme),
@@ -480,6 +485,41 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                         }
                     )
                 }
+                IconButton(
+                    onClick = { boardLocked = !boardLocked },
+                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(34.dp)
+                        .background(Color(0xCC171322), RoundedCornerShape(10.dp))
+                ) {
+                    Icon(
+                        if (boardLocked) Icons.Outlined.Lock else Icons.Outlined.LockOpen,
+                        contentDescription = if (boardLocked) "Unlock screen scrolling" else "Lock screen to board",
+                        tint = if (boardLocked) Color(0xFF7CDBA1) else Color(0xFFEDE8FF),
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
+            }
+
+            Row(
+                Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { vm.goToStart() }, enabled = historyIndex > 0, modifier = Modifier.size(38.dp)) {
+                    Icon(Icons.Outlined.FirstPage, "Go to beginning", tint = if (historyIndex > 0) Color(0xFFB9A8FF) else Color(0xFF625B70))
+                }
+                IconButton(onClick = { vm.goToHistoryIndex(historyIndex - 1) }, enabled = historyIndex > 0, modifier = Modifier.size(38.dp)) {
+                    Icon(Icons.Outlined.ChevronLeft, "Previous move", tint = if (historyIndex > 0) Color(0xFFB9A8FF) else Color(0xFF625B70))
+                }
+                Text("${historyIndex} / ${historyLength - 1}", color = Color(0xFFB9B2CE), fontSize = 11.sp, modifier = Modifier.padding(horizontal = 8.dp))
+                IconButton(onClick = { vm.goToHistoryIndex(historyIndex + 1) }, enabled = historyIndex < historyLength - 1, modifier = Modifier.size(38.dp)) {
+                    Icon(Icons.Outlined.ChevronRight, "Next move", tint = if (historyIndex < historyLength - 1) Color(0xFFB9A8FF) else Color(0xFF625B70))
+                }
+                IconButton(onClick = { vm.goToEnd() }, enabled = historyIndex < historyLength - 1, modifier = Modifier.size(38.dp)) {
+                    Icon(Icons.Outlined.LastPage, "Go to latest position", tint = if (historyIndex < historyLength - 1) Color(0xFFB9A8FF) else Color(0xFF625B70))
+                }
+            }
+            if (historyIndex < historyLength - 1) {
+                Text("Game history · read-only", color = Color(0xFFE0B878), fontSize = 11.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
             }
 
             Spacer(Modifier.height(8.dp))
