@@ -234,7 +234,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
         }
         val selected = boardState.value.selectedSquare
         val queuedSquares = queuedPremoveSquares()
-        if (selected == null && projected.getPiece(sq) == LibPiece.NONE && index !in queuedSquares) {
+        val selectedFrom = selected?.let { LibSquare.squareAt(it) }
+        val isLegalDestination = selectedFrom != null && projected.legalMoves().any { it.from == selectedFrom && it.to == sq }
+        if (projected.getPiece(sq) == LibPiece.NONE && index !in queuedSquares && !isLegalDestination) {
             pendingPremoves.clear()
             boardState.value = boardState.value.copy(
                 selectedSquare = null,
