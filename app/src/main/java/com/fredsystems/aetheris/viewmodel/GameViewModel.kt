@@ -198,25 +198,83 @@ class GameViewModel(private val context: Context) : ViewModel() {
         }
     }.toSet()
 
+    private fun projectedPremoveBoard(userSide: Side): Board? {
+        val draft = Board()
+        if (runCatching { draft.loadFromFen(board.fen) }.isFailure) return null
+        if (draft.sideToMove != userSide && !draft.doNullMove()) return null
+        for (uci in pendingPremoves) {
+            if (uci.length < 4) return null
+            val from = runCatching { LibSquare.valueOf(uci.take(2).uppercase()) }.getOrNull() ?: return null
+            val to = runCatching { LibSquare.valueOf(uci.substring(2, 4).uppercase()) }.getOrNull() ?: return null
+            val candidates = draft.legalMoves().filter { it.from == from && it.to == to }
+            val promo = uci.getOrNull(4)?.lowercaseChar() ?: 'q'
+            val desired = when (promo) {
+                'n' -> LibPieceType.KNIGHT
+                'b' -> LibPieceType.BISHOP
+                'r' -> LibPieceType.ROOK
+                else -> LibPieceType.QUEEN
+            }
+            val move = candidates.firstOrNull { it.promotion != LibPiece.NONE && it.promotion.pieceType == desired }
+                ?: candidates.firstOrNull { it.promotion == LibPiece.NONE }
+                ?: return null
+            if (!draft.doMove(move)) return null
+            // Skip the opponent's hypothetical reply while preserving a legal
+            // projected board for the next queued move by the same user.
+            if (!draft.doNullMove()) return null
+        }
+        return draft
+    }
+
     private fun handlePremoveClick(index: Int, userSide: Side) {
         val sq = LibSquare.squareAt(index)
+        val projected = projectedPremoveBoard(userSide) ?: run {
+            pendingPremoves.clear()
+            boardState.value = boardState.value.copy(selectedSquare = null, legalTargets = emptySet(), premoveHighlights = emptySet(), statusText = "Premove queue reset")
+            return
+        }
         val selected = boardState.value.selectedSquare
+        val queuedSquares = queuedPremoveSquares()
+        if (projected.getPiece(sq) == LibPiece.NONE && index !in queuedSquares) {
+            pendingPremoves.clear()
+            boardState.value = boardState.value.copy(
+                selectedSquare = null,
+                legalTargets = emptySet(),
+                premoveHighlights = emptySet(),
+                statusText = "All premoves cancelled"
+            )
+            return
+        }
         if (selected == null) {
-            val piece = board.getPiece(sq)
-            if (piece == LibPiece.NONE && pendingPremoves.isNotEmpty()) {
-                pendingPremoves.clear()
-                boardState.value = boardState.value.copy(selectedSquare = null, legalTargets = emptySet(), premoveHighlights = emptySet(), statusText = "All premoves cancelled")
-                return
-            }
+            val piece = projected.getPiece(sq)
             if (piece != LibPiece.NONE && piece.pieceSide == userSide) {
-                boardState.value = boardState.value.copy(selectedSquare = index, legalTargets = emptySet(), statusText = "Premove: choose destination")
+                val targets = projected.legalMoves().filter { it.from == sq }.map { it.to.ordinal }.toSet()
+                boardState.value = boardState.value.copy(
+                    selectedSquare = index,
+                    legalTargets = targets,
+                    statusText = if (pendingPremoves.isEmpty()) "Premove: choose destination" else "Next premove: choose destination"
+                )
             }
             return
         }
         val from = LibSquare.squareAt(selected)
-        if (from == sq) { boardState.value = boardState.value.copy(selectedSquare = null, legalTargets = emptySet()); return }
-        val uci = from.toString().lowercase() + sq.toString().lowercase()
-        // FIFO sequence for successive user turns, not alternative candidate moves.
+        if (from == sq) {
+            boardState.value = boardState.value.copy(selectedSquare = null, legalTargets = emptySet())
+            return
+        }
+        val candidates = projected.legalMoves().filter { it.from == from && it.to == sq }
+        val move = candidates.firstOrNull { it.promotion != LibPiece.NONE && it.promotion.pieceType == LibPieceType.QUEEN }
+            ?: candidates.firstOrNull()
+        if (move == null) {
+            val piece = projected.getPiece(sq)
+            if (piece != LibPiece.NONE && piece.pieceSide == userSide) {
+                val targets = projected.legalMoves().filter { it.from == sq }.map { it.to.ordinal }.toSet()
+                boardState.value = boardState.value.copy(selectedSquare = index, legalTargets = targets)
+            } else {
+                boardState.value = boardState.value.copy(selectedSquare = null, legalTargets = emptySet())
+            }
+            return
+        }
+        val uci = move.toString().lowercase()
         if (!settings.value.multiplePremoves) pendingPremoves.clear()
         if (pendingPremoves.size < (if (settings.value.multiplePremoves) 12 else 1)) pendingPremoves.add(uci)
         boardState.value = boardState.value.copy(
