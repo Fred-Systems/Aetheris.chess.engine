@@ -41,6 +41,7 @@ import kotlin.random.Random
 enum class PlayMode { PLAY, ANALYSIS }
 
 data class EngineAnalysisLine(val moves: List<String>, val scoreCp: Int)
+private data class ConditionalLine(val baseFen: String, val opponentUci: String, val replyUci: String)
 
 class GameViewModel(private val context: Context) : ViewModel() {
     private val store = SettingsStore(context)
@@ -53,8 +54,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     private val positionHistory = mutableListOf<String>()
     private var initialFen: String = board.fen
     private val pendingPremoves = mutableListOf<String>()
-    private var conditionalOpponentUci: String? = null
-    private var conditionalReplyUci: String? = null
+    private val conditionalLines = mutableListOf<ConditionalLine>()
     private var conditionalBaseFen: String? = null
     val conditionalSetupActive = mutableStateOf(false)
     val conditionalSetupStep = mutableStateOf("opponent")
@@ -164,8 +164,13 @@ class GameViewModel(private val context: Context) : ViewModel() {
             handleConditionalSetupClick(index)
             return
         }
-        if (boardState.value.gameOver) return
+        if (boardState.value.gameOver || historyIndex.value < historyLength.value - 1) return
         val userSide = if (playerColor.value == PieceColor.WHITE) Side.WHITE else Side.BLACK
+        if (mode.value == PlayMode.PLAY && settings.value.conditionalMoves && board.sideToMove != userSide && conditionalBaseFen == null) {
+            beginConditionalSetup()
+            if (conditionalSetupActive.value) handleConditionalSetupClick(index)
+            return
+        }
         if (mode.value == PlayMode.PLAY && board.sideToMove != userSide) {
             if (settings.value.premoveEnabled) handlePremoveClick(index, userSide)
             return
@@ -198,6 +203,11 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val selected = boardState.value.selectedSquare
         if (selected == null) {
             val piece = board.getPiece(sq)
+            if (piece == LibPiece.NONE && pendingPremoves.isNotEmpty()) {
+                pendingPremoves.clear()
+                boardState.value = boardState.value.copy(selectedSquare = null, legalTargets = emptySet(), premoveHighlights = emptySet(), statusText = "All premoves cancelled")
+                return
+            }
             if (piece != LibPiece.NONE && piece.pieceSide == userSide) {
                 boardState.value = boardState.value.copy(selectedSquare = index, legalTargets = emptySet(), statusText = "Premove: choose destination")
             }
@@ -246,7 +256,8 @@ class GameViewModel(private val context: Context) : ViewModel() {
         conditionalDraftBoard = null
         conditionalDraftOpponentUci = null
         conditionalBaseFen = null
-        boardState.value = toUi(board).copy(statusText = "Conditional setup cancelled")
+        conditionalLines.clear()
+        boardState.value = toUi(board).copy(statusText = "Conditional setup and queued conditional moves cancelled")
         maybeEngineMove()
     }
 
@@ -256,6 +267,10 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val selected = boardState.value.selectedSquare
         if (selected == null) {
             val piece = draft.getPiece(sq)
+            if (piece == LibPiece.NONE && conditionalDraftOpponentUci == null) {
+                cancelConditionalSetup()
+                return
+            }
             if (piece != LibPiece.NONE && piece.pieceSide == draft.sideToMove) {
                 val targets = draft.legalMoves().filter { it.from == sq }.map { it.to.ordinal }.toSet()
                 boardState.value = toUi(draft).copy(selectedSquare = index, legalTargets = targets, statusText = if (conditionalSetupStep.value == "opponent") "Choose the opponent's destination" else "Choose your conditional reply")
@@ -288,27 +303,28 @@ class GameViewModel(private val context: Context) : ViewModel() {
             )
         } else {
             val opponentMove = conditionalDraftOpponentUci ?: run { cancelConditionalSetup(); return }
-            conditionalOpponentUci = opponentMove
-            conditionalReplyUci = uci
-            conditionalBaseFen = board.fen
-            conditionalSetupActive.value = false
-            conditionalDraftBoard = null
+            val baseFen = conditionalBaseFen ?: board.fen
+            conditionalLines.add(ConditionalLine(baseFen, opponentMove, uci))
             conditionalDraftOpponentUci = null
-            pendingPremoves.clear()
-            boardState.value = toUi(board).copy(statusText = "Conditional reply saved: $opponentMove → $uci")
-            maybeEngineMove()
+            conditionalBaseFen = draft.fen
+            conditionalSetupStep.value = "opponent"
+            boardState.value = toUi(draft).copy(
+                selectedSquare = null,
+                legalTargets = emptySet(),
+                statusText = "Conditional saved: $opponentMove → $uci. Set up another opponent move, or tap an empty square to finish."
+            )
         }
     }
 
     fun setConditionalMove(opponentUci: String, replyUci: String) {
-        conditionalOpponentUci = opponentUci.trim().lowercase().takeIf { it.length >= 4 }
-        conditionalReplyUci = replyUci.trim().lowercase().takeIf { it.length >= 4 }
+        val opponent = opponentUci.trim().lowercase().takeIf { it.length >= 4 } ?: return
+        val reply = replyUci.trim().lowercase().takeIf { it.length >= 4 } ?: return
+        conditionalLines.add(ConditionalLine(board.fen, opponent, reply))
         conditionalBaseFen = board.fen
     }
 
     fun clearConditionalMove() {
-        conditionalOpponentUci = null
-        conditionalReplyUci = null
+        conditionalLines.clear()
         conditionalBaseFen = null
     }
 
@@ -494,7 +510,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
 
     private fun maybeEngineMove() {
         if (mode.value != PlayMode.PLAY) return
-        if (boardState.value.gameOver) return
+        if (boardState.value.gameOver || historyIndex.value < historyLength.value - 1) return
         val userIsWhite = playerColor.value == PieceColor.WHITE
         val sideIsWhite = board.sideToMove == Side.WHITE
         if (sideIsWhite == userIsWhite) return
@@ -737,21 +753,18 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val move = candidates.firstOrNull { it.promotion != LibPiece.NONE && it.promotion.pieceType == desired }
             ?: candidates.firstOrNull { it.promotion == LibPiece.NONE }
             ?: candidates.first()
-        val conditionalPositionMatches = conditionalBaseFen != null && board.fen == conditionalBaseFen
+        val matchingLine = conditionalLines.firstOrNull { it.baseFen == board.fen }
         val matchedConditional = settings.value.conditionalMoves &&
-            conditionalPositionMatches && uci.equals(conditionalOpponentUci, ignoreCase = true)
+            matchingLine != null && uci.equals(matchingLine.opponentUci, ignoreCase = true)
         if (matchedConditional) {
-            conditionalReplyUci?.let { reply ->
-                pendingPremoves.clear()
-                pendingPremoves.add(reply)
-            }
-            conditionalOpponentUci = null
-            conditionalReplyUci = null
+            pendingPremoves.clear()
+            pendingPremoves.add(matchingLine!!.replyUci)
+            conditionalLines.remove(matchingLine)
             conditionalBaseFen = null
-        } else if (conditionalBaseFen != null && conditionalPositionMatches) {
-            // The engine chose a different move; this conditional belongs only
-            // to the exact position that was previewed and must not fire later.
-            clearConditionalMove()
+        } else if (matchingLine != null) {
+            // A conditional belongs only to its exact position and opponent move.
+            conditionalLines.removeAll { it.baseFen == board.fen }
+            conditionalBaseFen = null
         }
         makeMove(move, allowEngineReply = false)
         runPendingPremove()
