@@ -251,6 +251,17 @@ class GameViewModel(private val context: Context) : ViewModel() {
         boardState.value = toUi(draft).copy(statusText = "Conditional setup: make the opponent's hypothetical move")
     }
 
+    fun finishConditionalSetup() {
+        conditionalSetupActive.value = false
+        conditionalDraftBoard = null
+        conditionalDraftOpponentUci = null
+        conditionalBaseFen = null
+        boardState.value = toUi(board).copy(
+            statusText = if (conditionalLines.isEmpty()) "Conditional setup closed" else "${conditionalLines.size} conditional move(s) armed"
+        )
+        maybeEngineMove()
+    }
+
     fun cancelConditionalSetup() {
         conditionalSetupActive.value = false
         conditionalDraftBoard = null
@@ -268,7 +279,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         if (selected == null) {
             val piece = draft.getPiece(sq)
             if (piece == LibPiece.NONE && conditionalDraftOpponentUci == null) {
-                cancelConditionalSetup()
+                finishConditionalSetup()
                 return
             }
             if (piece != LibPiece.NONE && piece.pieceSide == draft.sideToMove) {
