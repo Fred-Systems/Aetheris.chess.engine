@@ -44,7 +44,7 @@ data class AppSettings(
     val selectedEngine: String = "aetheris",
     val openingBookEnabled: Boolean = true,
     val openingBookPromptShown: Boolean = false,
-    val openingBookPolicy: String = "best",
+    val openingBookPolicy: String = "random",
     val showOpeningBookArrows: Boolean = false
 )
 
@@ -78,7 +78,7 @@ class SettingsStore(context: Context) {
         selectedEngine = prefs.getString("selectedEngine", "aetheris") ?: "aetheris",
         openingBookEnabled = if (prefs.getBoolean("openingBookPromptShown", false)) prefs.getBoolean("openingBookEnabled", true) else true,
         openingBookPromptShown = prefs.getBoolean("openingBookPromptShown", false),
-        openingBookPolicy = prefs.getString("openingBookPolicy", "best") ?: "best",
+        openingBookPolicy = prefs.getString("openingBookPolicy", "random") ?: "random",
         showOpeningBookArrows = prefs.getBoolean("showOpeningBookArrows", false)
     )
 
