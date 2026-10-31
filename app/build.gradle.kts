@@ -12,8 +12,8 @@ android {
         applicationId = "com.fredsystems.aetheris"
         minSdk = 26
         targetSdk = 34
-        versionCode = 26
-        versionName = "1.0.25"
+        versionCode = 27
+        versionName = "1.0.26"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
