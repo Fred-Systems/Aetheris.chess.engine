@@ -166,7 +166,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         }
         if (boardState.value.gameOver || historyIndex.value < historyLength.value - 1) return
         val userSide = if (playerColor.value == PieceColor.WHITE) Side.WHITE else Side.BLACK
-        if (mode.value == PlayMode.PLAY && settings.value.conditionalMoves && board.sideToMove != userSide && conditionalBaseFen == null) {
+        if (mode.value == PlayMode.PLAY && settings.value.conditionalMoves && board.sideToMove != userSide && conditionalBaseFen == null && conditionalLines.isEmpty()) {
             beginConditionalSetup()
             if (conditionalSetupActive.value) handleConditionalSetupClick(index)
             return
