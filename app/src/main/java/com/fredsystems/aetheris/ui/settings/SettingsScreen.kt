@@ -77,6 +77,9 @@ fun SettingsScreen(
     var updateIsNewer by remember { mutableStateOf(false) }
     var showUpdateDialog by remember { mutableStateOf(false) }
     var checkingUpdate by remember { mutableStateOf(false) }
+    var updateDownloading by remember { mutableStateOf(false) }
+    var updateProgress by remember { mutableFloatStateOf(0f) }
+    var updateDownloadStatus by remember { mutableStateOf("") }
 
     fun applyPreset(name: String) {
         when (name) {
@@ -604,21 +607,44 @@ fun SettingsScreen(
                 Column {
                     Text("Latest release: ${updateTag ?: "unknown"}")
                     Text(if (updateIsNewer) "A newer version is available." else "You are up to date.")
-                    if (updateUrl != null) Text("APK: $updateUrl", fontSize = 11.sp, color = Color(0xFF9B93B8))
+                    if (updateUrl != null) Text("APK available", fontSize = 11.sp, color = Color(0xFF9B93B8))
+                    if (updateDownloading || updateDownloadStatus.isNotBlank()) {
+                        Spacer(Modifier.height(10.dp))
+                        LinearProgressIndicator(progress = updateProgress, modifier = Modifier.fillMaxWidth())
+                        Text(updateDownloadStatus, color = Color(0xFFB9A8FF), fontSize = 11.sp)
+                    }
                 }
             },
             confirmButton = {
                 if (updateIsNewer && updateUrl != null) {
-                    Button(onClick = {
-                        updater.downloadAndInstall(updateUrl!!)
-                        showUpdateDialog = false
-                    }) { Text("Update now") }
+                    Button(
+                        enabled = !updateDownloading,
+                        onClick = {
+                            updateDownloading = true
+                            updateProgress = 0f
+                            updateDownloadStatus = "Downloading update…"
+                            updater.downloadAndInstall(
+                                updateUrl!!,
+                                onProgress = { downloaded, total ->
+                                    updateProgress = if (total > 0L) (downloaded.toFloat() / total).coerceIn(0f, 1f) else 0f
+                                    updateDownloadStatus = if (total > 0L) {
+                                        "Downloading ${(downloaded * 100 / total).coerceIn(0, 100)}%"
+                                    } else "Downloaded ${downloaded / 1024} KB"
+                                },
+                                onError = { error ->
+                                    updateDownloading = false
+                                    updateDownloadStatus = "Download failed: $error"
+                                }
+                            )
+                            updateDownloadStatus = "Downloading update…"
+                        }
+                    ) { Text(if (updateDownloading) "Downloading…" else "Update now") }
                 } else {
                     TextButton(onClick = { showUpdateDialog = false }) { Text("OK") }
                 }
             },
             dismissButton = {
-                if (updateUrl != null) {
+                if (updateUrl != null && !updateDownloading) {
                     TextButton(onClick = {
                         downloadApkToDownloads(updateUrl!!)
                         showUpdateDialog = false
