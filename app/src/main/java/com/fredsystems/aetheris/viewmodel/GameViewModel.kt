@@ -831,8 +831,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
             conditionalLines.remove(matchingLine)
             conditionalBaseFen = null
         } else if (matchingLine != null) {
-            // A conditional belongs only to its exact position and opponent move.
-            conditionalLines.removeAll { it.baseFen == board.fen }
+            // Once the engine chooses a different branch, later replies in the
+            // hypothetical chain no longer describe the live position.
+            conditionalLines.clear()
             conditionalBaseFen = null
         }
         makeMove(move, allowEngineReply = false)
@@ -992,6 +993,12 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val engineChanged = s.selectedEngine != settings.value.selectedEngine
         val bookWasEnabled = settings.value.openingBookEnabled
         val bookPolicyChanged = s.openingBookPolicy != settings.value.openingBookPolicy
+        if (settings.value.conditionalMoves && !s.conditionalMoves) {
+            conditionalSetupActive.value = false
+            conditionalDraftBoard = null
+            conditionalDraftOpponentUci = null
+            clearConditionalMove()
+        }
         saveSettings(s)
         if (ponderingChanged) {
             ponderJob?.cancel()
