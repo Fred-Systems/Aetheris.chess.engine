@@ -395,6 +395,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 ) { Text("Engine match") }
                 OutlinedButton(
                     onClick = { showPlayFromHere = true },
+                    enabled = historyIndex >= historyLength - 1,
                     modifier = Modifier.weight(1f)
                 ) { Text("Play from Here") }
             }
