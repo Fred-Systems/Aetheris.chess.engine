@@ -336,12 +336,14 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val draft = conditionalDraftBoard ?: return
         val sq = LibSquare.squareAt(index)
         val selected = boardState.value.selectedSquare
+        val selectedFrom = selected?.let { LibSquare.squareAt(it) }
+        val legalDestination = selectedFrom != null && draft.legalMoves().any { it.from == selectedFrom && it.to == sq }
+        if (draft.getPiece(sq) == LibPiece.NONE && !legalDestination) {
+            cancelConditionalSetup()
+            return
+        }
         if (selected == null) {
             val piece = draft.getPiece(sq)
-            if (piece == LibPiece.NONE && conditionalDraftOpponentUci == null) {
-                cancelConditionalSetup()
-                return
-            }
             if (piece != LibPiece.NONE && piece.pieceSide == draft.sideToMove) {
                 val targets = draft.legalMoves().filter { it.from == sq }.map { it.to.ordinal }.toSet()
                 boardState.value = toUi(draft).copy(selectedSquare = index, legalTargets = targets, statusText = if (conditionalSetupStep.value == "opponent") "Choose the opponent's destination" else "Choose your conditional reply")
