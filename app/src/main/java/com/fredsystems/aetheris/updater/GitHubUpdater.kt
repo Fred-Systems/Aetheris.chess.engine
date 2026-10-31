@@ -68,7 +68,11 @@ class GitHubUpdater(private val context: Context) {
         Pair(isNewer, apkUrl)
     }
 
-    fun downloadAndInstall(apkUrl: String) {
+    fun downloadAndInstall(
+        apkUrl: String,
+        onProgress: (downloaded: Long, total: Long) -> Unit = { _, _ -> },
+        onError: (String) -> Unit = {}
+    ) {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             val target = File(context.cacheDir, "aetheris-update.apk")
             runCatching {
@@ -76,15 +80,32 @@ class GitHubUpdater(private val context: Context) {
                 client.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) error("Download failed (HTTP ${response.code})")
                     val body = response.body ?: error("The release returned an empty APK")
-                    body.byteStream().use { input -> target.outputStream().use { output -> input.copyTo(output) } }
+                    val total = body.contentLength()
+                    body.byteStream().use { input ->
+                        target.outputStream().use { output ->
+                            val buffer = ByteArray(32 * 1024)
+                            var downloaded = 0L
+                            while (true) {
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                output.write(buffer, 0, count)
+                                downloaded += count
+                                withContext(Dispatchers.Main) { onProgress(downloaded, total) }
+                            }
+                        }
+                    }
                 }
                 if (target.length() < 100_000L) error("Downloaded APK is too small to be valid")
                 if (!hasMatchingSigner(target)) {
                     error("Android cannot update this installation because the APK signing certificate differs. Uninstall the old CI-signed build once, then install the new APK. Configure a stable private signing key for future in-place updates.")
                 }
-                withContext(Dispatchers.Main) { installApk(target) }
+                withContext(Dispatchers.Main) {
+                    onProgress(target.length(), target.length())
+                    installApk(target)
+                }
             }.onFailure { error ->
                 withContext(Dispatchers.Main) {
+                    onError(error.message ?: "unknown error")
                     android.widget.Toast.makeText(context, "Aetheris update failed: ${error.message ?: "unknown error"}", android.widget.Toast.LENGTH_LONG).show()
                 }
             }
