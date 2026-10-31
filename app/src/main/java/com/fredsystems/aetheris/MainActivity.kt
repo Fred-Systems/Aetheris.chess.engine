@@ -399,8 +399,13 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 ) { Text("Play from Here") }
             }
             if (settings.conditionalMoves && vm.conditionalSetupActive.value) {
-                TextButton(onClick = { vm.cancelConditionalSetup() }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Cancel conditional setup")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { vm.finishConditionalSetup() }, modifier = Modifier.weight(1f)) {
+                        Text("Done setting up")
+                    }
+                    TextButton(onClick = { vm.cancelConditionalSetup() }, modifier = Modifier.weight(1f)) {
+                        Text("Cancel all conditionals")
+                    }
                 }
             }
 
