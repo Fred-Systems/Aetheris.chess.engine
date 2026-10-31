@@ -689,7 +689,6 @@ fun SettingsScreen(
                 if (updateUrl != null && !updateDownloading) {
                     TextButton(onClick = {
                         downloadApkToDownloads(updateUrl!!)
-                        showUpdateDialog = false
                     }) { Text("Download APK to Downloads") }
                 }
             }
