@@ -78,7 +78,7 @@ class SettingsStore(context: Context) {
         selectedEngine = prefs.getString("selectedEngine", "aetheris") ?: "aetheris",
         openingBookEnabled = if (prefs.getBoolean("openingBookPromptShown", false)) prefs.getBoolean("openingBookEnabled", true) else true,
         openingBookPromptShown = prefs.getBoolean("openingBookPromptShown", false),
-        openingBookPolicy = prefs.getString("openingBookPolicy", "random") ?: "random",
+        openingBookPolicy = (prefs.getString("openingBookPolicy", "random") ?: "random").let { if (it == "best") "random" else it },
         showOpeningBookArrows = prefs.getBoolean("showOpeningBookArrows", false)
     )
 
