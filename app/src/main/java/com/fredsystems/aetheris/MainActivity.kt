@@ -344,10 +344,10 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 IconButton(onClick = { showNewGame = true }, modifier = Modifier.size(30.dp)) {
                     Icon(Icons.Outlined.Refresh, "New game", tint = Color(0xFFB9A8FF), modifier = Modifier.size(19.dp))
                 }
-                IconButton(onClick = { vm.undoMove() }, modifier = Modifier.size(30.dp)) {
+                IconButton(onClick = { vm.undoMove() }, enabled = historyIndex >= historyLength - 1, modifier = Modifier.size(30.dp)) {
                     Icon(Icons.Outlined.Undo, "Undo move", tint = Color(0xFFB9A8FF), modifier = Modifier.size(19.dp))
                 }
-                IconButton(onClick = { vm.forceEngineMove() }, modifier = Modifier.size(30.dp)) {
+                IconButton(onClick = { vm.forceEngineMove() }, enabled = historyIndex >= historyLength - 1, modifier = Modifier.size(30.dp)) {
                     Icon(Icons.Outlined.AutoAwesome, "Force engine move", tint = Color(0xFFB9A8FF), modifier = Modifier.size(19.dp))
                 }
                 IconButton(onClick = { vm.toggleFlip() }, modifier = Modifier.size(30.dp)) {
