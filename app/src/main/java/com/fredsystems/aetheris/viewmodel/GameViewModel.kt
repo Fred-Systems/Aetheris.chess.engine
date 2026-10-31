@@ -339,7 +339,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         if (selected == null) {
             val piece = draft.getPiece(sq)
             if (piece == LibPiece.NONE && conditionalDraftOpponentUci == null) {
-                finishConditionalSetup()
+                cancelConditionalSetup()
                 return
             }
             if (piece != LibPiece.NONE && piece.pieceSide == draft.sideToMove) {
