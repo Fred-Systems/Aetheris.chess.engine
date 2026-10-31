@@ -669,7 +669,10 @@ fun SettingsScreen(
                                 updateUrl!!,
                                 onProgress = { downloaded, total ->
                                     updateProgress = if (total > 0L) (downloaded.toFloat() / total).coerceIn(0f, 1f) else 0f
-                                    updateDownloadStatus = if (total > 0L) {
+                                    updateDownloadStatus = if (total > 0L && downloaded >= total) {
+                                        updateDownloading = false
+                                        "Download complete · verifying APK…"
+                                    } else if (total > 0L) {
                                         "Downloading ${(downloaded * 100 / total).coerceIn(0, 100)}%"
                                     } else "Downloaded ${downloaded / 1024} KB"
                                 },
