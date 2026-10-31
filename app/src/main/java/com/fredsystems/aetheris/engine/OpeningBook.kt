@@ -94,15 +94,43 @@ class OpeningBook(private val context: Context) {
         ensureIndex()
         val weighted = index[positionKey(fen)].orEmpty().filter { it.first in legalUci }
         if (weighted.isEmpty()) return null
-        if (policy == "random") {
-            val total = weighted.sumOf { it.second.coerceAtLeast(1) }
-            var pick = Random.nextInt(total)
-            for ((move, count) in weighted) {
-                pick -= count.coerceAtLeast(1)
-                if (pick < 0) return move
+
+        // "random" samples from established, well-supported continuations rather
+        // than selecting arbitrary moves. Keep the choice within the stronger
+        // half of the book so variety does not mean random blunders.
+        val candidates = when (policy.lowercase()) {
+            "unorthodox" -> weighted.sortedBy { it.second }.take((weighted.size / 2).coerceAtLeast(1))
+            "aggressive" -> {
+                val position = runCatching { Board().apply { loadFromFen(fen) } }.getOrNull()
+                val scored = weighted.map { entry ->
+                    val move = runCatching {
+                        val from = com.github.bhlangonijr.chesslib.Square.valueOf(entry.first.take(2).uppercase())
+                        val to = com.github.bhlangonijr.chesslib.Square.valueOf(entry.first.substring(2, 4).uppercase())
+                        position?.legalMoves()?.firstOrNull { it.from == from && it.to == to }
+                    }.getOrNull()
+                    val score = if (position == null || move == null) 0 else {
+                        val capture = position.getPiece(move.to) != com.github.bhlangonijr.chesslib.Piece.NONE
+                        val mover = position.getPiece(move.from)
+                        val centerAdvance = kotlin.math.abs(3.5 - move.to.file.ordinal) + kotlin.math.abs(3.5 - move.to.rank.ordinal)
+                        (if (capture) 5 else 0) +
+                            (if (mover.pieceType == com.github.bhlangonijr.chesslib.PieceType.PAWN) 2 else 0) +
+                            (if (centerAdvance < 3.0) 2 else 0)
+                    }
+                    Triple(entry, score, entry.second)
+                }
+                val bestScore = scored.maxOfOrNull { it.second } ?: 0
+                scored.filter { it.second >= bestScore - 1 }.map { it.first }
+                    .ifEmpty { weighted.take((weighted.size / 2).coerceAtLeast(1)) }
             }
+            else -> weighted.sortedByDescending { it.second }.take((weighted.size / 2).coerceAtLeast(1))
         }
-        return weighted.first().first
+        val total = candidates.sumOf { it.second.coerceAtLeast(1) }
+        var pick = Random.nextInt(total)
+        for ((move, count) in candidates) {
+            pick -= count.coerceAtLeast(1)
+            if (pick < 0) return move
+        }
+        return candidates.first().first
     }
 
     private fun positionKey(fen: String): String = fen.split(' ').take(4).joinToString(" ")
