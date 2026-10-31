@@ -105,9 +105,10 @@ fun SettingsScreen(
 
     fun downloadApkToDownloads(url: String) {
         runCatching {
+            val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val request = DownloadManager.Request(Uri.parse(url))
                 .setTitle("Aetheris APK")
-                .setDescription("Download the installer without installing it")
+                .setDescription("Downloading the latest Aetheris installer")
                 .setMimeType("application/vnd.android.package-archive")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 .setAllowedOverMetered(true)
@@ -116,9 +117,50 @@ fun SettingsScreen(
                     Environment.DIRECTORY_DOWNLOADS,
                     "Aetheris-${System.currentTimeMillis()}.apk"
                 )
-            (context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
-            Toast.makeText(context, "APK download started. It will appear in Downloads.", Toast.LENGTH_LONG).show()
+            val downloadId = manager.enqueue(request)
+            updateDownloading = true
+            updateProgress = 0f
+            updateDownloadStatus = "Downloading APK to Downloads…"
+            scope.launch {
+                var finished = false
+                while (!finished) {
+                    val cursor = manager.query(DownloadManager.Query().setFilterById(downloadId))
+                    cursor.use {
+                        if (it != null && it.moveToFirst()) {
+                            val downloaded = it.getLong(it.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                            val total = it.getLong(it.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                            val status = it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                            updateProgress = if (total > 0L) (downloaded.toFloat() / total).coerceIn(0f, 1f) else 0f
+                            when (status) {
+                                DownloadManager.STATUS_SUCCESSFUL -> {
+                                    updateProgress = 1f
+                                    updateDownloadStatus = "Download complete · saved in Downloads"
+                                    updateDownloading = false
+                                    finished = true
+                                }
+                                DownloadManager.STATUS_FAILED -> {
+                                    val reason = it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
+                                    updateDownloadStatus = "Download failed (code $reason)"
+                                    updateDownloading = false
+                                    finished = true
+                                }
+                                else -> updateDownloadStatus = if (total > 0L) {
+                                    "Downloading ${(downloaded * 100 / total).coerceIn(0, 100)}%"
+                                } else "Downloading… ${downloaded / 1024} KB"
+                            }
+                        } else {
+                            updateDownloadStatus = "Could not read download status"
+                            updateDownloading = false
+                            finished = true
+                        }
+                    }
+                    if (!finished) kotlinx.coroutines.delay(350)
+                }
+            }
+            Toast.makeText(context, "APK download started.", Toast.LENGTH_LONG).show()
         }.onFailure {
+            updateDownloading = false
+            updateDownloadStatus = "Could not start download: ${it.message}"
             Toast.makeText(context, "Could not start APK download: ${it.message}", Toast.LENGTH_LONG).show()
         }
     }
