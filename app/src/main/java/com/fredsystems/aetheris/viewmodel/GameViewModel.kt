@@ -22,6 +22,7 @@ import com.fredsystems.aetheris.domain.model.TimeControl
 import com.fredsystems.aetheris.engine.NativeEngine
 import com.fredsystems.aetheris.engine.OpeningBook
 import com.fredsystems.aetheris.engine.CaissaEngine
+import com.fredsystems.aetheris.engine.MorrowEngine
 import com.github.bhlangonijr.chesslib.Board
 import com.github.bhlangonijr.chesslib.Piece as LibPiece
 import com.github.bhlangonijr.chesslib.PieceType as LibPieceType
@@ -100,7 +101,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
             nativeEngineAvailable = true
             options.value = options.value.copy(mode = EngineMode.PURE_CLASSICAL)
             applyNativeOptions(options.value)
-            nnueStatus.value = when (settings.value.selectedEngine) { "caissa" -> "Caissa Kotlin active"; "aetheris_rapid" -> "Aetheris Rapid active"; "aetheris_classic" -> "Aetheris Classic active"; else -> "Aetheris Enhanced active" }
+            nnueStatus.value = when (settings.value.selectedEngine) { "morrow" -> "Morrow independent engine active"; "caissa" -> "Caissa Kotlin active"; "aetheris_rapid" -> "Aetheris Rapid active"; "aetheris_classic" -> "Aetheris Classic active"; else -> "Aetheris Enhanced active" }
         }.onFailure {
             nativeEngineAvailable = false
             engineAvailable.value = settings.value.selectedEngine == "caissa"
@@ -510,7 +511,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     private fun startPonderingIfNeeded() {
-        if (settings.value.selectedEngine == "caissa") return
+        if (settings.value.selectedEngine == "caissa" || settings.value.selectedEngine == "morrow") return
         if (!settings.value.pondering || mode.value != PlayMode.PLAY ||
             boardState.value.gameOver || !engineAvailable.value || engineThinking.value) return
         val userSide = if (playerColor.value == PieceColor.WHITE) Side.WHITE else Side.BLACK
@@ -596,11 +597,12 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     private fun startEngineSearch(force: Boolean) {
-        if (!engineAvailable.value && settings.value.selectedEngine != "caissa") return
+        if (!engineAvailable.value && settings.value.selectedEngine != "caissa" && settings.value.selectedEngine != "morrow") return
         val fen = board.fen
         val searchOptions = options.value
         val rapidProfile = settings.value.selectedEngine == "aetheris_rapid"
         val classicProfile = settings.value.selectedEngine == "aetheris_classic"
+        val morrowProfile = settings.value.selectedEngine == "morrow"
         val depth = if (rapidProfile) searchOptions.depth.coerceAtMost(12) else searchOptions.depth
         val perMove = moveTimeSeconds.value
         val timed = timeControlSeconds.value > 0
@@ -620,9 +622,10 @@ class GameViewModel(private val context: Context) : ViewModel() {
                         openingBook.choose(fen, legal, settings.value.openingBookPolicy)
                     } else null
                 }.getOrNull() ?: runCatching {
-                    if (settings.value.selectedEngine == "caissa") {
-                        CaissaEngine.bestMove(fen, depth.coerceIn(1, 4))
-                    } else {
+                    when {
+                        settings.value.selectedEngine == "caissa" -> CaissaEngine.bestMove(fen, depth.coerceIn(1, 4))
+                        morrowProfile -> MorrowEngine.bestMove(fen, depth.coerceIn(1, 18), timeMs.toInt())
+                        else -> {
                         CrashDiagnostics.searchStarted(context, fen, depth, timeMs.toInt())
                         NativeEngine.searchPositionConfigured(
                             fen, depth, timeMs.toInt(),
@@ -630,6 +633,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
                             searchOptions.solidity, searchOptions.materialWeight, searchOptions.mode.ordinal,
                             if (classicProfile) 0 else 1
                         ).also { CrashDiagnostics.searchCompleted(context, it) }
+                        }
                     }
                 }.onFailure { error -> CrashDiagnostics.recordException(context, "Engine.searchPosition", error) }.getOrNull()
             }
@@ -854,9 +858,11 @@ class GameViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch {
             val raw = withContext(Dispatchers.Default) {
                 runCatching {
-                    if (settings.value.selectedEngine == "caissa") {
-                        val line = CaissaEngine.principalLine(fen, requestedDepth.coerceIn(1, 4))
-                        val sideScore = CaissaEngine.evaluate(fen)
+                    if (settings.value.selectedEngine == "caissa" || settings.value.selectedEngine == "morrow") {
+                        val line = if (settings.value.selectedEngine == "morrow")
+                            MorrowEngine.principalLine(fen, requestedDepth.coerceIn(1, 8))
+                        else CaissaEngine.principalLine(fen, requestedDepth.coerceIn(1, 4))
+                        val sideScore = if (settings.value.selectedEngine == "morrow") MorrowEngine.evaluate(fen) else CaissaEngine.evaluate(fen)
                         val scoreWhite = if (fen.split(" ").getOrNull(1) == "b") -sideScore else sideScore
                         if (line.isEmpty()) "" else line.joinToString(" ") + "|" + scoreWhite
                     } else {
@@ -1020,8 +1026,8 @@ class GameViewModel(private val context: Context) : ViewModel() {
         if (s.flipped != flipped.value) flipped.value = s.flipped
         if (engineChanged) {
             stopEngine()
-            engineAvailable.value = if (s.selectedEngine == "caissa") true else nativeEngineAvailable
-            nnueStatus.value = when (s.selectedEngine) { "caissa" -> "Caissa Kotlin active"; "aetheris_rapid" -> "Aetheris Rapid active"; else -> "Aetheris Classical active" }
+            engineAvailable.value = if (s.selectedEngine == "caissa" || s.selectedEngine == "morrow") true else nativeEngineAvailable
+            nnueStatus.value = when (s.selectedEngine) { "morrow" -> "Morrow independent engine active"; "caissa" -> "Caissa Kotlin active"; "aetheris_rapid" -> "Aetheris Rapid active"; "aetheris_classic" -> "Aetheris Classic active"; else -> "Aetheris Enhanced active" }
             if (mode.value == PlayMode.PLAY) maybeEngineMove()
             updateEvaluationAsync()
         }
@@ -1063,11 +1069,13 @@ class GameViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch {
             val score = withContext(Dispatchers.Default) {
                 val whiteToMove = fen.split(" ").getOrNull(1) != "b"
-                val raw = if (settings.value.selectedEngine == "caissa") {
-                    runCatching { CaissaEngine.evaluate(fen) }.getOrDefault(0)
-                } else {
+                val raw = when (settings.value.selectedEngine) {
+                    "caissa" -> runCatching { CaissaEngine.evaluate(fen) }.getOrDefault(0)
+                    "morrow" -> runCatching { MorrowEngine.evaluate(fen) }.getOrDefault(0)
+                    else -> {
                     val searchedCp = runCatching { NativeEngine.searchEvaluationFen(fen, 5, 900) }.getOrNull()
                     searchedCp ?: runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
+                    }
                 }
                 if (whiteToMove) raw else -raw
             }
