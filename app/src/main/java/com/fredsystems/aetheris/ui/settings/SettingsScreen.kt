@@ -350,6 +350,9 @@ fun SettingsScreen(
                 ModeChip("Aetheris (Enhanced)", settings.selectedEngine == "aetheris", Modifier.fillMaxWidth()) {
                     viewModel.updateSettings(settings.copy(selectedEngine = "aetheris"))
                 }
+                ModeChip("Morrow · Independent engine", settings.selectedEngine == "morrow", Modifier.fillMaxWidth()) {
+                    viewModel.updateSettings(settings.copy(selectedEngine = "morrow"))
+                }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ModeChip("Aetheris Classic", settings.selectedEngine == "aetheris_classic", Modifier.weight(1f)) {
                         viewModel.updateSettings(settings.copy(selectedEngine = "aetheris_classic"))
@@ -363,6 +366,7 @@ fun SettingsScreen(
                 }
             }
             Text(when (settings.selectedEngine) {
+                "morrow" -> "Morrow is an independently authored Kotlin engine with its own iterative-deepening PVS search, transposition table, quiescence search, and handcrafted evaluator. Its strength is still being benchmarked."
                 "caissa" -> "Caissa uses its independent Kotlin alpha-beta search."
                 "aetheris_classic" -> "Aetheris Classic retains the previous native search profile."
                 "aetheris_rapid" -> "Aetheris Rapid uses the enhanced native search with a fast-play budget."
