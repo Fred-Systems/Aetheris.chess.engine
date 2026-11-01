@@ -667,7 +667,7 @@ private fun EnginePickerDialog(selectedEngine: String, onSelect: (String) -> Uni
         onDismissRequest = onDismiss,
         title = { Text("Choose your engine") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
                     Triple("aetheris", "Aetheris (Enhanced)", "Improved native search with SEE move ordering and tactical extensions"),
                     Triple("morrow", "Morrow", "Independent Kotlin engine with its own search and evaluation architecture"),
@@ -710,7 +710,7 @@ private fun QuickEngineOptionsDialog(
         onDismissRequest = onDismiss,
         title = { Text("Quick engine controls") },
         text = {
-            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+            Column(Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
                 Text("Engine: ${when (selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa Kotlin"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris Enhanced" }}", color = Color(0xFFB9B2CE), style = MaterialTheme.typography.labelLarge)
                 if (selectedEngine == "caissa") {
                     Text("Caissa uses its independent search and evaluator. Style sliders are available only for Aetheris Classical.", color = Color(0xFF9B93B8), fontSize = 12.sp)
