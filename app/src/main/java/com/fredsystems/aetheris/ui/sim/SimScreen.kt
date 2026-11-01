@@ -165,21 +165,23 @@ fun SimScreen(viewModel: SimViewModel, onBack: () -> Unit, onOpenAnalysis: (com.
 
             }
 
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    val maxBoard = if (maxWidth < maxHeight) maxWidth else maxHeight
-                    val boardSize = (maxBoard - 34.dp).coerceAtLeast(150.dp)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        EvaluationBar(score = eval, modifier = Modifier.height(boardSize).width(20.dp))
-                        Spacer(Modifier.width(10.dp))
-                        ChessBoard(
-                            board = board,
-                            onSquareClick = {},
-                            modifier = Modifier.size(boardSize),
-                            pieceSet = settings.pieceSet,
-                            boardTheme = BoardThemes.byId(settings.boardTheme),
-                            flipped = false
-                        )
+            if (matchStarted) {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        val maxBoard = if (maxWidth < maxHeight) maxWidth else maxHeight
+                        val boardSize = (maxBoard - 34.dp).coerceAtLeast(150.dp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            EvaluationBar(score = eval, modifier = Modifier.height(boardSize).width(20.dp))
+                            Spacer(Modifier.width(10.dp))
+                            ChessBoard(
+                                board = board,
+                                onSquareClick = {},
+                                modifier = Modifier.size(boardSize),
+                                pieceSet = settings.pieceSet,
+                                boardTheme = BoardThemes.byId(settings.boardTheme),
+                                flipped = false
+                            )
+                        }
                     }
                 }
             }
@@ -258,7 +260,10 @@ private fun EngineSetupCard(
         EngineModePicker(mode, onMode, Modifier.fillMaxWidth())
         Text(when (mode) { "Morrow" -> "Independent Kotlin engine · original search"; "Caissa" -> "Independent Kotlin engine"; "AetherisRapid" -> "Fast native Aetheris profile"; "AetherisStrong" -> "Enhanced native search"; else -> "Legacy Aetheris Classic search" }, color = Color(0xFFB9B2CE), fontSize = 10.sp)
         if (mode == "Caissa") Text("Caissa uses its independent Kotlin search; Aetheris style sliders do not affect it.", color = Color(0xFF9B93B8), fontSize = 10.sp)
-        PersonaPicker(persona, onPersona, Modifier.fillMaxWidth())
+        val supportsPersona = !mode.equals("Caissa", ignoreCase = true) && !mode.equals("Morrow", ignoreCase = true)
+        if (supportsPersona) {
+            PersonaPicker(persona, onPersona, Modifier.fillMaxWidth())
+        }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Opening book for this side", color = Color(0xFFB9B2CE), fontSize = 10.sp, modifier = Modifier.weight(1f))
             Switch(checked = bookEnabled, onCheckedChange = onBookEnabled)
@@ -266,14 +271,16 @@ private fun EngineSetupCard(
         OpeningPolicyPicker(bookPolicy, onBookPolicy, Modifier.fillMaxWidth())
         Text("Search depth: ${depth.toInt()}", color = Color(0xFFB9B2CE), fontSize = 11.sp)
         Slider(value = depth, onValueChange = onDepth, valueRange = 1f..20f, steps = 18)
-        TextButton(onClick = { onExpanded(!expanded) }, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)) {
-            Text(if (expanded) "Hide style sliders" else "Adjust style sliders", fontSize = 11.sp)
-        }
-        if (expanded) {
-            CompactStyleSlider("Aggression", aggression, onAggression)
-            CompactStyleSlider("Positional", positional, onPositional)
-            CompactStyleSlider("Complexity", complexity, onComplexity)
-            CompactStyleSlider("Solidity", solidity, onSolidity)
+        if (supportsPersona) {
+            TextButton(onClick = { onExpanded(!expanded) }, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)) {
+                Text(if (expanded) "Hide style sliders" else "Adjust style sliders", fontSize = 11.sp)
+            }
+            if (expanded) {
+                CompactStyleSlider("Aggression", aggression, onAggression)
+                CompactStyleSlider("Positional", positional, onPositional)
+                CompactStyleSlider("Complexity", complexity, onComplexity)
+                CompactStyleSlider("Solidity", solidity, onSolidity)
+            }
         }
     }
 }
@@ -286,8 +293,9 @@ private fun EngineModePicker(current: String, onChange: (String) -> Unit, modifi
         OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)) {
             Text(options.firstOrNull { it.first == current }?.second ?: current, fontSize = 11.sp)
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { (id, label) -> DropdownMenuItem(text = { Text(label) }, onClick = { onChange(id); expanded = false })
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.heightIn(max = 320.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                options.forEach { (id, label) -> DropdownMenuItem(text = { Text(label) }, onClick = { onChange(id); expanded = false }) }
             }
         }
     }
@@ -301,8 +309,10 @@ private fun OpeningPolicyPicker(current: String, onChange: (String) -> Unit, mod
         OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 5.dp)) {
             Text("Book style: ${options.firstOrNull { it.first == current }?.second ?: "Random good"}", fontSize = 10.sp)
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { (id, label) -> DropdownMenuItem(text = { Text(label) }, onClick = { onChange(id); expanded = false }) }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.heightIn(max = 320.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                options.forEach { (id, label) -> DropdownMenuItem(text = { Text(label) }, onClick = { onChange(id); expanded = false }) }
+            }
         }
     }
 }
@@ -315,8 +325,10 @@ private fun PersonaPicker(current: String, onChange: (String) -> Unit, modifier:
         OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)) {
             Text(personaLabel(current), fontSize = 11.sp)
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { label -> DropdownMenuItem(text = { Text(label) }, onClick = { onChange(label); expanded = false }) }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.heightIn(max = 320.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                options.forEach { label -> DropdownMenuItem(text = { Text(label) }, onClick = { onChange(label); expanded = false }) }
+            }
         }
     }
 }
