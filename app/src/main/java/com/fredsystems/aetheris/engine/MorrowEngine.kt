@@ -29,6 +29,8 @@ object MorrowEngine {
     private var nodes = 0L
     private var rootBest: String? = null
 
+    fun evaluate(fen: String): Int = evaluate(Board().apply { loadFromFen(fen) })
+
     @Synchronized
     fun bestMove(fen: String, maxDepth: Int = 8, timeMs: Int = 1200): String? {
         val root = Board().apply { loadFromFen(fen) }
