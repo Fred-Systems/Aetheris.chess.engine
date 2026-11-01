@@ -38,8 +38,8 @@ class SimViewModel(private val context: Context) : ViewModel() {
     var depthB = 6
     var timeMs = 800
     var games = 1
-    var modeA = "PureClassical"
-    var modeB = "PureClassical"
+    var modeA = "AetherisStrong"
+    var modeB = "AetherisStrong"
     var personaA = "Balanced"
     var personaB = "Balanced"
     var aggressionA = 50
@@ -95,7 +95,8 @@ class SimViewModel(private val context: Context) : ViewModel() {
                                         complexity = if (white) complexityA else complexityB,
                                         solidity = if (white) solidityA else solidityB,
                                         materialWeight = 50,
-                                        mode = modeOrdinal(mode)
+                                        mode = modeOrdinal(mode),
+                                        engineProfile = if (mode.equals("PureClassical", true)) 0 else 1
                                     )
                                 }
                             }.getOrElse { error ->
