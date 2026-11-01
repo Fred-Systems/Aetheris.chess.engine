@@ -419,20 +419,12 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(Modifier.weight(1f).padding(end = 6.dp)) {
+                    Box(Modifier.weight(1f).padding(end = 6.dp), contentAlignment = Alignment.CenterStart) {
                         Text(
-                            text = state.statusText,
-                            color = Color(0xFFF2EEFF),
+                            text = if (thinking) "${when (settings.selectedEngine) { "caissa" -> "Caissa"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} · thinking · depth ${opts.depth}" else "${when (settings.selectedEngine) { "caissa" -> "Caissa"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} · depth ${opts.depth}",
+                            color = if (thinking) Color(0xFFB9A8FF) else Color(0xFFB9B2CE),
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 11.sp,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = if (thinking) "${when (settings.selectedEngine) { "caissa" -> "Caissa"; "aetheris_rapid" -> "Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} thinking · depth ${opts.depth}" else "${when (settings.selectedEngine) { "caissa" -> "Caissa"; "aetheris_rapid" -> "Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} · depth ${opts.depth}",
-                            color = if (thinking) Color(0xFF7C4DFF) else Color(0xFF9B93B8),
-                            fontSize = 9.sp,
                             maxLines = 1,
                             softWrap = false,
                             overflow = TextOverflow.Ellipsis
