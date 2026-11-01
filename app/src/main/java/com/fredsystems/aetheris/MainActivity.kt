@@ -104,7 +104,7 @@ class MainActivity : ComponentActivity() {
             AetherisTheme {
                 val navController = rememberNavController()
                 val bookImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-                    uri?.let { selectedUri -> runCatching { contentResolver.openInputStream(selectedUri)?.use { vm.importOpeningBook(it) } } }
+                    uri?.let(vm::importOpeningBook)
                 }
                 val nnueImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                     uri?.let { selectedUri ->
@@ -601,7 +601,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                             vm.updateSettings(settings.copy(openingBookPolicy = id))
                         }
                     }
-                    HorizontalDivider()
+                    Divider()
                     Text("Opening book arrows in Analysis", fontWeight = FontWeight.SemiBold)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("Show continuations", color = Color(0xFFE7E1FA), modifier = Modifier.weight(1f))
