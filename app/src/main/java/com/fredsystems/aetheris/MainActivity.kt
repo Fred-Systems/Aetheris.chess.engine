@@ -594,7 +594,14 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
             text = {
                 Column(Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Opening database", fontWeight = FontWeight.SemiBold)
-                    Text("Lichess public openings (ECO, named lines and move frequencies)", color = Color(0xFF9B93B8), fontSize = 12.sp)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Use opening book during Play", color = Color(0xFFE7E1FA), modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = settings.openingBookEnabled,
+                            onCheckedChange = { vm.updateSettings(settings.copy(openingBookEnabled = it, openingBookPromptShown = true)) }
+                        )
+                    }
+                    Text("Current source: Lichess public openings TSV (or your imported TSV file)", color = Color(0xFF9B93B8), fontSize = 12.sp)
                     Text("Choose move selection", fontWeight = FontWeight.SemiBold)
                     listOf("random" to "Random good", "top" to "Top move", "unorthodox" to "Unorthodox", "aggressive" to "Aggressive").forEach { (id, label) ->
                         ModeChip(label, settings.openingBookPolicy == id, Modifier.fillMaxWidth()) {
