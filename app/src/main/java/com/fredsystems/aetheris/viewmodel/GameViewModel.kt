@@ -254,9 +254,6 @@ class GameViewModel(private val context: Context) : ViewModel() {
             return
         }
         val selected = boardState.value.selectedSquare
-        val queuedSquares = queuedPremoveSquares()
-        val selectedFrom = selected?.let { LibSquare.squareAt(it) }
-        val isLegalDestination = selectedFrom != null && projected.legalMoves().any { it.from == selectedFrom && it.to == sq }
         if (selected == null && projected.getPiece(sq) == LibPiece.NONE) {
             pendingPremoves.clear()
             boardState.value = boardState.value.copy(
@@ -304,7 +301,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
             legalTargets = emptySet(),
             lastMoveFrom = selected,
             lastMoveTo = index,
-            statusText = if (settings.value.multiplePremoves) "Premove ${pendingPremoves.size} queued · in order" else "Premove queued",
+            statusText = "Premove ${pendingPremoves.size} queued · in order",
             premoveHighlights = queuedPremoveSquares()
         )
     }
