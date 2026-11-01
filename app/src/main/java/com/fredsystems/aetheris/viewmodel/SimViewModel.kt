@@ -133,8 +133,14 @@ class SimViewModel(private val context: Context) : ViewModel() {
                         eval.value = withContext(Dispatchers.Default) {
                             runCatching {
                                 when {
-                                    mode.equals("Caissa", true) -> CaissaEngine.evaluate(board.fen)
-                                    mode.equals("Morrow", true) -> MorrowEngine.evaluate(board.fen)
+                                    mode.equals("Caissa", true) -> {
+                                        val sideScore = CaissaEngine.evaluate(board.fen)
+                                        if (board.sideToMove == Side.WHITE) sideScore else -sideScore
+                                    }
+                                    mode.equals("Morrow", true) -> {
+                                        val sideScore = MorrowEngine.evaluate(board.fen)
+                                        if (board.sideToMove == Side.WHITE) sideScore else -sideScore
+                                    }
                                     else -> NativeEngine.evaluateFen(board.fen)
                                 }
                             }.getOrDefault(eval.value)
