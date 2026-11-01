@@ -61,6 +61,8 @@ class GameViewModel(private val context: Context) : ViewModel() {
     val conditionalSetupStep = mutableStateOf("opponent")
     private var conditionalDraftBoard: Board? = null
     private var conditionalDraftOpponentUci: String? = null
+    private var conditionalIdleJob: Job? = null
+    private var conditionalSetupGeneration = 0
     val historyIndex = mutableStateOf(0)
     val historyLength = mutableStateOf(1)
     private val settingsStore = store
@@ -497,8 +499,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         playMoveSound(board.isKingAttacked(), isCapture, isCastle, isPromotion)
         val currentIndex = historyIndex.value.coerceIn(0, positionHistory.lastIndex)
         while (positionHistory.size > currentIndex + 1) positionHistory.removeAt(positionHistory.lastIndex)
-        while (moveList.size > currentIndex) moveList.removeAt(moveList.lastIndex)
-        moveList.add(move.toString())
+        while (moveList.size > currentIndex) moveList.removeAt(moveList.lastIndex)        moveList.add(move.toString())
         positionHistory.add(board.fen)
         historyIndex.value = positionHistory.lastIndex
         historyLength.value = positionHistory.size
@@ -997,7 +998,6 @@ class GameViewModel(private val context: Context) : ViewModel() {
             if (i % 2 == 0) "${(i / 2) + 1}. $move" else move
         }.joinToString(" ")
     }
-
     fun playAnalysisLine(line: EngineAnalysisLine) {
         if (mode.value != PlayMode.ANALYSIS || line.moves.isEmpty()) return
         engineGeneration++
