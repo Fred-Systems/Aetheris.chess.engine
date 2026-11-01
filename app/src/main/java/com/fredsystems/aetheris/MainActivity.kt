@@ -707,9 +707,10 @@ private fun EnginePickerDialog(selectedEngine: String, onSelect: (String) -> Uni
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
-                    Triple("aetheris", "Aetheris Classical", "Full-strength native Aetheris engine"),
+                    Triple("aetheris", "Aetheris (Enhanced)", "Improved native search with SEE move ordering and tactical extensions"),
+                    Triple("aetheris_classic", "Aetheris Classic", "The previous native search behavior, retained as a separate option"),
                     Triple("caissa", "Caissa", "Independent Kotlin chess engine"),
-                    Triple("aetheris_rapid", "Aetheris Rapid", "Fast-play preset using the Aetheris search core")
+                    Triple("aetheris_rapid", "Aetheris Rapid", "Fast-play profile using the enhanced Aetheris search core")
                 ).forEach { (id, title, description) ->
                     Surface(
                         shape = RoundedCornerShape(12.dp),
@@ -747,7 +748,7 @@ private fun QuickEngineOptionsDialog(
         title = { Text("Quick engine controls") },
         text = {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-                Text("Engine: ${when (selectedEngine) { "caissa" -> "Caissa Kotlin"; "aetheris_rapid" -> "Aetheris Rapid"; else -> "Aetheris Classical" }}", color = Color(0xFFB9B2CE), style = MaterialTheme.typography.labelLarge)
+                Text("Engine: ${when (selectedEngine) { "caissa" -> "Caissa Kotlin"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris Enhanced" }}", color = Color(0xFFB9B2CE), style = MaterialTheme.typography.labelLarge)
                 if (selectedEngine == "caissa") {
                     Text("Caissa uses its independent search and evaluator. Style sliders are available only for Aetheris Classical.", color = Color(0xFF9B93B8), fontSize = 12.sp)
                 } else {
@@ -908,7 +909,7 @@ private fun NewGameDialog(
                 Spacer(Modifier.height(14.dp))
                 Text("Choose engine", fontSize = 12.sp, color = Color(0xFF9B93B8))
                 Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    listOf("aetheris" to "Aetheris Classical", "caissa" to "Caissa", "aetheris_rapid" to "Aetheris Rapid").forEach { (id, label) ->
+                    listOf("aetheris" to "Aetheris (Enhanced)", "aetheris_classic" to "Aetheris Classic", "caissa" to "Caissa", "aetheris_rapid" to "Aetheris Rapid").forEach { (id, label) ->
                         ModeChip(label, engine == id, Modifier.fillMaxWidth()) { engine = id }
                     }
                 }
