@@ -147,31 +147,23 @@ jobs:
           body: |
             Aetheris v1.0.27
 
-            - The board scroll lock now freezes the current scroll position and sits beside the game-history navigation arrows, not over the board.
-            - Long-press the top-bar opening-book icon to open book settings; a normal tap still toggles book use. Random good remains the default and Top move, Unorthodox, and Aggressive are all available.
-            - The opening-book settings panel includes the Lichess database download/import controls and Analysis continuation-arrow toggle.
-            - Moved side-to-move to the right of the board status strip; engine name, depth, and thinking state remain on the left. Aetheris branding stays on one line.
-            - Long settings toggle labels wrap instead of clipping, New Game content scrolls, and conditional setup controls overlay the board area without changing its layout.
-            - Engine Arena now visibly exposes independent White and Black engine selectors.
-            - Aetheris Enhanced is the new default native search profile. Added static-exchange evaluation (SEE) capture ordering, reduced late-move reductions for more careful search, and bounded recapture/seventh-rank pawn extensions. The previous search profile remains selectable as Aetheris Classic.
-            - Aetheris Rapid uses the enhanced search profile with its fast-play budget; Caissa remains independent.
-            - Preserves multi-premoves, chained conditional moves, history browsing, and update download progress.
-
-            - New animated galaxy splash screen with the Aetheris launcher icon, animated chess pieces, and Fred-Systems credit.
-            - Engine selection moved out of the Play page into a top-bar engine icon. The New Game dialog also includes engine selection.
-            - Added Aetheris Rapid, a fast-play profile using the native Aetheris search core with a capped think budget. White and Black can independently select Classical, Caissa, or Rapid in Engine Arena.
-            - Added a top-bar opening-book on/off control. The book is enabled by default; first launch offers the recommended Lichess opening database download directly.
-            - Added Reset to default in the long-press board engine-personality dialog.
-            - Retains the v1.0.24 Compose startup snapshot crash fix, stable board sizing, deferred Engine Arena initialization, and crash diagnostics.
+            - Board lock freezes the current scroll position and is placed beside the game-history arrows, not over the board.
+            - Long-press the opening-book icon for full book settings; tap still toggles book use. Random good remains the default, with Top move, Unorthodox, and Aggressive options.
+            - Book settings include Lichess download/import controls and the Analysis continuation-arrow toggle.
+            - Side-to-move is shown on the right of the status strip; engine name, depth, and thinking state are shown on the left. Aetheris branding remains on one line.
+            - Long settings labels wrap instead of clipping. New Game content is scrollable. Conditional setup controls overlay the board without shifting its layout.
+            - Engine Arena visibly provides independent engine selectors for White and Black.
+            - Aetheris Enhanced is the default native search profile, adding static-exchange evaluation capture ordering, more conservative late-move reductions, and bounded recapture/seventh-rank pawn extensions. Aetheris Classic preserves the previous search profile as a separate choice.
+            - Aetheris Rapid uses the enhanced search with a faster move-time budget; Caissa remains an independent Kotlin engine.
+            - Retains premoves, conditional moves, history navigation, splash screen, stable board sizing, crash diagnostics, and update download progress.
 
             Engine and opening-book details:
-            - Aetheris Enhanced and Aetheris Classic are separate selectable native search profiles in the same C++ engine binary. Caissa remains the independent Kotlin alpha-beta engine.
-            - Aetheris Rapid uses the enhanced native search profile with a faster move-time budget.
-            - The opening database can be downloaded, imported, disabled, and removed from Settings. Opening-book selection remains subject to legal move validation.
+            - Enhanced and Classic are selectable native C++ search profiles. The changes improve move ordering and selective search quality rather than merely increasing the requested depth or think time.
+            - The opening database supports download, TSV import, disable, and removal; selected moves are checked against legal moves.
 
             Release compatibility:
-            - Version code 26 / version name 1.0.27.
-            - This workflow requires the same stable repository signing secrets and refuses to publish a debug-signed APK.
+            - Version code 28 / version name 1.0.27.
+            - This workflow requires the same stable Android signing secrets and refuses to publish a debug-signed APK.
             - Android can update an existing installation only when its signing certificate matches.
           files: release-assets/*
           overwrite_files: true
