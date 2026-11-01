@@ -263,15 +263,10 @@ fun SettingsScreen(
             SwitchRow("Enable premove (default on)", settings.premoveEnabled) {
                 viewModel.updateSettings(settings.copy(premoveEnabled = it))
             }
-            SwitchRow("Allow multiple premoves", settings.multiplePremoves) {
-                viewModel.updateSettings(settings.copy(multiplePremoves = it))
-            }
-            if (settings.multiplePremoves) {
-                Text(
-                    "Queue up to 12 premoves in order. Each is attempted on your next turn after the engine replies; if the next queued move is illegal, the entire remaining queue is cancelled.",
-                    color = Color(0xFF9B93B8), fontSize = 11.sp
-                )
-            }
+            Text(
+                "Queue as many premoves as you want, including several moves with the same piece. Moves are attempted in order after the engine replies; if the next move is illegal, the remaining queue is cancelled.",
+                color = Color(0xFF9B93B8), fontSize = 11.sp
+            )
             SwitchRow("Enable conditional moves", settings.conditionalMoves) {
                 viewModel.updateSettings(settings.copy(conditionalMoves = it))
             }
