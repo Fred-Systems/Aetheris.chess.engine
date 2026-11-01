@@ -563,6 +563,7 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode, int 
         if (victim < 0 && attacker == PAWN && to == b.epSquare) victim = PAWN;
         const bool quiet = victim < 0 && ((move >> 12) & 7) == 0;
         const bool isCapture = victim >= 0 || (attacker == PAWN && to == b.epSquare);
+        const int movingSide = b.side;
         Undo u;
         makeMove(b, move, u);
         int score;
@@ -572,7 +573,7 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode, int 
         const bool previousWasCapture = ply > 0 && ply < 256 && moveWasCapture[ply - 1];
         const bool recapture = searchProfile == 1 && victim >= 0 && previousMove != 0 && previousTo == to;
         const bool pawnAdvance = searchProfile == 1 && attacker == PAWN &&
-            ((b.side == WHITE && (to >> 3) == 6) || (b.side == BLACK && (to >> 3) == 1));
+            ((movingSide == WHITE && (to >> 3) == 6) || (movingSide == BLACK && (to >> 3) == 1));
         const int childDepth = depth - 1
             + ((givesCheck && ply < 18 && depth <= 14) ? 1 : 0)
             + ((recapture && previousWasCapture && ply < 20) ? 1 : 0)
