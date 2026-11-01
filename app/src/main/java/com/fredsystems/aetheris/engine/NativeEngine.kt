@@ -81,7 +81,10 @@ object NativeEngine {
     }
 
     @Synchronized
-    fun analyzeFen(fen: String, depth: Int, timeMs: Int, count: Int): String = nativeAnalyzeFen(fen, depth, timeMs, count)
+    fun analyzeFen(fen: String, depth: Int, timeMs: Int, count: Int, engineProfile: Int = 1): String {
+        nativeSetEngineProfile(engineProfile)
+        return nativeAnalyzeFen(fen, depth, timeMs, count)
+    }
 
     @Synchronized
     fun evaluate(): Int = nativeEvaluate()
