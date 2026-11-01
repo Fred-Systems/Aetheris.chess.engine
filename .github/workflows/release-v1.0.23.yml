@@ -1,13 +1,13 @@
-name: Publish Aetheris v1.0.28 APK
+name: Publish Aetheris v1.0.29 APK
 # Build the hotfix directly from current main and verify its stable signature and version before publishing.
-# v1.0.28 includes Lichess ECO TSV PGN-to-UCI indexing with corrected Kotlin tab parsing, SAN-to-UCI conversion, persistent book disable/remove behavior, direct engine selectors, and a fixed non-scrolling Play viewport, downloadable/importable book controls, best/random book selection, analysis arrows, and the independent Caissa Kotlin engine in Play, Analysis, and Engine Arena. Prior Notebook, ordered premove, conditional-move and board-layout changes are retained. Release requires the same stable Android signing secrets and verifies the APK signature/version before publishing.
-# Publish v1.0.28 from main with the final premove queue, board-based conditional setup, fixed board layout, and settings guidance and position-bound conditional-reply cleanup. Stable signing is mandatory; never publish a debug-signed update. Includes the latest Notebook, premove, engine-match, and settings updates. Final source snapshot, including the Notebook variation parser, analysis lifecycle, and live Notebook refresh fixes; release attempt restarted after queued CI runs.
+# v1.0.29 includes Lichess ECO TSV PGN-to-UCI indexing with corrected Kotlin tab parsing, SAN-to-UCI conversion, persistent book disable/remove behavior, direct engine selectors, and a fixed non-scrolling Play viewport, downloadable/importable book controls, best/random book selection, analysis arrows, and the independent Caissa Kotlin engine in Play, Analysis, and Engine Arena. Prior Notebook, ordered premove, conditional-move and board-layout changes are retained. Release requires the same stable Android signing secrets and verifies the APK signature/version before publishing.
+# Publish v1.0.29 from main with the final premove queue, board-based conditional setup, fixed board layout, and settings guidance and position-bound conditional-reply cleanup. Stable signing is mandatory; never publish a debug-signed update. Includes the latest Notebook, premove, engine-match, and settings updates. Final source snapshot, including the Notebook variation parser, analysis lifecycle, and live Notebook refresh fixes; release attempt restarted after queued CI runs.
 
 on:
   push:
     branches: [ main ]
     paths:
-      - .github/workflows/release-v1.0.28.yml
+      - .github/workflows/release-v1.0.23.yml
       - app/build.gradle.kts
       - app/src/main/java/com/fredsystems/aetheris/MainActivity.kt
       - app/src/main/java/com/fredsystems/aetheris/domain/model/AppSettings.kt
@@ -19,7 +19,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: aetheris-release-v1.0.28
+  group: aetheris-release-v1.0.29
   cancel-in-progress: true
 
 jobs:
@@ -81,8 +81,8 @@ jobs:
           APK="$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
           test -n "$APK"
           "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/aapt" dump badging "$APK" | grep -F "versionName='1.0.28'"
-          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/aapt" dump badging "$APK" | grep -F "versionCode='28'"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/aapt" dump badging "$APK" | grep -F "versionName='1.0.29'"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/aapt" dump badging "$APK" | grep -F "versionCode='29'"
 
       - name: Prepare APK and classical UCI packages
         shell: bash
@@ -124,20 +124,20 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: aetheris-v1.0.28-release
+          name: aetheris-v1.0.29-release
           path: release-assets/*
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish v1.0.28 release
+      - name: Publish v1.0.29 release
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.RELEASE_TOKEN || github.token }}
-          tag_name: v1.0.28
-          name: Aetheris v1.0.28
+          tag_name: v1.0.29
+          name: Aetheris v1.0.29
           target_commitish: ${{ github.sha }}
           body: |
-            Aetheris v1.0.28 stability hotfix
+            Aetheris v1.0.29 stability hotfix
 
             - Fixed the launch-time startup workload by making the large Lichess opening database opt-in instead of automatically downloading and indexing it on first launch.
             - Deferred Engine Arena's native engine initialization until the user actually starts a match, avoiding competing native initialization during initial screen creation.
@@ -160,7 +160,7 @@ jobs:
             - Engine match setup lets White and Black independently select Aetheris Classical or Caissa. Aetheris retains persona sliders; Caissa uses its own search.
 
             Release compatibility:
-            - Version code 24 / version name 1.0.28.
+            - Version code 24 / version name 1.0.29.
             - This workflow requires the stable repository signing secrets and stops if any are missing. It will not publish a debug-signed APK.
             - Android can update an existing installation only if its signing certificate matches. Older debug-signed installs may need a one-time uninstall before installing this stable-key release.
           files: release-assets/*
