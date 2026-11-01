@@ -21,6 +21,7 @@ object NativeEngine {
         materialWeight: Int,
         mode: Int
     )
+    external fun nativeSetEngineProfile(profile: Int)
     external fun nativeSetNnue(path: String)
     external fun nativeNnueLoaded(): Boolean
     external fun nativeGo(depth: Int, timeMs: Int): String
@@ -57,7 +58,8 @@ object NativeEngine {
 
     // Keep style, position and search in one transaction because native state is process-global.
     @Synchronized
-    fun searchConfiguredPosition(fen: String, depth: Int, timeMs: Int, aggression: Int, positional: Int, complexity: Int, solidity: Int, materialWeight: Int, mode: Int): String {
+    fun searchConfiguredPosition(fen: String, depth: Int, timeMs: Int, aggression: Int, positional: Int, complexity: Int, solidity: Int, materialWeight: Int, mode: Int, engineProfile: Int = 1): String {
+        nativeSetEngineProfile(engineProfile)
         nativeSetParams(aggression, positional, complexity, solidity, materialWeight, mode)
         nativeSetPosition(fen)
         return nativeGo(depth, timeMs)
@@ -72,6 +74,7 @@ object NativeEngine {
         // Keep engine options, board setup, and search in one monitor transaction.
         // The engine uses process-global native state, so separate calls can race
         // when an engine-vs-engine match runs beside the main game ViewModel.
+        nativeSetEngineProfile(engineProfile)
         nativeSetParams(aggression, positional, complexity, solidity, materialWeight, mode)
         nativeSetPosition(fen)
         return nativeGo(depth, timeMs)
