@@ -366,6 +366,7 @@ static int historyHeuristic[2][64][64] = {};
 static Move killerMoves[128][2] = {};
 static std::uint64_t searchPath[256] = {};
 static Move movePath[256] = {};
+static bool moveWasCapture[256] = {};
 static int searchProfile = 1;
 
 void setSearchProfile(int profile) { searchProfile = profile == 0 ? 0 : 1; }
@@ -377,6 +378,7 @@ void clearSearchTables() {
     std::memset(killerMoves, 0, sizeof(killerMoves));
     std::memset(searchPath, 0, sizeof(searchPath));
     std::memset(movePath, 0, sizeof(movePath));
+    std::memset(moveWasCapture, 0, sizeof(moveWasCapture));
 }
 
 static int maxDepth = 6;
@@ -566,8 +568,7 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode, int 
         const bool givesCheck = inCheck(b, b.side);
         const Move previousMove = (ply > 0 && ply < 256) ? movePath[ply - 1] : 0;
         const int previousTo = (previousMove >> 6) & 63;
-        const bool previousWasCapture = previousMove != 0 &&
-            (pieceAt(b, previousTo, b.side) >= 0 || ((previousMove & 63) != previousTo));
+        const bool previousWasCapture = ply > 0 && ply < 256 && moveWasCapture[ply - 1];
         const bool recapture = searchProfile == 1 && victim >= 0 && previousMove != 0 && previousTo == to;
         const bool pawnAdvance = searchProfile == 1 && attacker == PAWN &&
             ((b.side == WHITE && (to >> 3) == 6) || (b.side == BLACK && (to >> 3) == 1));
@@ -576,7 +577,7 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode, int 
             + ((recapture && previousWasCapture && ply < 20) ? 1 : 0)
             + ((pawnAdvance && ply < 16) ? 1 : 0);
         const bool reduce = i >= (searchProfile == 1 ? 6u : 4u) && depth >= 3 && quiet && !givesCheck;
-        if (ply >= 0 && ply < 256) movePath[ply] = move;
+        if (ply >= 0 && ply < 256) { movePath[ply] = move; moveWasCapture[ply] = victim >= 0 || (attacker == PAWN && to == b.epSquare); }
         if (i == 0) {
             score = -alphaBeta(b, childDepth, -beta, -alpha, pvNode, ply + 1);
         } else {
