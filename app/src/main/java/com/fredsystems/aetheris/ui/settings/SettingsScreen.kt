@@ -333,7 +333,7 @@ fun SettingsScreen(
                 }
             }
             Text(viewModel.openingBookStatus.value, color = Color(0xFFB9A8FF), fontSize = 11.sp)
-            Text("Random good favors popular, well-established continuations while varying the choice. Unorthodox favors less common book lines. Aggressive favors active, centralizing and capture-oriented continuations where the book offers them.", color = Color(0xFF9B93B8), fontSize = 11.sp)
+            Text("Random good (default) varies among well-supported continuations. Top move always selects the most frequently played line. Unorthodox favors less common book lines. Aggressive favors active, centralizing and capture-oriented continuations where the book offers them.", color = Color(0xFF9B93B8), fontSize = 11.sp)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { viewModel.downloadOpeningBook() }, modifier = Modifier.weight(1f)) { Text("Download public book") }
                 OutlinedButton(onClick = { openingBookPicker.launch(arrayOf("text/*", "application/octet-stream", "*/*")) }, modifier = Modifier.weight(1f)) { Text("Import TSV") }
