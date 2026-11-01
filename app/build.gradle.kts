@@ -1,4 +1,4 @@
-// Release v1.0.28: stable repository signing is required for upgrade compatibility.
+// Release v1.0.29: stable repository signing is required for upgrade compatibility.
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -13,8 +13,8 @@ android {
         applicationId = "com.fredsystems.aetheris"
         minSdk = 26
         targetSdk = 34
-        versionCode = 28
-        versionName = "1.0.28"
+        versionCode = 29
+        versionName = "1.0.29"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
