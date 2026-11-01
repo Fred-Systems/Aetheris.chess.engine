@@ -311,12 +311,17 @@ class GameViewModel(private val context: Context) : ViewModel() {
         conditionalDraftBoard = draft
         conditionalBaseFen = board.fen
         conditionalDraftOpponentUci = null
+        conditionalIdleJob?.cancel()
+        conditionalSetupGeneration++
         conditionalSetupStep.value = "opponent"
         conditionalSetupActive.value = true
         boardState.value = toUi(draft).copy(statusText = "Conditional setup: make the opponent's hypothetical move")
     }
 
     fun finishConditionalSetup() {
+        conditionalIdleJob?.cancel()
+        conditionalIdleJob = null
+        conditionalSetupGeneration++
         conditionalSetupActive.value = false
         conditionalDraftBoard = null
         conditionalDraftOpponentUci = null
@@ -328,6 +333,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     fun cancelConditionalSetup() {
+        conditionalIdleJob?.cancel()
+        conditionalIdleJob = null
+        conditionalSetupGeneration++
         conditionalSetupActive.value = false
         conditionalDraftBoard = null
         conditionalDraftOpponentUci = null
@@ -338,6 +346,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     private fun handleConditionalSetupClick(index: Int) {
+        conditionalIdleJob?.cancel()
+        conditionalIdleJob = null
+        conditionalSetupGeneration++
         val draft = conditionalDraftBoard ?: return
         val sq = LibSquare.squareAt(index)
         val selected = boardState.value.selectedSquare
@@ -389,8 +400,18 @@ class GameViewModel(private val context: Context) : ViewModel() {
             boardState.value = toUi(draft).copy(
                 selectedSquare = null,
                 legalTargets = emptySet(),
-                statusText = "Conditional saved: $opponentMove → $uci. Set up another opponent move, or tap an empty square to finish."
+                statusText = "Conditional saved: $opponentMove → $uci. Continue with another opponent move, or leave the board idle to finish."
             )
+            // No floating Done/Cancel controls: users add several replies in a row.
+            // When they stop interacting, setup closes automatically while preserving
+            // saved conditional lines. An invalid empty-square tap still cancels all.
+            val generation = ++conditionalSetupGeneration
+            conditionalIdleJob = viewModelScope.launch {
+                delay(5_000)
+                if (conditionalSetupActive.value && conditionalSetupGeneration == generation) {
+                    finishConditionalSetup()
+                }
+            }
         }
     }
 
