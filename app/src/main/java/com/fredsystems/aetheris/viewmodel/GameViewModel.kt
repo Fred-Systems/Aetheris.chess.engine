@@ -860,7 +860,13 @@ class GameViewModel(private val context: Context) : ViewModel() {
                         val scoreWhite = if (fen.split(" ").getOrNull(1) == "b") -sideScore else sideScore
                         if (line.isEmpty()) "" else line.joinToString(" ") + "|" + scoreWhite
                     } else {
-                        NativeEngine.analyzeFen(fen, requestedDepth.coerceAtLeast(4), (5000 + requestedDepth * 500).coerceAtMost(15000), count.coerceIn(1, 5))
+                        NativeEngine.analyzeFen(
+                            fen,
+                            requestedDepth.coerceAtLeast(4),
+                            (5000 + requestedDepth * 500).coerceAtMost(15000),
+                            count.coerceIn(1, 5),
+                            if (settings.value.selectedEngine == "aetheris_classic") 0 else 1
+                        )
                     }
                 }.getOrDefault("")
             }
