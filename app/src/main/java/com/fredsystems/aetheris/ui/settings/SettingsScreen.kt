@@ -346,15 +346,28 @@ fun SettingsScreen(
         Spacer(Modifier.height(12.dp))
         SettingsCard("Engine") {
             Text("Built-in engine", color = Color(0xFFF2EEFF), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ModeChip("Aetheris Classical", settings.selectedEngine == "aetheris", Modifier.weight(1f)) {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                ModeChip("Aetheris (Enhanced)", settings.selectedEngine == "aetheris", Modifier.fillMaxWidth()) {
                     viewModel.updateSettings(settings.copy(selectedEngine = "aetheris"))
                 }
-                ModeChip("Caissa", settings.selectedEngine == "caissa", Modifier.weight(1f)) {
-                    viewModel.updateSettings(settings.copy(selectedEngine = "caissa"))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ModeChip("Aetheris Classic", settings.selectedEngine == "aetheris_classic", Modifier.weight(1f)) {
+                        viewModel.updateSettings(settings.copy(selectedEngine = "aetheris_classic"))
+                    }
+                    ModeChip("Caissa", settings.selectedEngine == "caissa", Modifier.weight(1f)) {
+                        viewModel.updateSettings(settings.copy(selectedEngine = "caissa"))
+                    }
+                }
+                ModeChip("Aetheris Rapid", settings.selectedEngine == "aetheris_rapid", Modifier.fillMaxWidth()) {
+                    viewModel.updateSettings(settings.copy(selectedEngine = "aetheris_rapid"))
                 }
             }
-            Text(if (settings.selectedEngine == "caissa") "Caissa uses its own Kotlin alpha-beta search and material/mobility evaluator." else "Aetheris Classical uses the native C++ search and evaluation engine.", color = Color(0xFF9B93B8), fontSize = 11.sp)
+            Text(when (settings.selectedEngine) {
+                "caissa" -> "Caissa uses its independent Kotlin alpha-beta search."
+                "aetheris_classic" -> "Aetheris Classic retains the previous native search profile."
+                "aetheris_rapid" -> "Aetheris Rapid uses the enhanced native search with a fast-play budget."
+                else -> "Aetheris Enhanced is the new default native search, using static-exchange move ordering and tactical extensions."
+            }, color = Color(0xFF9B93B8), fontSize = 11.sp)
             Spacer(Modifier.height(8.dp))
             SwitchRow("Ponder during my turn", settings.pondering) {
                 viewModel.updateSettings(settings.copy(pondering = it))
