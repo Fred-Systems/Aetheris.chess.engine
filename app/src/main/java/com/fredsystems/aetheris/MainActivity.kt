@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.horizontalScroll
@@ -102,6 +103,9 @@ class MainActivity : ComponentActivity() {
             var showCrashReportPrompt by remember { mutableStateOf(crashReportPending) }
             AetherisTheme {
                 val navController = rememberNavController()
+                val bookImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                    uri?.let { selectedUri -> runCatching { contentResolver.openInputStream(selectedUri)?.use { vm.importOpeningBook(it) } } }
+                }
                 val nnueImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                     uri?.let { selectedUri ->
                         runCatching {
@@ -306,6 +310,8 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
     val timeControl = vm.timeControlSeconds.value
     var showNewGame by remember { mutableStateOf(false) }
     var showEnginePicker by remember { mutableStateOf(false) }
+    var showOpeningBookSettings by remember { mutableStateOf(false) }
+    val mainScrollState = rememberScrollState()
     var showOpeningBookPrompt by remember(settings.openingBookPromptShown) { mutableStateOf(!settings.openingBookPromptShown) }
     var showPlayFromHere by remember { mutableStateOf(false) }
     var showConditionalDialog by remember { mutableStateOf(false) }
@@ -327,14 +333,14 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 )
             )
     ) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 14.dp).then(if (boardLocked) Modifier else Modifier.verticalScroll(rememberScrollState()))) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 14.dp).verticalScroll(mainScrollState, enabled = !boardLocked)) {
             Row(
                 Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Aetheris", fontSize = 21.sp, fontWeight = FontWeight.Black, color = Color(0xFFF2EEFF))
+                    Text("Aetheris", fontSize = 21.sp, fontWeight = FontWeight.Black, color = Color(0xFFF2EEFF), maxLines = 1, softWrap = false)
                     Text(
                         if (mode == PlayMode.PLAY) "Play vs Engine" else "Analysis Board",
                         fontSize = 10.sp,
@@ -356,14 +362,17 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 IconButton(onClick = { showEnginePicker = true }, modifier = Modifier.size(30.dp)) {
                     Icon(Icons.Outlined.Psychology, "Choose engine", tint = Color(0xFFB9A8FF), modifier = Modifier.size(19.dp))
                 }
-                IconButton(
-                    onClick = {
-                        if (!settings.openingBookEnabled && !vm.openingBookStatus.value.contains("installed", true)) showOpeningBookPrompt = true
-                        else vm.updateSettings(settings.copy(openingBookEnabled = !settings.openingBookEnabled, openingBookPromptShown = true))
-                    },
-                    modifier = Modifier.size(30.dp)
+                Box(
+                    Modifier.size(30.dp).combinedClickable(
+                        onClick = {
+                            if (!settings.openingBookEnabled && !vm.openingBookStatus.value.contains("installed", true)) showOpeningBookPrompt = true
+                            else vm.updateSettings(settings.copy(openingBookEnabled = !settings.openingBookEnabled, openingBookPromptShown = true))
+                        },
+                        onLongClick = { showOpeningBookSettings = true }
+                    ),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Outlined.MenuBook, "Toggle opening book", tint = if (settings.openingBookEnabled) Color(0xFF7CDBA1) else Color(0xFFC9C1E5), modifier = Modifier.size(19.dp))
+                    Icon(Icons.Outlined.MenuBook, "Toggle opening book · hold for settings", tint = if (settings.openingBookEnabled) Color(0xFF7CDBA1) else Color(0xFFC9C1E5), modifier = Modifier.size(19.dp))
                 }
                 IconButton(onClick = { vm.toggleEval() }, modifier = Modifier.size(30.dp)) {
                     Icon(
@@ -399,17 +408,6 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                     modifier = Modifier.weight(1f)
                 ) { Text("Play from Here") }
             }
-            if (settings.conditionalMoves && vm.conditionalSetupActive.value) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { vm.finishConditionalSetup() }, modifier = Modifier.weight(1f)) {
-                        Text("Done setting up")
-                    }
-                    TextButton(onClick = { vm.cancelConditionalSetup() }, modifier = Modifier.weight(1f)) {
-                        Text("Cancel all conditionals")
-                    }
-                }
-            }
-
             Surface(
                 shape = RoundedCornerShape(18.dp),
                 color = Color(0xFF1A1626),
@@ -423,37 +421,23 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 ) {
                     Column(Modifier.weight(1f).padding(end = 6.dp)) {
                         Text(
-                            text = state.statusText,
-                            color = Color(0xFFF2EEFF),
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = if (thinking) "${when (settings.selectedEngine) { "caissa" -> "Caissa"; "aetheris_rapid" -> "Rapid"; else -> "Aetheris" }} thinking · d${opts.depth}" else "${when (settings.selectedEngine) { "caissa" -> "Caissa"; "aetheris_rapid" -> "Rapid"; else -> "Aetheris" }} · Depth ${opts.depth}",
+                            text = if (thinking) "${when (settings.selectedEngine) { "caissa" -> "Caissa"; "aetheris_rapid" -> "Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} thinking · depth ${opts.depth}" else "${when (settings.selectedEngine) { "caissa" -> "Caissa"; "aetheris_rapid" -> "Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} · depth ${opts.depth}",
                             color = if (thinking) Color(0xFF7C4DFF) else Color(0xFF9B93B8),
-                            fontSize = 9.sp,
+                            fontSize = 10.sp,
                             maxLines = 1,
                             softWrap = false,
                             overflow = TextOverflow.Ellipsis
                         )
+                        Text(vm.openingBookStatus.value.takeIf { settings.openingBookEnabled && it.contains("download", true) }.orEmpty(), color = Color(0xFF9B93B8), fontSize = 8.sp, maxLines = 1)
                     }
-                    if (timeControl > 0 && mode == PlayMode.PLAY) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            ClockPill(formatClock(whiteTime), state.sideToMove == PieceColor.WHITE)
-                            ClockPill(formatClock(blackTime), state.sideToMove == PieceColor.BLACK)
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(if (state.sideToMove == PieceColor.WHITE) "White to move" else "Black to move", color = Color(0xFFF2EEFF), fontWeight = FontWeight.SemiBold, fontSize = 11.sp, maxLines = 1)
+                        if (timeControl > 0 && mode == PlayMode.PLAY) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                ClockPill(formatClock(whiteTime), state.sideToMove == PieceColor.WHITE)
+                                ClockPill(formatClock(blackTime), state.sideToMove == PieceColor.BLACK)
+                            }
                         }
-                    } else {
-                        Box(
-                            Modifier
-                                .size(12.dp)
-                                .background(
-                                    if (state.sideToMove == PieceColor.WHITE) Color(0xFFEDE7DC) else Color(0xFF2B2438),
-                                    RoundedCornerShape(50)
-                                )
-                        )
                     }
                 }
             }
@@ -491,17 +475,21 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                         }
                     )
                 }
-                IconButton(
-                    onClick = { boardLocked = !boardLocked },
-                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(34.dp)
-                        .background(Color(0xCC171322), RoundedCornerShape(10.dp))
-                ) {
-                    Icon(
-                        if (boardLocked) Icons.Outlined.Lock else Icons.Outlined.LockOpen,
-                        contentDescription = if (boardLocked) "Unlock screen scrolling" else "Lock screen to board",
-                        tint = if (boardLocked) Color(0xFF7CDBA1) else Color(0xFFEDE8FF),
-                        modifier = Modifier.size(19.dp)
-                    )
+                if (settings.conditionalMoves && vm.conditionalSetupActive.value) {
+                    Surface(
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 5.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xEE171322)
+                    ) {
+                        Row(Modifier.padding(horizontal = 5.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(onClick = { vm.finishConditionalSetup() }, contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)) {
+                                Text("Done", fontSize = 11.sp)
+                            }
+                            TextButton(onClick = { vm.cancelConditionalSetup() }, contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)) {
+                                Text("Cancel all", fontSize = 11.sp)
+                            }
+                        }
+                    }
                 }
             }
 
@@ -522,6 +510,17 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 }
                 IconButton(onClick = { vm.goToEnd() }, enabled = historyIndex < historyLength - 1, modifier = Modifier.size(38.dp)) {
                     Icon(Icons.Outlined.LastPage, "Go to latest position", tint = if (historyIndex < historyLength - 1) Color(0xFFB9A8FF) else Color(0xFF625B70))
+                }
+                IconButton(
+                    onClick = { boardLocked = !boardLocked },
+                    modifier = Modifier.size(34.dp).background(Color(0xFF1A1626), RoundedCornerShape(10.dp))
+                ) {
+                    Icon(
+                        if (boardLocked) Icons.Outlined.Lock else Icons.Outlined.LockOpen,
+                        contentDescription = if (boardLocked) "Unlock scrolling at current position" else "Lock scrolling at current position",
+                        tint = if (boardLocked) Color(0xFF7CDBA1) else Color(0xFFB9A8FF),
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
             if (historyIndex < historyLength - 1) {
@@ -585,6 +584,37 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                     showOpeningBookPrompt = false
                 }) { Text("Not now") }
             }
+        )
+    }
+
+    if (showOpeningBookSettings) {
+        AlertDialog(
+            onDismissRequest = { showOpeningBookSettings = false },
+            title = { Text("Opening book settings") },
+            text = {
+                Column(Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Opening database", fontWeight = FontWeight.SemiBold)
+                    Text("Lichess public openings (ECO, named lines and move frequencies)", color = Color(0xFF9B93B8), fontSize = 12.sp)
+                    Text("Choose move selection", fontWeight = FontWeight.SemiBold)
+                    listOf("random" to "Random good", "top" to "Top move", "unorthodox" to "Unorthodox", "aggressive" to "Aggressive").forEach { (id, label) ->
+                        ModeChip(label, settings.openingBookPolicy == id, Modifier.fillMaxWidth()) {
+                            vm.updateSettings(settings.copy(openingBookPolicy = id))
+                        }
+                    }
+                    HorizontalDivider()
+                    Text("Opening book arrows in Analysis", fontWeight = FontWeight.SemiBold)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Show continuations", color = Color(0xFFE7E1FA), modifier = Modifier.weight(1f))
+                        Switch(checked = settings.showOpeningBookArrows, onCheckedChange = { vm.updateSettings(settings.copy(showOpeningBookArrows = it)) })
+                    }
+                    Text(vm.openingBookStatus.value, color = Color(0xFFB9A8FF), fontSize = 11.sp)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { vm.downloadOpeningBook() }, modifier = Modifier.weight(1f)) { Text("Download Lichess") }
+                        OutlinedButton(onClick = { bookImportLauncher.launch(arrayOf("text/*", "application/octet-stream", "*/*")) }, modifier = Modifier.weight(1f)) { Text("Import TSV") }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showOpeningBookSettings = false }) { Text("Done") } }
         )
     }
 
@@ -867,7 +897,7 @@ private fun NewGameDialog(
         onDismissRequest = onDismiss,
         title = { Text("New Game", fontWeight = FontWeight.Bold) },
         text = {
-            Column {
+            Column(Modifier.fillMaxWidth().heightIn(max = 470.dp).verticalScroll(rememberScrollState())) {
                 Text("Play as", fontSize = 12.sp, color = Color(0xFF9B93B8))
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
