@@ -132,6 +132,8 @@ fun SimScreen(viewModel: SimViewModel, onBack: () -> Unit, onOpenAnalysis: (com.
                         positional = positionalA, onPositional = { positionalA = it },
                         complexity = complexityA, onComplexity = { complexityA = it },
                         solidity = solidityA, onSolidity = { solidityA = it },
+                        bookEnabled = openingBookA, onBookEnabled = { openingBookA = it },
+                        bookPolicy = openingPolicyA, onBookPolicy = { openingPolicyA = it },
                         expanded = tuneA, onExpanded = { tuneA = it },
                         modifier = Modifier.weight(1f)
                     )
@@ -147,6 +149,8 @@ fun SimScreen(viewModel: SimViewModel, onBack: () -> Unit, onOpenAnalysis: (com.
                         positional = positionalB, onPositional = { positionalB = it },
                         complexity = complexityB, onComplexity = { complexityB = it },
                         solidity = solidityB, onSolidity = { solidityB = it },
+                        bookEnabled = openingBookB, onBookEnabled = { openingBookB = it },
+                        bookPolicy = openingPolicyB, onBookPolicy = { openingPolicyB = it },
                         expanded = tuneB, onExpanded = { tuneB = it },
                         modifier = Modifier.weight(1f)
                     )
