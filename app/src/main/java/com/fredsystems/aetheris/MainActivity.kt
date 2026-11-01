@@ -314,13 +314,10 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
     val mainScrollState = rememberScrollState()
     var showOpeningBookPrompt by remember(settings.openingBookPromptShown) { mutableStateOf(!settings.openingBookPromptShown) }
     var showPlayFromHere by remember { mutableStateOf(false) }
-    var showConditionalDialog by remember { mutableStateOf(false) }
     var showQuickEngineOptions by remember { mutableStateOf(false) }
     var boardLocked by remember { mutableStateOf(false) }
     val historyIndex by vm.historyIndex
     val historyLength by vm.historyLength
-    var conditionalOpponent by remember { mutableStateOf("e7e5") }
-    var conditionalReply by remember { mutableStateOf("g1f3") }
     val configuration = LocalConfiguration.current
     var pgnExpanded by remember(settings.showPgnPanel, configuration.screenWidthDp) { mutableStateOf(configuration.screenWidthDp >= 600 && settings.showPgnPanel) }
 
@@ -629,40 +626,6 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
             onReset = {
                 vm.updateOptions(EngineOptions())
                 showQuickEngineOptions = false
-            }
-        )
-    }
-
-    if (showConditionalDialog) {
-        AlertDialog(
-            onDismissRequest = { showConditionalDialog = false },
-            title = { Text("Conditional move") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Preview an opponent move without playing it, then make your reply on the preview board. When the engine later plays that exact move, your saved reply is played automatically.")
-                    OutlinedButton(
-                        onClick = {
-                            vm.beginConditionalSetup()
-                            showConditionalDialog = false
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("Set up by moving pieces on the board") }
-                    Text("Or enter UCI moves manually:", style = MaterialTheme.typography.labelMedium)
-                    OutlinedTextField(value = conditionalOpponent, onValueChange = { conditionalOpponent = it.lowercase() }, label = { Text("Opponent move (UCI)") })
-                    OutlinedTextField(value = conditionalReply, onValueChange = { conditionalReply = it.lowercase() }, label = { Text("Your reply (UCI)") })
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    vm.setConditionalMove(conditionalOpponent, conditionalReply)
-                    showConditionalDialog = false
-                }) { Text("Save conditional reply") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    vm.clearConditionalMove()
-                    showConditionalDialog = false
-                }) { Text("Clear") }
             }
         )
     }
