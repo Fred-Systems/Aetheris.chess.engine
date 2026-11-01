@@ -319,12 +319,17 @@ fun SettingsScreen(
                     ModeChip("Random good", settings.openingBookPolicy == "random", Modifier.weight(1f)) {
                         viewModel.updateSettings(settings.copy(openingBookPolicy = "random"))
                     }
+                    ModeChip("Top move", settings.openingBookPolicy == "top", Modifier.weight(1f)) {
+                        viewModel.updateSettings(settings.copy(openingBookPolicy = "top"))
+                    }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ModeChip("Unorthodox", settings.openingBookPolicy == "unorthodox", Modifier.weight(1f)) {
                         viewModel.updateSettings(settings.copy(openingBookPolicy = "unorthodox"))
                     }
-                }
-                ModeChip("Aggressive", settings.openingBookPolicy == "aggressive", Modifier.fillMaxWidth()) {
-                    viewModel.updateSettings(settings.copy(openingBookPolicy = "aggressive"))
+                    ModeChip("Aggressive", settings.openingBookPolicy == "aggressive", Modifier.weight(1f)) {
+                        viewModel.updateSettings(settings.copy(openingBookPolicy = "aggressive"))
+                    }
                 }
             }
             Text(viewModel.openingBookStatus.value, color = Color(0xFFB9A8FF), fontSize = 11.sp)
@@ -729,10 +734,16 @@ private fun LabeledSlider(
 private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(
         Modifier.fillMaxWidth().padding(top = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, color = Color(0xFFE7E1FA), fontSize = 13.sp)
+        Text(
+            label,
+            modifier = Modifier.weight(1f),
+            color = Color(0xFFE7E1FA),
+            fontSize = 13.sp,
+            softWrap = true
+        )
         Switch(checked = checked, onCheckedChange = onChange)
     }
 }
