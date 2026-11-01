@@ -622,6 +622,11 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                         Button(onClick = { vm.downloadOpeningBook() }, modifier = Modifier.weight(1f)) { Text("Download Lichess") }
                         OutlinedButton(onClick = { bookImportLauncher.launch(arrayOf("text/*", "application/octet-stream", "*/*")) }, modifier = Modifier.weight(1f)) { Text("Import TSV") }
                     }
+                    if (vm.openingBookStatus.value.contains("installed", true) || vm.openingBookStatus.value.contains("imported", true)) {
+                        TextButton(onClick = { vm.removeOpeningBook() }, modifier = Modifier.fillMaxWidth()) {
+                            Text("Remove installed opening book")
+                        }
+                    }
                 }
             },
             confirmButton = { TextButton(onClick = { showOpeningBookSettings = false }) { Text("Done") } }
