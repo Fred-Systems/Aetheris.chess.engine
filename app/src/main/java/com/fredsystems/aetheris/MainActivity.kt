@@ -421,7 +421,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 ) {
                     Box(Modifier.weight(1f).padding(end = 6.dp), contentAlignment = Alignment.CenterStart) {
                         Text(
-                            text = if (thinking) "${when (settings.selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} · thinking · depth ${opts.depth}" else "${when (settings.selectedEngine) { "caissa" -> "Caissa"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} · depth ${opts.depth}",
+                            text = if (thinking) "${when (settings.selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} · thinking · depth ${opts.depth}" else "${when (settings.selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} · depth ${opts.depth}",
                             color = if (thinking) Color(0xFFB9A8FF) else Color(0xFFB9B2CE),
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 11.sp,
