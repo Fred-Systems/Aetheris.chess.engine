@@ -65,7 +65,8 @@ object MorrowEngine {
             checkTime()
             val child = Board().apply { loadFromFen(position.fen) }
             if (!child.doMove(move)) continue
-            var score = -negamax(child, depth - 1, -beta, -alpha, 1)
+            var score = if (index == 0) -negamax(child, depth - 1, -beta, -alpha, 1)
+                else -negamax(child, depth - 1, -alpha - 1, -alpha, 1)
             if (index > 0 && score > alpha && score < beta) {
                 score = -negamax(child, depth - 1, -beta, -alpha, 1)
             }
@@ -102,7 +103,8 @@ object MorrowEngine {
             val child = Board().apply { loadFromFen(key) }
             if (!child.doMove(move)) continue
             val quiet = b.getPiece(move.to) == Piece.NONE && move.promotion == Piece.NONE
-            var score = -negamax(child, depth - 1, -beta, -alpha, ply + 1)
+            var score = if (index == 0) -negamax(child, depth - 1, -beta, -alpha, ply + 1)
+                else -negamax(child, depth - 1, -alpha - 1, -alpha, ply + 1)
             if (index > 0 && score > alpha && score < beta) {
                 score = -negamax(child, depth - 1, -beta, -alpha, ply + 1)
             }
