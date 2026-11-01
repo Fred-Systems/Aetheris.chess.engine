@@ -69,7 +69,7 @@ object NativeEngine {
     fun searchPositionConfigured(
         fen: String, depth: Int, timeMs: Int,
         aggression: Int, positional: Int, complexity: Int, solidity: Int,
-        materialWeight: Int, mode: Int
+        materialWeight: Int, mode: Int, engineProfile: Int = 1
     ): String {
         // Keep engine options, board setup, and search in one monitor transaction.
         // The engine uses process-global native state, so separate calls can race
