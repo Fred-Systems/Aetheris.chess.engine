@@ -243,9 +243,9 @@ private fun EngineSetupCard(
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(label, color = Color(0xFFF2EEFF), fontWeight = FontWeight.Bold, fontSize = 13.sp)
-        Text(when (mode) { "Caissa" -> "Engine: Caissa Kotlin · independent search"; "AetherisRapid" -> "Engine: Aetheris Rapid · fast native profile"; else -> "Engine: Aetheris Classical · native C++" }, color = Color(0xFFB9B2CE), fontSize = 11.sp)
-        if (mode == "Caissa") Text("Caissa currently searches up to 4 plies; Aetheris style sliders do not affect it.", color = Color(0xFF9B93B8), fontSize = 10.sp)
-         if (mode == "AetherisRapid") Text("Rapid mode prioritizes quick move times using the native Aetheris search.", color = Color(0xFF9B93B8), fontSize = 10.sp)
+        EngineModePicker(mode, onMode, Modifier.fillMaxWidth())
+        Text(when (mode) { "Caissa" -> "Independent Kotlin engine"; "AetherisRapid" -> "Fast native Aetheris profile"; "AetherisStrong" -> "Enhanced native search"; else -> "Legacy Aetheris Classic search" }, color = Color(0xFFB9B2CE), fontSize = 10.sp)
+        if (mode == "Caissa") Text("Caissa uses its independent Kotlin search; Aetheris style sliders do not affect it.", color = Color(0xFF9B93B8), fontSize = 10.sp)
         PersonaPicker(persona, onPersona, Modifier.fillMaxWidth())
         Text("Search depth: ${depth.toInt()}", color = Color(0xFFB9B2CE), fontSize = 11.sp)
         Slider(value = depth, onValueChange = onDepth, valueRange = 1f..20f, steps = 18)
@@ -264,7 +264,7 @@ private fun EngineSetupCard(
 @Composable
 private fun EngineModePicker(current: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
-    val options = listOf("PureClassical" to "Aetheris Classical", "Caissa" to "Caissa", "AetherisRapid" to "Aetheris Rapid")
+    val options = listOf("AetherisStrong" to "Aetheris (Enhanced)", "PureClassical" to "Aetheris Classic", "Caissa" to "Caissa", "AetherisRapid" to "Aetheris Rapid")
     Box(modifier) {
         OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)) {
             Text(options.firstOrNull { it.first == current }?.second ?: current, fontSize = 11.sp)
