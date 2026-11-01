@@ -574,10 +574,13 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode, int 
         const bool recapture = searchProfile == 1 && victim >= 0 && previousMove != 0 && previousTo == to;
         const bool pawnAdvance = searchProfile == 1 && attacker == PAWN &&
             ((movingSide == WHITE && (to >> 3) == 6) || (movingSide == BLACK && (to >> 3) == 1));
-        const int childDepth = depth - 1
-            + ((givesCheck && ply < 18 && depth <= 14) ? 1 : 0)
-            + ((recapture && previousWasCapture && ply < 20) ? 1 : 0)
-            + ((pawnAdvance && ply < 16) ? 1 : 0);
+        // Extend one ply for the most forcing feature without stacking
+        // multiple extensions on the same move and causing search explosions.
+        const bool tacticalExtension =
+            (givesCheck && ply < 18 && depth <= 14) ||
+            (recapture && previousWasCapture && ply < 20) ||
+            (pawnAdvance && ply < 16);
+        const int childDepth = depth - 1 + (tacticalExtension ? 1 : 0);
         const bool reduce = i >= (searchProfile == 1 ? 6u : 4u) && depth >= 3 && quiet && !givesCheck;
         if (ply >= 0 && ply < 256) { movePath[ply] = move; moveWasCapture[ply] = isCapture; }
         if (i == 0) {
