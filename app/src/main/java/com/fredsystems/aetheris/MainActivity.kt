@@ -421,14 +421,22 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 ) {
                     Column(Modifier.weight(1f).padding(end = 6.dp)) {
                         Text(
-                            text = if (thinking) "${when (settings.selectedEngine) { "caissa" -> "Caissa"; "aetheris_rapid" -> "Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} thinking · depth ${opts.depth}" else "${when (settings.selectedEngine) { "caissa" -> "Caissa"; "aetheris_rapid" -> "Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} · depth ${opts.depth}",
-                            color = if (thinking) Color(0xFF7C4DFF) else Color(0xFF9B93B8),
-                            fontSize = 10.sp,
+                            text = state.statusText,
+                            color = Color(0xFFF2EEFF),
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 11.sp,
                             maxLines = 1,
                             softWrap = false,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Text(vm.openingBookStatus.value.takeIf { settings.openingBookEnabled && it.contains("download", true) }.orEmpty(), color = Color(0xFF9B93B8), fontSize = 8.sp, maxLines = 1)
+                        Text(
+                            text = if (thinking) "${when (settings.selectedEngine) { "caissa" -> "Caissa"; "aetheris_rapid" -> "Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} thinking · depth ${opts.depth}" else "${when (settings.selectedEngine) { "caissa" -> "Caissa"; "aetheris_rapid" -> "Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} · depth ${opts.depth}",
+                            color = if (thinking) Color(0xFF7C4DFF) else Color(0xFF9B93B8),
+                            fontSize = 9.sp,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text(if (state.sideToMove == PieceColor.WHITE) "White to move" else "Black to move", color = Color(0xFFF2EEFF), fontWeight = FontWeight.SemiBold, fontSize = 11.sp, maxLines = 1)
