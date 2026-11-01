@@ -12,6 +12,7 @@ extern void setComplexity(int v);
 extern void setSolidity(int v);
 extern void setMaterialWeight(int m);
 extern void setEngineMode(int m);
+extern void setSearchProfile(int profile);
 extern void setNNUEPath(const std::string& p);
 }
 
@@ -21,8 +22,10 @@ int main() {
     resetBoard();
 #ifdef AETHERIS_DEFAULT_CLASSICAL
     setEngineMode(ENGINE_PURE_CLASSICAL);
+    setSearchProfile(0);
 #else
     setEngineMode(ENGINE_DUAL_CORE);
+    setSearchProfile(1);
 #endif
     setNNUEPath("weights.bin");
     std::string line;
