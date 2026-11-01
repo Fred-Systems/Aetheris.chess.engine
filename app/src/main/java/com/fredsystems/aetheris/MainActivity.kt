@@ -322,7 +322,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
     var conditionalOpponent by remember { mutableStateOf("e7e5") }
     var conditionalReply by remember { mutableStateOf("g1f3") }
     val configuration = LocalConfiguration.current
-    var pgnExpanded by remember { mutableStateOf(configuration.screenWidthDp >= 600 && settings.showPgnPanel) }
+    var pgnExpanded by remember(settings.showPgnPanel, configuration.screenWidthDp) { mutableStateOf(configuration.screenWidthDp >= 600 && settings.showPgnPanel) }
 
     Box(
         Modifier
@@ -365,7 +365,10 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 Box(
                     Modifier.size(30.dp).combinedClickable(
                         onClick = {
-                            if (!settings.openingBookEnabled && !vm.openingBookStatus.value.contains("installed", true)) showOpeningBookPrompt = true
+                            val bookAvailable = vm.openingBookStatus.value.contains("Opening book installed", true) ||
+                                vm.openingBookStatus.value.contains("database installed", true) ||
+                                vm.openingBookStatus.value.contains("Opening book imported", true)
+                            if (!settings.openingBookEnabled && !bookAvailable) showOpeningBookPrompt = true
                             else vm.updateSettings(settings.copy(openingBookEnabled = !settings.openingBookEnabled, openingBookPromptShown = true))
                         },
                         onLongClick = { showOpeningBookSettings = true }
