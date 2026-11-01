@@ -712,8 +712,8 @@ private fun QuickEngineOptionsDialog(
         text = {
             Column(Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
                 Text("Engine: ${when (selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa Kotlin"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris Enhanced" }}", color = Color(0xFFB9B2CE), style = MaterialTheme.typography.labelLarge)
-                if (selectedEngine == "caissa") {
-                    Text("Caissa uses its independent search and evaluator. Style sliders are available only for Aetheris Classical.", color = Color(0xFF9B93B8), fontSize = 12.sp)
+                if (selectedEngine == "caissa" || selectedEngine == "morrow") {
+                    Text("This independent engine does not expose persona sliders.", color = Color(0xFF9B93B8), fontSize = 12.sp)
                 } else {
                     Text("Persona", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 10.dp))
                     QuickPersonalitySlider("Defensive", "Aggressive", aggression) { aggression = it }
@@ -772,7 +772,7 @@ private fun PlayFromHereDialog(
         onDismissRequest = onDismiss,
         title = { Text("Play from this position", fontWeight = FontWeight.Bold) },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
+            Column(Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
                 Text("Your color", fontSize = 12.sp, color = Color(0xFF9B93B8))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf("white" to "White", "black" to "Black", "random" to "Random").forEach { (id, label) ->
