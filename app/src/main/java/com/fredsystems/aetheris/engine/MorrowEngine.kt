@@ -168,6 +168,18 @@ object MorrowEngine {
         }
     }
 
+    fun principalLine(fen: String, depth: Int): List<String> {
+        val position = Board().apply { loadFromFen(fen) }
+        val line = mutableListOf<String>()
+        repeat(8) {
+            val moveText = bestMove(position.fen, depth.coerceIn(1, 8), 900) ?: return@repeat
+            val move = position.legalMoves().firstOrNull { it.toString().equals(moveText, ignoreCase = true) } ?: return@repeat
+            if (!position.doMove(move)) return@repeat
+            line.add(moveText)
+        }
+        return line
+    }
+
     /** Evaluation is from the side-to-move perspective. */
     private fun evaluate(b: Board): Int {
         var white = 0
