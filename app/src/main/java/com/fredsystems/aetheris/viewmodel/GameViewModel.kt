@@ -100,7 +100,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
             nativeEngineAvailable = true
             options.value = options.value.copy(mode = EngineMode.PURE_CLASSICAL)
             applyNativeOptions(options.value)
-            nnueStatus.value = when (settings.value.selectedEngine) { "caissa" -> "Caissa Kotlin active"; "aetheris_rapid" -> "Aetheris Rapid active"; else -> "Aetheris Classical active" }
+            nnueStatus.value = when (settings.value.selectedEngine) { "caissa" -> "Caissa Kotlin active"; "aetheris_rapid" -> "Aetheris Rapid active"; "aetheris_classic" -> "Aetheris Classic active"; else -> "Aetheris Enhanced active" }
         }.onFailure {
             nativeEngineAvailable = false
             engineAvailable.value = settings.value.selectedEngine == "caissa"
@@ -600,6 +600,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val fen = board.fen
         val searchOptions = options.value
         val rapidProfile = settings.value.selectedEngine == "aetheris_rapid"
+        val classicProfile = settings.value.selectedEngine == "aetheris_classic"
         val depth = if (rapidProfile) searchOptions.depth.coerceAtMost(12) else searchOptions.depth
         val perMove = moveTimeSeconds.value
         val timed = timeControlSeconds.value > 0
@@ -626,7 +627,8 @@ class GameViewModel(private val context: Context) : ViewModel() {
                         NativeEngine.searchPositionConfigured(
                             fen, depth, timeMs.toInt(),
                             searchOptions.aggression, searchOptions.positional, searchOptions.complexity,
-                            searchOptions.solidity, searchOptions.materialWeight, searchOptions.mode.ordinal
+                            searchOptions.solidity, searchOptions.materialWeight, searchOptions.mode.ordinal,
+                            if (classicProfile) 0 else 1
                         ).also { CrashDiagnostics.searchCompleted(context, it) }
                     }
                 }.onFailure { error -> CrashDiagnostics.recordException(context, "Engine.searchPosition", error) }.getOrNull()
