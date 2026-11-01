@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -289,6 +290,18 @@ fun ChessBoard(
                             .padding(square * 0.045f)
                     )
                 }
+                val ghostPiece = board.ghostPieces[index]
+                if (ghostPiece != null && !blindfold) {
+                    PieceImage(
+                        piece = ghostPiece,
+                        pieceSet = pieceSet,
+                        alpha = 0.42f,
+                        modifier = Modifier
+                            .offset(x = square * col, y = square * row)
+                            .size(square)
+                            .padding(square * 0.045f)
+                    )
+                }
                 val actualFile = index % 8
                 val actualRank = index / 8
                 if (row == 7) {
@@ -371,7 +384,7 @@ fun ChessBoard(
 }
 
 @Composable
-private fun PieceImage(piece: Piece, pieceSet: String, modifier: Modifier = Modifier) {
+private fun PieceImage(piece: Piece, pieceSet: String, modifier: Modifier = Modifier, alpha: Float = 1f) {
     val context = LocalContext.current
     val code = pieceCode(piece)
     val bitmap = remember(pieceSet, code) { PieceBitmapCache.get(context, pieceSet, code) }
@@ -379,14 +392,14 @@ private fun PieceImage(piece: Piece, pieceSet: String, modifier: Modifier = Modi
         Image(
             bitmap = bitmap,
             contentDescription = null,
-            modifier = modifier,
+            modifier = modifier.graphicsLayer(alpha = alpha),
             filterQuality = FilterQuality.High
         )
     } else {
         Image(
             painter = painterResource(id = legacyPieceRes(piece)),
             contentDescription = null,
-            modifier = modifier
+            modifier = modifier.graphicsLayer(alpha = alpha)
         )
     }
 }
