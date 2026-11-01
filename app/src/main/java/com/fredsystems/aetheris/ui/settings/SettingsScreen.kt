@@ -338,7 +338,7 @@ fun SettingsScreen(
                 Button(onClick = { viewModel.downloadOpeningBook() }, modifier = Modifier.weight(1f)) { Text("Download public book") }
                 OutlinedButton(onClick = { openingBookPicker.launch(arrayOf("text/*", "application/octet-stream", "*/*")) }, modifier = Modifier.weight(1f)) { Text("Import TSV") }
             }
-            if (viewModel.openingBookStatus.value.contains("installed", true) || viewModel.openingBookStatus.value.contains("imported", true)) {
+            if (!viewModel.openingBookStatus.value.contains("No opening book", true) && (viewModel.openingBookStatus.value.contains("installed", true) || viewModel.openingBookStatus.value.contains("imported", true))) {
                 TextButton(onClick = { viewModel.removeOpeningBook() }) { Text("Remove installed book") }
             }
         }
