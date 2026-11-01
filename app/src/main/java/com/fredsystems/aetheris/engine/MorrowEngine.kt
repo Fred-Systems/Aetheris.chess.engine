@@ -8,7 +8,6 @@ import com.github.bhlangonijr.chesslib.Square
 import com.github.bhlangonijr.chesslib.move.Move
 import kotlin.math.abs
 import kotlin.math.max
-import kotlin.math.min
 
 /**
  * Morrow is an independently written Kotlin chess engine.
@@ -34,7 +33,7 @@ object MorrowEngine {
     @Synchronized
     fun bestMove(fen: String, maxDepth: Int = 8, timeMs: Int = 1200): String? {
         val root = Board().apply { loadFromFen(fen) }
-        if (root.isMated || root.isDraw || root.isStaleMate) return null
+        if (root.isMated() || root.isDraw() || root.isStaleMate()) return null
         deadline = System.nanoTime() + timeMs.coerceAtLeast(50) * 1_000_000L
         nodes = 0
         rootBest = null
@@ -80,7 +79,7 @@ object MorrowEngine {
         nodes++
         checkTime()
         if (b.isMated()) return -MATE + ply
-        if (b.isDraw || b.isStaleMate) return 0
+        if (b.isDraw() || b.isStaleMate()) return 0
         if (depth <= 0) return quiescence(b, alphaIn, beta, ply)
         val key = b.fen
         val cached = table[key]
@@ -96,7 +95,7 @@ object MorrowEngine {
         var bestScore = -INF
         var bestMove: Move? = null
         val legal = b.legalMoves()
-        if (legal.isEmpty()) return if (b.isKingAttacked) -MATE + ply else 0
+        if (legal.isEmpty()) return if (b.isKingAttacked()) -MATE + ply else 0
         val ttMove = cached?.best
         val ordered = ordered(b, legal, ttMove, ply)
         for ((index, move) in ordered.withIndex()) {
@@ -131,7 +130,7 @@ object MorrowEngine {
         nodes++
         checkTime()
         if (b.isMated()) return -MATE + ply
-        val inCheck = b.isKingAttacked
+        val inCheck = b.isKingAttacked()
         var alpha = alphaIn
         if (!inCheck) {
             val stand = evaluate(b)
