@@ -292,6 +292,72 @@ static void genMoves(Board& b, std::vector<Move>& ml, bool capturesOnly) {
     }
 }
 
+// Static exchange evaluation estimates the material result of a capture sequence
+// on one square. It is used for ordering only in the enhanced engine profile.
+static Bitboard attackersTo(const Board& b, int target, int side) {
+    const int file = target & 7, rank = target >> 3;
+    Bitboard attackers = knightAttacks(target) & b.pieces[side][KNIGHT];
+    attackers |= kingAttacks(target) & b.pieces[side][KING];
+    const int pawnRank = rank + (side == WHITE ? -1 : 1);
+    if (pawnRank >= 0 && pawnRank < 8) {
+        for (int df : {-1, 1}) {
+            const int pawnFile = file + df;
+            if (pawnFile >= 0 && pawnFile < 8)
+                attackers |= b.pieces[side][PAWN] & (1ULL << (pawnRank * 8 + pawnFile));
+        }
+    }
+    attackers |= bishopAttacks(target, b.all) & (b.pieces[side][BISHOP] | b.pieces[side][QUEEN]);
+    attackers |= rookAttacks(target, b.all) & (b.pieces[side][ROOK] | b.pieces[side][QUEEN]);
+    return attackers;
+}
+
+static int staticExchange(Board position, Move move) {
+    const int from = move & 63, to = (move >> 6) & 63, promo = (move >> 12) & 7;
+    const int us = position.side, them = us ^ 1;
+    const int moving = pieceAt(position, from, us);
+    if (moving < 0) return 0;
+    int captured = pieceAt(position, to, them);
+    if (captured < 0 && moving == PAWN && to == position.epSquare) captured = PAWN;
+    const int promotionGain = promo ? ORDER_VALUE[promo] - ORDER_VALUE[PAWN] : 0;
+    int gain[32] = {};
+    gain[0] = (captured >= 0 ? ORDER_VALUE[captured] : 0) + promotionGain;
+    Undo initial;
+    makeMove(position, move, initial);
+    int occupant = promo ? promo : moving;
+    int side = position.side;
+    int depth = 0;
+    while (depth < 30) {
+        Bitboard attackers = attackersTo(position, to, side);
+        int attackerType = -1, attackerSquare = -1;
+        for (int p = PAWN; p <= KING; ++p) {
+            Bitboard candidates = attackers & position.pieces[side][p];
+            if (candidates) {
+                attackerType = p;
+                attackerSquare = __builtin_ctzll(candidates);
+                break;
+            }
+        }
+        if (attackerType < 0) break;
+        ++depth;
+        gain[depth] = ORDER_VALUE[occupant] - gain[depth - 1];
+        position.pieces[side ^ 1][occupant] &= ~(1ULL << to);
+        position.pieces[side][attackerType] &= ~(1ULL << attackerSquare);
+        int placed = attackerType;
+        if (attackerType == PAWN && ((side == WHITE && (to >> 3) == 7) || (side == BLACK && (to >> 3) == 0)))
+            placed = QUEEN;
+        position.pieces[side][placed] |= (1ULL << to);
+        occupant = placed;
+        side ^= 1;
+        rebuildOccupied(position);
+        if (gain[depth] < -20000) break;
+    }
+    while (depth > 0) {
+        gain[depth - 1] = -std::max(-gain[depth - 1], gain[depth]);
+        --depth;
+    }
+    return gain[0];
+}
+
 struct TTEntry2 { std::uint64_t key; int depth; int score; int flag; Move best; };
 // Keep the transposition table modest on memory-constrained Android devices.
 static std::vector<TTEntry2> tt2(1 << 18);
@@ -299,6 +365,10 @@ static std::vector<TTEntry2> tt2(1 << 18);
 static int historyHeuristic[2][64][64] = {};
 static Move killerMoves[128][2] = {};
 static std::uint64_t searchPath[256] = {};
+static Move movePath[256] = {};
+static int searchProfile = 1;
+
+void setSearchProfile(int profile) { searchProfile = profile == 0 ? 0 : 1; }
 
 
 void clearSearchTables() {
@@ -306,6 +376,7 @@ void clearSearchTables() {
     std::memset(historyHeuristic, 0, sizeof(historyHeuristic));
     std::memset(killerMoves, 0, sizeof(killerMoves));
     std::memset(searchPath, 0, sizeof(searchPath));
+    std::memset(movePath, 0, sizeof(movePath));
 }
 
 static int maxDepth = 6;
@@ -380,8 +451,9 @@ static int quiescence(Board& b, int alpha, int beta, int ply, int qply) {
             const int attacker = std::max(0, pieceAt(b, from, b.side));
             int victim = pieceAt(b, to, b.side ^ 1);
             if (victim < 0 && attacker == PAWN && to == b.epSquare) victim = PAWN;
+            const int exchange = searchProfile == 1 ? staticExchange(b, m) : 0;
             return (promo ? 100000 + ORDER_VALUE[std::max(0, std::min(5, promo))] : 0)
-                + (victim >= 0 ? ORDER_VALUE[victim] * 16 - ORDER_VALUE[attacker] : 0);
+                + (victim >= 0 ? 2000 + ORDER_VALUE[victim] * 16 - ORDER_VALUE[attacker] + exchange * 24 : 0);
         };
         return captureOrder(a) > captureOrder(c);
     });
@@ -467,7 +539,10 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode, int 
         int victim = pieceAt(b, to, b.side ^ 1);
         if (victim < 0 && attacker == PAWN && to == b.epSquare) victim = PAWN;
         if (promo) return 900000 + ORDER_VALUE[std::max(0, std::min(5, promo))];
-        if (victim >= 0) return 800000 + ORDER_VALUE[victim] * 16 - ORDER_VALUE[std::max(0, std::min(5, attacker))];
+        if (victim >= 0) {
+            const int exchange = searchProfile == 1 ? staticExchange(b, m) : 0;
+            return 800000 + ORDER_VALUE[victim] * 16 - ORDER_VALUE[std::max(0, std::min(5, attacker))] + exchange * 24;
+        }
         if (ply < 128 && killerMoves[ply][0] == m) return 700000;
         if (ply < 128 && killerMoves[ply][1] == m) return 690000;
         return historyHeuristic[b.side][from][to];
@@ -489,8 +564,19 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode, int 
         makeMove(b, move, u);
         int score;
         const bool givesCheck = inCheck(b, b.side);
-        const int childDepth = depth - 1 + ((givesCheck && ply < 18 && depth <= 14) ? 1 : 0);
-        const bool reduce = i >= 4 && depth >= 3 && quiet && !givesCheck;
+        const Move previousMove = (ply > 0 && ply < 256) ? movePath[ply - 1] : 0;
+        const int previousTo = (previousMove >> 6) & 63;
+        const bool previousWasCapture = previousMove != 0 &&
+            (pieceAt(b, previousTo, b.side) >= 0 || ((previousMove & 63) != previousTo));
+        const bool recapture = searchProfile == 1 && victim >= 0 && previousMove != 0 && previousTo == to;
+        const bool pawnAdvance = searchProfile == 1 && attacker == PAWN &&
+            ((b.side == WHITE && (to >> 3) == 6) || (b.side == BLACK && (to >> 3) == 1));
+        const int childDepth = depth - 1
+            + ((givesCheck && ply < 18 && depth <= 14) ? 1 : 0)
+            + ((recapture && previousWasCapture && ply < 20) ? 1 : 0)
+            + ((pawnAdvance && ply < 16) ? 1 : 0);
+        const bool reduce = i >= (searchProfile == 1 ? 6u : 4u) && depth >= 3 && quiet && !givesCheck;
+        if (ply >= 0 && ply < 256) movePath[ply] = move;
         if (i == 0) {
             score = -alphaBeta(b, childDepth, -beta, -alpha, pvNode, ply + 1);
         } else {
