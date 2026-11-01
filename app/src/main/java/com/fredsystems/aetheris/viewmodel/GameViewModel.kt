@@ -173,7 +173,13 @@ class GameViewModel(private val context: Context) : ViewModel() {
         }
         if (boardState.value.gameOver || historyIndex.value < historyLength.value - 1) return
         val userSide = if (playerColor.value == PieceColor.WHITE) Side.WHITE else Side.BLACK
-        if (mode.value == PlayMode.PLAY && settings.value.conditionalMoves && board.sideToMove != userSide && conditionalBaseFen == null && conditionalLines.isEmpty()) {
+        val clickedPiece = board.getPiece(LibSquare.squareAt(index))
+        // On the engine's turn, selecting one of its pieces starts a conditional
+        // branch; selecting one of the user's pieces remains a normal premove.
+        // This keeps the two features usable at the same time.
+        if (mode.value == PlayMode.PLAY && settings.value.conditionalMoves &&
+            board.sideToMove != userSide && clickedPiece != LibPiece.NONE &&
+            clickedPiece.pieceSide == board.sideToMove && conditionalBaseFen == null && conditionalLines.isEmpty()) {
             beginConditionalSetup()
             if (conditionalSetupActive.value) handleConditionalSetupClick(index)
             return
