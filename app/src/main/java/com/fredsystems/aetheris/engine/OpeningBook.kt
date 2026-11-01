@@ -95,10 +95,11 @@ class OpeningBook(private val context: Context) {
         val weighted = index[positionKey(fen)].orEmpty().filter { it.first in legalUci }
         if (weighted.isEmpty()) return null
 
-        // "random" samples from established, well-supported continuations rather
-        // than selecting arbitrary moves. Keep the choice within the stronger
-        // half of the book so variety does not mean random blunders.
+        // Top move always chooses the most frequently played continuation.
+        // Random good varies only among well-supported lines; Unorthodox explores
+        // the less common half of the installed book.
         val candidates = when (policy.lowercase()) {
+            "top" -> weighted.maxByOrNull { it.second }?.let { listOf(it) } ?: weighted
             "unorthodox" -> weighted.sortedBy { it.second }.take((weighted.size / 2).coerceAtLeast(1))
             "aggressive" -> {
                 val position = runCatching { Board().apply { loadFromFen(fen) } }.getOrNull()
