@@ -208,7 +208,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     private fun projectedPremoveBoard(userSide: Side): Board? {
         val draft = Board()
         if (runCatching { draft.loadFromFen(board.fen) }.isFailure) return null
-        if (draft.sideToMove != userSide && !draft.doNullMove()) return null
+        if (draft.sideToMove != userSide && !advanceProjectedTurn(draft)) return null
         for (uci in pendingPremoves) {
             if (uci.length < 4) return null
             val from = runCatching { LibSquare.valueOf(uci.take(2).uppercase()) }.getOrNull() ?: return null
@@ -227,9 +227,23 @@ class GameViewModel(private val context: Context) : ViewModel() {
             if (!draft.doMove(move)) return null
             // Skip the opponent's hypothetical reply while preserving a legal
             // projected board for the next queued move by the same user.
-            if (!draft.doNullMove()) return null
+            if (!advanceProjectedTurn(draft)) return null
         }
         return draft
+    }
+
+    // Advance the projected queue by one hypothetical opponent turn. Unlike chesslib's
+    // doNullMove(), this also works when the previous queued move gives check; the real
+    // opponent response will determine whether later queued moves remain legal.
+    private fun advanceProjectedTurn(draft: Board): Boolean {
+        val fields = draft.fen.split(" ").toMutableList()
+        if (fields.size < 6) return false
+        val oldSide = fields[1]
+        fields[1] = if (oldSide == "w") "b" else "w"
+        fields[3] = "-" // a skipped hypothetical reply expires en-passant rights
+        fields[4] = ((fields[4].toIntOrNull() ?: 0) + 1).toString()
+        if (oldSide == "b") fields[5] = ((fields[5].toIntOrNull() ?: 1) + 1).toString()
+        return runCatching { draft.loadFromFen(fields.joinToString(" ")) }.isSuccess
     }
 
     private fun handlePremoveClick(index: Int, userSide: Side) {
@@ -243,7 +257,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val queuedSquares = queuedPremoveSquares()
         val selectedFrom = selected?.let { LibSquare.squareAt(it) }
         val isLegalDestination = selectedFrom != null && projected.legalMoves().any { it.from == selectedFrom && it.to == sq }
-        if (projected.getPiece(sq) == LibPiece.NONE && index !in queuedSquares && !isLegalDestination) {
+        if (selected == null && projected.getPiece(sq) == LibPiece.NONE) {
             pendingPremoves.clear()
             boardState.value = boardState.value.copy(
                 selectedSquare = null,
@@ -284,8 +298,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
             return
         }
         val uci = move.toString().lowercase()
-        if (!settings.value.multiplePremoves) pendingPremoves.clear()
-        if (pendingPremoves.size < (if (settings.value.multiplePremoves) 12 else 1)) pendingPremoves.add(uci)
+        pendingPremoves.add(uci)
         boardState.value = boardState.value.copy(
             selectedSquare = null,
             legalTargets = emptySet(),
@@ -294,6 +307,11 @@ class GameViewModel(private val context: Context) : ViewModel() {
             statusText = if (settings.value.multiplePremoves) "Premove ${pendingPremoves.size} queued · in order" else "Premove queued",
             premoveHighlights = queuedPremoveSquares()
         )
+    }
+
+    private fun conditionalGhostPieces(draft: Board): Map<Int, Piece> {
+        val actualPieces = toUi(board).pieces
+        return toUi(draft).pieces.filter { (square, piece) -> actualPieces[square] != piece }
     }
 
     fun beginConditionalSetup() {
@@ -317,7 +335,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         conditionalSetupGeneration++
         conditionalSetupStep.value = "opponent"
         conditionalSetupActive.value = true
-        boardState.value = toUi(draft).copy(statusText = "Conditional setup: make the opponent's hypothetical move")
+        boardState.value = toUi(board).copy(ghostPieces = conditionalGhostPieces(draft), statusText = "Conditional setup: make the opponent's hypothetical move")
     }
 
     fun finishConditionalSetup() {
@@ -328,7 +346,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
         conditionalDraftBoard = null
         conditionalDraftOpponentUci = null
         conditionalBaseFen = null
+        val savedGhosts = if (conditionalLines.isEmpty()) emptyMap() else boardState.value.ghostPieces
         boardState.value = toUi(board).copy(
+            ghostPieces = savedGhosts,
             statusText = if (conditionalLines.isEmpty()) "Conditional setup closed" else "${conditionalLines.size} conditional move(s) armed"
         )
         maybeEngineMove()
@@ -364,7 +384,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
             val piece = draft.getPiece(sq)
             if (piece != LibPiece.NONE && piece.pieceSide == draft.sideToMove) {
                 val targets = draft.legalMoves().filter { it.from == sq }.map { it.to.ordinal }.toSet()
-                boardState.value = toUi(draft).copy(selectedSquare = index, legalTargets = targets, statusText = if (conditionalSetupStep.value == "opponent") "Choose the opponent's destination" else "Choose your conditional reply")
+                boardState.value = toUi(board).copy(selectedSquare = index, legalTargets = targets, ghostPieces = conditionalGhostPieces(draft), statusText = if (conditionalSetupStep.value == "opponent") "Choose the opponent's destination" else "Choose your conditional reply")
             }
             return
         }
@@ -387,9 +407,10 @@ class GameViewModel(private val context: Context) : ViewModel() {
         if (conditionalSetupStep.value == "opponent") {
             conditionalDraftOpponentUci = uci
             conditionalSetupStep.value = "reply"
-            boardState.value = toUi(draft).copy(
+            boardState.value = toUi(board).copy(
                 lastMoveFrom = move.from.ordinal,
                 lastMoveTo = move.to.ordinal,
+                ghostPieces = conditionalGhostPieces(draft),
                 statusText = "Opponent move previewed (not played). Now make your conditional reply."
             )
         } else {
@@ -399,9 +420,10 @@ class GameViewModel(private val context: Context) : ViewModel() {
             conditionalDraftOpponentUci = null
             conditionalBaseFen = draft.fen
             conditionalSetupStep.value = "opponent"
-            boardState.value = toUi(draft).copy(
+            boardState.value = toUi(board).copy(
                 selectedSquare = null,
                 legalTargets = emptySet(),
+                ghostPieces = conditionalGhostPieces(draft),
                 statusText = "Conditional saved: $opponentMove → $uci. Continue with another opponent move, or leave the board idle to finish."
             )
             // No floating Done/Cancel controls: users add several replies in a row.
