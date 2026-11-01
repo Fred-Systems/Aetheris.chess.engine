@@ -103,9 +103,6 @@ class MainActivity : ComponentActivity() {
             var showCrashReportPrompt by remember { mutableStateOf(crashReportPending) }
             AetherisTheme {
                 val navController = rememberNavController()
-                val bookImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-                    uri?.let(vm::importOpeningBook)
-                }
                 val nnueImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                     uri?.let { selectedUri ->
                         runCatching {
@@ -295,6 +292,9 @@ private fun SplashScreen(onFinished: () -> Unit) {
 
 @Composable
 fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavController) {
+    val bookImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(vm::importOpeningBook)
+    }
     val state by vm.boardState
     val eval by vm.evaluation
     val thinking by vm.engineThinking
