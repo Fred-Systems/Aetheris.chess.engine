@@ -562,6 +562,7 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode, int 
         int victim = pieceAt(b, to, b.side ^ 1);
         if (victim < 0 && attacker == PAWN && to == b.epSquare) victim = PAWN;
         const bool quiet = victim < 0 && ((move >> 12) & 7) == 0;
+        const bool isCapture = victim >= 0 || (attacker == PAWN && to == b.epSquare);
         Undo u;
         makeMove(b, move, u);
         int score;
@@ -577,7 +578,7 @@ static int alphaBeta(Board& b, int depth, int alpha, int beta, bool pvNode, int 
             + ((recapture && previousWasCapture && ply < 20) ? 1 : 0)
             + ((pawnAdvance && ply < 16) ? 1 : 0);
         const bool reduce = i >= (searchProfile == 1 ? 6u : 4u) && depth >= 3 && quiet && !givesCheck;
-        if (ply >= 0 && ply < 256) { movePath[ply] = move; moveWasCapture[ply] = victim >= 0 || (attacker == PAWN && to == b.epSquare); }
+        if (ply >= 0 && ply < 256) { movePath[ply] = move; moveWasCapture[ply] = isCapture; }
         if (i == 0) {
             score = -alphaBeta(b, childDepth, -beta, -alpha, pvNode, ply + 1);
         } else {
