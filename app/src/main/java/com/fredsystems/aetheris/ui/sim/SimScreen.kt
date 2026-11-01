@@ -39,6 +39,10 @@ fun SimScreen(viewModel: SimViewModel, onBack: () -> Unit, onOpenAnalysis: (com.
     var positionalB by remember { mutableStateOf(viewModel.positionalB.toFloat()) }
     var complexityB by remember { mutableStateOf(viewModel.complexityB.toFloat()) }
     var solidityB by remember { mutableStateOf(viewModel.solidityB.toFloat()) }
+    var openingBookA by remember { mutableStateOf(viewModel.openingBookA) }
+    var openingBookB by remember { mutableStateOf(viewModel.openingBookB) }
+    var openingPolicyA by remember { mutableStateOf(viewModel.openingPolicyA) }
+    var openingPolicyB by remember { mutableStateOf(viewModel.openingPolicyB) }
     var tuneA by remember { mutableStateOf(false) }
     var tuneB by remember { mutableStateOf(false) }
     var matchStarted by remember { mutableStateOf(false) }
@@ -188,6 +192,8 @@ fun SimScreen(viewModel: SimViewModel, onBack: () -> Unit, onOpenAnalysis: (com.
                             viewModel.complexityA = complexityA.toInt(); viewModel.solidityA = solidityA.toInt()
                             viewModel.aggressionB = aggressionB.toInt(); viewModel.positionalB = positionalB.toInt()
                             viewModel.complexityB = complexityB.toInt(); viewModel.solidityB = solidityB.toInt()
+                            viewModel.openingBookA = openingBookA; viewModel.openingBookB = openingBookB
+                            viewModel.openingPolicyA = openingPolicyA; viewModel.openingPolicyB = openingPolicyB
                             viewModel.start()
                             matchStarted = true
                         },
@@ -234,6 +240,8 @@ private fun EngineSetupCard(
     positional: Float, onPositional: (Float) -> Unit,
     complexity: Float, onComplexity: (Float) -> Unit,
     solidity: Float, onSolidity: (Float) -> Unit,
+    bookEnabled: Boolean, onBookEnabled: (Boolean) -> Unit,
+    bookPolicy: String, onBookPolicy: (String) -> Unit,
     expanded: Boolean,
     onExpanded: (Boolean) -> Unit,
     modifier: Modifier = Modifier
@@ -244,9 +252,14 @@ private fun EngineSetupCard(
     ) {
         Text(label, color = Color(0xFFF2EEFF), fontWeight = FontWeight.Bold, fontSize = 13.sp)
         EngineModePicker(mode, onMode, Modifier.fillMaxWidth())
-        Text(when (mode) { "Caissa" -> "Independent Kotlin engine"; "AetherisRapid" -> "Fast native Aetheris profile"; "AetherisStrong" -> "Enhanced native search"; else -> "Legacy Aetheris Classic search" }, color = Color(0xFFB9B2CE), fontSize = 10.sp)
+        Text(when (mode) { "Morrow" -> "Independent Kotlin engine · original search"; "Caissa" -> "Independent Kotlin engine"; "AetherisRapid" -> "Fast native Aetheris profile"; "AetherisStrong" -> "Enhanced native search"; else -> "Legacy Aetheris Classic search" }, color = Color(0xFFB9B2CE), fontSize = 10.sp)
         if (mode == "Caissa") Text("Caissa uses its independent Kotlin search; Aetheris style sliders do not affect it.", color = Color(0xFF9B93B8), fontSize = 10.sp)
         PersonaPicker(persona, onPersona, Modifier.fillMaxWidth())
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Opening book for this side", color = Color(0xFFB9B2CE), fontSize = 10.sp, modifier = Modifier.weight(1f))
+            Switch(checked = bookEnabled, onCheckedChange = onBookEnabled)
+        }
+        OpeningPolicyPicker(bookPolicy, onBookPolicy, Modifier.fillMaxWidth())
         Text("Search depth: ${depth.toInt()}", color = Color(0xFFB9B2CE), fontSize = 11.sp)
         Slider(value = depth, onValueChange = onDepth, valueRange = 1f..20f, steps = 18)
         TextButton(onClick = { onExpanded(!expanded) }, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)) {
@@ -264,7 +277,7 @@ private fun EngineSetupCard(
 @Composable
 private fun EngineModePicker(current: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
-    val options = listOf("AetherisStrong" to "Aetheris (Enhanced)", "PureClassical" to "Aetheris Classic", "Caissa" to "Caissa", "AetherisRapid" to "Aetheris Rapid")
+    val options = listOf("AetherisStrong" to "Aetheris (Enhanced)", "PureClassical" to "Aetheris Classic", "Morrow" to "Morrow (Independent)", "Caissa" to "Caissa", "AetherisRapid" to "Aetheris Rapid")
     Box(modifier) {
         OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)) {
             Text(options.firstOrNull { it.first == current }?.second ?: current, fontSize = 11.sp)
@@ -272,6 +285,20 @@ private fun EngineModePicker(current: String, onChange: (String) -> Unit, modifi
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { (id, label) -> DropdownMenuItem(text = { Text(label) }, onClick = { onChange(id); expanded = false })
             }
+        }
+    }
+}
+
+@Composable
+private fun OpeningPolicyPicker(current: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
+    var expanded by remember { mutableStateOf(false) }
+    val options = listOf("random" to "Random good", "top" to "Top move", "unorthodox" to "Unorthodox", "aggressive" to "Aggressive")
+    Box(modifier) {
+        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 5.dp)) {
+            Text("Book style: ${options.firstOrNull { it.first == current }?.second ?: "Random good"}", fontSize = 10.sp)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { (id, label) -> DropdownMenuItem(text = { Text(label) }, onClick = { onChange(id); expanded = false }) }
         }
     }
 }
