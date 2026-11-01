@@ -4,24 +4,6 @@ name: Publish Aetheris v1.0.27 APK
 # Publish v1.0.27 from main with the final premove queue, board-based conditional setup, fixed board layout, and settings guidance and position-bound conditional-reply cleanup. Stable signing is mandatory; never publish a debug-signed update. Includes the latest Notebook, premove, engine-match, and settings updates. Final source snapshot, including the Notebook variation parser, analysis lifecycle, and live Notebook refresh fixes; release attempt restarted after queued CI runs.
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - .github/workflows/release-v1.0.27.yml
-      - app/build.gradle.kts
-      - app/src/main/java/com/fredsystems/aetheris/MainActivity.kt
-      - app/src/main/java/com/fredsystems/aetheris/domain/model/AppSettings.kt
-      - app/src/main/java/com/fredsystems/aetheris/viewmodel/SimViewModel.kt
-      - app/src/main/java/com/fredsystems/aetheris/viewmodel/GameViewModel.kt
-      - app/src/main/java/com/fredsystems/aetheris/engine/OpeningBook.kt
-      - app/src/main/java/com/fredsystems/aetheris/ui/board/ChessBoard.kt
-      - app/src/main/java/com/fredsystems/aetheris/updater/GitHubUpdater.kt
-      - app/src/main/java/com/fredsystems/aetheris/ui/settings/SettingsScreen.kt
-      - app/src/main/java/com/fredsystems/aetheris/ui/sim/SimScreen.kt
-      - app/src/main/java/com/fredsystems/aetheris/engine/NativeEngine.kt
-      - app/src/main/cpp/search.cpp
-      - app/src/main/cpp/jni.cpp
-      - app/src/main/cpp/uci.cpp
   workflow_dispatch:
 
 permissions:
