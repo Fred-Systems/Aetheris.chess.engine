@@ -12,6 +12,7 @@ import com.fredsystems.aetheris.domain.model.PieceColor
 import com.fredsystems.aetheris.domain.model.PieceType
 import com.fredsystems.aetheris.engine.NativeEngine
 import com.fredsystems.aetheris.engine.CaissaEngine
+import com.fredsystems.aetheris.engine.MorrowEngine
 import com.fredsystems.aetheris.engine.OpeningBook
 import com.fredsystems.aetheris.domain.model.SettingsStore
 import com.github.bhlangonijr.chesslib.Board
@@ -50,17 +51,21 @@ class SimViewModel(private val context: Context) : ViewModel() {
     var positionalB = 50
     var complexityB = 50
     var solidityB = 50
+    var openingBookA = appSettings.openingBookEnabled
+    var openingBookB = appSettings.openingBookEnabled
+    var openingPolicyA = appSettings.openingBookPolicy
+    var openingPolicyB = appSettings.openingBookPolicy
     private var nativeEngineInitialized = false
 
     fun start() {
         if (running.value) return
-        val needsNative = !modeA.equals("Caissa", true) || !modeB.equals("Caissa", true)
+        val needsNative = (!modeA.equals("Caissa", true) && !modeA.equals("Morrow", true)) || (!modeB.equals("Caissa", true) && !modeB.equals("Morrow", true))
         if (needsNative && !nativeEngineInitialized) {
             runCatching {
                 NativeEngine.initialize()
                 nativeEngineInitialized = true
             }.onFailure {
-                status.value = "Aetheris Classical initialization failed: ${it.message ?: it.javaClass.simpleName}"
+                status.value = "Native engine initialization failed: ${it.message ?: it.javaClass.simpleName}"
                 return
             }
         }
@@ -81,12 +86,14 @@ class SimViewModel(private val context: Context) : ViewModel() {
                         val mv = withContext(Dispatchers.Default) {
                             runCatching {
                                 val legal = board.legalMoves().map { it.toString().lowercase() }.toSet()
-                                val bookMove = if (appSettings.openingBookEnabled && openingBook.installed())
-                                    openingBook.choose(fen, legal, appSettings.openingBookPolicy) else null
-                                bookMove ?: if (mode.equals("Caissa", true)) {
-                                    CaissaEngine.bestMove(fen, depth.coerceIn(1, 4))
-                                } else {
-                                    NativeEngine.searchConfiguredPosition(
+                                val useBook = if (white) openingBookA else openingBookB
+                                val policy = if (white) openingPolicyA else openingPolicyB
+                                val bookMove = if (useBook && openingBook.installed())
+                                    openingBook.choose(fen, legal, policy) else null
+                                bookMove ?: when {
+                                    mode.equals("Caissa", true) -> CaissaEngine.bestMove(fen, depth.coerceIn(1, 4))
+                                    mode.equals("Morrow", true) -> MorrowEngine.bestMove(fen, depth.coerceIn(1, 18), timeMs.coerceIn(100, 30000))
+                                    else -> NativeEngine.searchConfiguredPosition(
                                         fen = fen,
                                         depth = if (mode.equals("AetherisRapid", true)) depth.coerceIn(1, 12) else depth.coerceIn(1, 24),
                                         timeMs = if (mode.equals("AetherisRapid", true)) timeMs.coerceIn(100, 1200) else timeMs.coerceIn(100, 30000),
@@ -125,10 +132,11 @@ class SimViewModel(private val context: Context) : ViewModel() {
                         boardState.value = toUi(board)
                         eval.value = withContext(Dispatchers.Default) {
                             runCatching {
-                                if (mode.equals("Caissa", true)) {
-                                    val sideScore = CaissaEngine.evaluate(board.fen)
-                                    if (board.sideToMove == Side.WHITE) sideScore else -sideScore
-                                } else NativeEngine.evaluateFen(board.fen)
+                                when {
+                                    mode.equals("Caissa", true) -> CaissaEngine.evaluate(board.fen)
+                                    mode.equals("Morrow", true) -> MorrowEngine.evaluate(board.fen)
+                                    else -> NativeEngine.evaluateFen(board.fen)
+                                }
                             }.getOrDefault(eval.value)
                         }
                         plies++
