@@ -193,8 +193,8 @@ object MorrowEngine {
             val type = p.pieceType.ordinal
             val material = value[type]
             if (type in 1..4) phase += when (type) { 1 -> 1; 2 -> 1; 3 -> 2; else -> 4 }
-            val file = sq.file
-            val rank = sq.rank
+            val file = sq.ordinal % 8
+            val rank = sq.ordinal / 8
             val relativeRank = if (p.pieceSide == Side.WHITE) rank else 7 - rank
             val center = 7 - (abs(file * 2 - 7) + abs(rank * 2 - 7))
             val positional = when (type) {
