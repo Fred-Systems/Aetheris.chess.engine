@@ -478,22 +478,6 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                         }
                     )
                 }
-                if (settings.conditionalMoves && vm.conditionalSetupActive.value) {
-                    Surface(
-                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 5.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color(0xEE171322)
-                    ) {
-                        Row(Modifier.padding(horizontal = 5.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            TextButton(onClick = { vm.finishConditionalSetup() }, contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)) {
-                                Text("Done", fontSize = 11.sp)
-                            }
-                            TextButton(onClick = { vm.cancelConditionalSetup() }, contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)) {
-                                Text("Cancel all", fontSize = 11.sp)
-                            }
-                        }
-                    }
-                }
             }
 
             Row(
