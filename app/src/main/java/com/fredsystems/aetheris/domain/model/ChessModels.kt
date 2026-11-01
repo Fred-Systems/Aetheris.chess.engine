@@ -27,5 +27,6 @@ data class BoardState(
     val checkSquare: Int? = null,
     val moveNumber: Int = 0,
     val gameOver: Boolean = false,
-    val statusText: String = ""
+    val statusText: String = "",
+    val ghostPieces: Map<Int, Piece> = emptyMap()
 )
