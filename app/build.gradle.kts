@@ -1,3 +1,4 @@
+// Release v1.0.28: stable repository signing is required for upgrade compatibility.
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
