@@ -104,8 +104,12 @@ class GameViewModel(private val context: Context) : ViewModel() {
             nnueStatus.value = when (settings.value.selectedEngine) { "morrow" -> "Morrow independent engine active"; "caissa" -> "Caissa Kotlin active"; "aetheris_rapid" -> "Aetheris Rapid active"; "aetheris_classic" -> "Aetheris Classic active"; else -> "Aetheris Enhanced active" }
         }.onFailure {
             nativeEngineAvailable = false
-            engineAvailable.value = settings.value.selectedEngine == "caissa"
-            nnueStatus.value = if (engineAvailable.value) "Caissa Kotlin engine active" else "Native classical engine initialization failed"
+            engineAvailable.value = settings.value.selectedEngine == "caissa" || settings.value.selectedEngine == "morrow"
+            nnueStatus.value = when (settings.value.selectedEngine) {
+                "morrow" -> "Morrow independent engine active · native library not required"
+                "caissa" -> "Caissa Kotlin engine active"
+                else -> "Native engine initialization failed"
+            }
         }
         evalVisible.value = settings.value.showEvalPlay
         moveTimeSeconds.value = settings.value.moveTimeSeconds
