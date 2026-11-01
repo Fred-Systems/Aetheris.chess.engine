@@ -21,6 +21,7 @@ on:
       - app/src/main/java/com/fredsystems/aetheris/engine/NativeEngine.kt
       - app/src/main/cpp/search.cpp
       - app/src/main/cpp/jni.cpp
+      - app/src/main/cpp/uci.cpp
   workflow_dispatch:
 
 permissions:
