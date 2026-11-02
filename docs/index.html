@@ -90,6 +90,24 @@ select{background:#241e34;border:1px solid #352c4a;color:var(--text);padding:10p
 .actions .btn{flex:1}
 @media(max-width:860px){.layout{grid-template-columns:1fr}.side{order:2}.main-col{order:1}.board{width:min(92vw,560px)}.eval-wrap{height:min(92vw,560px)}}
 @media(max-width:520px){body{padding:10px}.download{padding:9px 10px}.brand h1{font-size:22px}.iconbtn{width:33px}}
+
+/* Android app feature guide */
+.feature-guide{margin:22px 0 12px}
+.feature-heading{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:12px}
+.feature-heading h2{margin:0;font-size:22px;letter-spacing:-.5px}
+.feature-heading p{margin:4px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
+.feature-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.feature-card{background:linear-gradient(145deg,#1d182b,#171321);border:1px solid var(--line);border-radius:17px;padding:16px}
+.feature-card h3{font-size:14px;margin:0 0 8px;color:#f3efff}
+.feature-card p,.feature-card li{font-size:12px;line-height:1.6;color:#b7afce}
+.feature-card p{margin:0}
+.feature-card ul{margin:8px 0 0;padding-left:17px}
+.feature-card li+li{margin-top:4px}
+.feature-card.wide{grid-column:1/-1}
+.feature-pill{display:inline-flex;background:#29213d;color:#c9baff;border:1px solid #44365e;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:800;margin:0 5px 5px 0}
+.feature-note{color:#8f87aa!important;font-size:11px!important;margin-top:9px!important}
+@media(max-width:620px){.feature-grid{grid-template-columns:1fr}.feature-card.wide{grid-column:auto}.feature-heading{display:block}}
+
 </style>
 </head>
 <body>
@@ -181,6 +199,101 @@ select{background:#241e34;border:1px solid #352c4a;color:var(--text);padding:10p
       </div>
     </aside>
   </div>
+
+
+  <section class="feature-guide" id="android-features" aria-labelledby="featureTitle">
+    <div class="feature-heading">
+      <div><h2 id="featureTitle">Aetheris for Android · Full feature set</h2>
+      <p>The Android app includes dedicated engine, opening-book, analysis and gameplay tools beyond this browser board.</p></div>
+      <a class="download" href="https://github.com/Fred-Systems/Aetheris.chess.engine/releases/latest/download/Aetheris.apk">Get the Android app</a>
+    </div>
+    <div class="feature-grid">
+      <article class="feature-card wide">
+        <h3>Multiple built-in chess engines</h3>
+        <p>Choose an engine from the engine selector in the app. Aetheris is the default; the alternatives have distinct search implementations and playing profiles.</p>
+        <ul>
+          <li><strong>Aetheris Enhanced</strong> — the primary native engine, with enhanced move ordering and tactical extensions.</li>
+          <li><strong>Aetheris Classic</strong> — the classic native search profile.</li>
+          <li><strong>Aetheris Rapid</strong> — the enhanced native engine configured for a faster move budget.</li>
+          <li><strong>Morrow</strong> — an independently authored Kotlin engine with iterative-deepening principal-variation search, a transposition table, quiescence search, and its own evaluator. Its playing strength is still being benchmarked.</li>
+          <li><strong>Caissa</strong> — a separate Kotlin engine with its own alpha-beta search.</li>
+          <li><strong>External UCI engines</strong> — manage compatible external engines from the External Engines area in Settings.</li>
+        </ul>
+        <p class="feature-note">Engine capabilities and strength vary; Morrow and Caissa are separate engines, not alternate names for Aetheris.</p>
+      </article>
+      <article class="feature-card">
+        <h3>Playing strength & engine personality</h3>
+        <p>Set a playing level from 1–20 or switch to exact search-depth control. The level display shows its associated search depth and nominal think-time budget.</p>
+        <ul>
+          <li>Persona presets: The Grandmaster, The Maverick, The Iron Wall and The Tal Prodigy.</li>
+          <li>Customize aggression, positional vs tactical play, complexity vs simplification, and solidity vs activity.</li>
+          <li>Set a custom time-per-move budget or use the selected level's nominal budget.</li>
+          <li>Reset engine settings to their defaults.</li>
+          <li>Optional pondering searches likely replies while you think; it uses extra CPU, battery and heat.</li>
+        </ul>
+      </article>
+      <article class="feature-card">
+        <h3>Opening book & book styles</h3>
+        <p>Enable the opening book for games, view book continuations in analysis, download the public Lichess opening database, or import your own Lichess-format TSV opening file.</p>
+        <ul>
+          <li><strong>Random good</strong> — varies among well-supported continuations (default).</li>
+          <li><strong>Top move</strong> — always chooses the most frequently played continuation.</li>
+          <li><strong>Unorthodox</strong> — favors less common lines in the installed book.</li>
+          <li><strong>Aggressive</strong> — favors active, centralizing and capture-oriented choices when available.</li>
+        </ul>
+        <p class="feature-note">Tap the book icon to toggle book use; long-press it to open the book settings.</p>
+      </article>
+      <article class="feature-card">
+        <h3>Analysis board & engine variations</h3>
+        <ul>
+          <li>Analyze positions with selectable engine lines (1–5) and configurable variation length.</li>
+          <li>Evaluation bar, best-move arrow and optional multiple engine-thinking arrows.</li>
+          <li>Color-coded candidate arrows: green for the top line, blue for the second, amber for the third.</li>
+          <li>Navigate to the beginning, previous move, next move or end; play through moves with adjustable autoplay timing.</li>
+          <li>Open a saved game or notebook position directly in analysis.</li>
+          <li>Show opening-book continuation arrows when a book is installed.</li>
+        </ul>
+      </article>
+      <article class="feature-card">
+        <h3>Advanced move input</h3>
+        <ul>
+          <li>Queue multiple sequential premoves, including repeated moves by the same piece.</li>
+          <li>Premove sequences execute in order after the engine replies; an illegal next move cancels the remaining queue.</li>
+          <li>Conditional moves let you preview hypothetical opponent moves and prepare your replies without changing the live board.</li>
+          <li>Build multiple conditional opponent/reply sequences; tapping an unrelated empty square cancels the setup.</li>
+          <li>Optional blindfold mode and experimental Chess960 starting positions.</li>
+        </ul>
+      </article>
+      <article class="feature-card">
+        <h3>Engine matches, positions & notebook</h3>
+        <ul>
+          <li>Run engine-vs-engine simulations and choose the participating engines.</li>
+          <li>Start a game from an analyzed position, selecting the side, time control and search depth.</li>
+          <li>Save and revisit game records in the game notebook.</li>
+          <li>Use PGN / move-history tools, move navigation and analysis from saved records.</li>
+        </ul>
+      </article>
+      <article class="feature-card">
+        <h3>Board, sound & layout settings</h3>
+        <ul>
+          <li>Large selection of Lichess piece styles and board themes.</li>
+          <li>Adjust app density and board size; flip the board and reset layout.</li>
+          <li>Configure sound mute and volume; Lichess move/capture sounds are cached after first download.</li>
+          <li>Choose default player color and time control; use per-game clocks or move-time settings.</li>
+          <li>Choose whether evaluation and the PGN panel appear by default.</li>
+        </ul>
+      </article>
+      <article class="feature-card">
+        <h3>Updates & diagnostics</h3>
+        <ul>
+          <li>Check for and install new Aetheris APK releases from the app.</li>
+          <li>Export crash diagnostics to help investigate unexpected exits.</li>
+          <li>Import custom NNUE weight files for testing and diagnostics; loading a network is not a guarantee of playing strength or successful calibration.</li>
+        </ul>
+      </article>
+    </div>
+    <p class="feature-note">This page's interactive chessboard is the browser version. The Android-only controls described above are available in the APK; they are not all interactive controls on this webpage.</p>
+  </section>
 
   <footer>Developed by Fred-Systems · Pieces by Lichess (cburnett and friends) · Open source</footer>
 </div>
