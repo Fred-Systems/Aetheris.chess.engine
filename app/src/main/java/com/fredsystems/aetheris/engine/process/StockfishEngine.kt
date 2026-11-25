@@ -189,7 +189,10 @@ class StockfishEngine(private val context: Context) {
         var offset = 0
         while (offset < block.size) {
             val count = input.read(block, offset, block.size - offset)
-            if (count < 0) return offset == 0
+            if (count < 0) {
+                if (offset == 0) return false
+                error("Incomplete tar archive header")
+            }
             offset += count
         }
         return true
