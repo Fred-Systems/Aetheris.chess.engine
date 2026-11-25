@@ -335,7 +335,7 @@ fun SettingsScreen(
             Text("Random good (default) varies among well-supported continuations. Top move always selects the most frequently played line. Unorthodox favors less common book lines. Aggressive favors active, centralizing and capture-oriented continuations where the book offers them.", color = Color(0xFF9B93B8), fontSize = 11.sp)
             Divider(color = Color(0xFF393248), modifier = Modifier.padding(vertical = 6.dp))
             Text("Stockfish engine", color = Color(0xFFF2EEFF), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Text("Download the latest official Stockfish Android build. Once installed, Stockfish can be selected for either side in Engine Arena.", color = Color(0xFF9B93B8), fontSize = 11.sp)
+            Text("Download the latest official Stockfish Android build. Once installed, Stockfish can be selected for Play or either side in Engine Arena.", color = Color(0xFF9B93B8), fontSize = 11.sp)
             Text(stockfishStatus, color = Color(0xFFB9A8FF), fontSize = 11.sp)
             Button(
                 onClick = {
