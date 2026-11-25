@@ -561,7 +561,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                     Text("Recommended · Download now", color = Color(0xFF7CDBA1), fontWeight = FontWeight.SemiBold)
                     Text(vm.openingBookStatus.value, color = Color(0xFF9B93B8), fontSize = 12.sp)
                     Divider(color = Color(0xFF393248), modifier = Modifier.padding(vertical = 4.dp))
-                    Text("You can also add Stockfish as an independent engine for either side in Engine Arena.", color = Color(0xFF9B93B8), fontSize = 12.sp)
+                    Text("You can also add Stockfish as an independent engine for Play or either side in Engine Arena.", color = Color(0xFF9B93B8), fontSize = 12.sp)
                     Text(stockfishStatus, color = Color(0xFFB9A8FF), fontSize = 11.sp)
                     OutlinedButton(
                         onClick = {
