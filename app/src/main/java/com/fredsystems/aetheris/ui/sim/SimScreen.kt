@@ -317,13 +317,11 @@ private fun EngineModePicker(current: String, onChange: (String) -> Unit, modifi
                     verticalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     options.forEach { (id, label) ->
-                        Surface(
+                        TextButton(
                             onClick = { onChange(id); expanded = false },
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (current == id) Color(0xFF302448) else Color(0xFF1A1626),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(label, color = Color(0xFFF2EEFF), modifier = Modifier.padding(12.dp), fontSize = 13.sp)
+                            Text(label, color = if (current == id) Color(0xFFB9A8FF) else Color(0xFFF2EEFF), fontSize = 13.sp)
                         }
                     }
                 }
