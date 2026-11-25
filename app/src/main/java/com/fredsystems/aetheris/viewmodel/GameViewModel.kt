@@ -105,7 +105,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
             nativeEngineAvailable = true
             options.value = options.value.copy(mode = EngineMode.PURE_CLASSICAL)
             applyNativeOptions(options.value)
-            nnueStatus.value = when (settings.value.selectedEngine) { "morrow" -> "Morrow independent engine active"; "caissa" -> "Caissa Kotlin active"; "aetheris_rapid" -> "Aetheris Rapid active"; "aetheris_classic" -> "Aetheris Classic active"; else -> "Aetheris Enhanced active" }
+            nnueStatus.value = when (settings.value.selectedEngine) { "morrow" -> "Morrow independent engine active"; "caissa" -> "Caissa Kotlin active"; "stockfish" -> if (stockfishEngine.isInstalled()) "Stockfish ${stockfishEngine.installedVersion()} active" else "Stockfish is not installed · download it in Settings"; "aetheris_rapid" -> "Aetheris Rapid active"; "aetheris_classic" -> "Aetheris Classic active"; else -> "Aetheris Enhanced active" }
         }.onFailure {
             nativeEngineAvailable = false
             engineAvailable.value = settings.value.selectedEngine == "caissa" || settings.value.selectedEngine == "morrow" || (settings.value.selectedEngine == "stockfish" && stockfishEngine.isInstalled())
