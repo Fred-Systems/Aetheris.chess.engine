@@ -84,7 +84,7 @@ class StockfishEngine(private val context: Context) {
         }
     }
 
-    suspend fun bestMove(fen: String, depth: Int, timeMs: Int): String = withContext(Dispatchers.IO) {
+    fun bestMove(fen: String, depth: Int, timeMs: Int): String {
         val binary = findBinary() ?: error("Stockfish is not installed. Download it from Settings first.")
         if (process?.isAlive != true || !ready) start(binary)
         send("position fen $fen")
@@ -97,7 +97,8 @@ class StockfishEngine(private val context: Context) {
                 break
             }
         }
-        result?.takeIf { it.length >= 4 && it != "(none)" } ?: error("Stockfish did not return a legal move")
+        return result?.takeIf { it.length >= 4 && it != "(none)" }
+            ?: error("Stockfish did not return a legal move")
     }
 
     private fun start(binary: File) {
