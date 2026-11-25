@@ -712,8 +712,8 @@ private fun EnginePickerDialog(selectedEngine: String, onSelect: (String) -> Uni
                     Triple("morrow", "Morrow", "Independent Kotlin engine with its own search and evaluation architecture"),
                     Triple("aetheris_classic", "Aetheris Classic", "The previous native search behavior, retained as a separate option"),
                     Triple("caissa", "Caissa", "Independent Kotlin chess engine"),
-                    Triple("aetheris_rapid", "Aetheris Rapid", "Fast-play profile using the enhanced Aetheris search core")
-                    ,Triple("stockfish", "Stockfish", "Official downloadable Stockfish UCI engine")
+                    Triple("aetheris_rapid", "Aetheris Rapid", "Fast-play profile using the enhanced Aetheris search core"),
+                    Triple("stockfish", "Stockfish", "Official downloadable Stockfish UCI engine")
                 ).forEach { (id, title, description) ->
                     Surface(
                         shape = RoundedCornerShape(12.dp),
