@@ -23,6 +23,7 @@ import com.fredsystems.aetheris.engine.NativeEngine
 import com.fredsystems.aetheris.engine.OpeningBook
 import com.fredsystems.aetheris.engine.CaissaEngine
 import com.fredsystems.aetheris.engine.MorrowEngine
+import com.fredsystems.aetheris.engine.process.StockfishEngine
 import com.github.bhlangonijr.chesslib.Board
 import com.github.bhlangonijr.chesslib.Piece as LibPiece
 import com.github.bhlangonijr.chesslib.PieceType as LibPieceType
@@ -48,6 +49,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     private val store = SettingsStore(context)
     private val soundPlayer = LichessSoundPlayer(context.applicationContext)
     private val openingBook = OpeningBook(context.applicationContext)
+    private val stockfishEngine = StockfishEngine(context.applicationContext)
     val openingBookStatus = mutableStateOf(if (openingBook.installed()) "Opening book installed" else "No opening book installed")
     val openingBookMoves = mutableStateOf<List<String>>(emptyList())
     private var board = Board()
@@ -106,10 +108,11 @@ class GameViewModel(private val context: Context) : ViewModel() {
             nnueStatus.value = when (settings.value.selectedEngine) { "morrow" -> "Morrow independent engine active"; "caissa" -> "Caissa Kotlin active"; "aetheris_rapid" -> "Aetheris Rapid active"; "aetheris_classic" -> "Aetheris Classic active"; else -> "Aetheris Enhanced active" }
         }.onFailure {
             nativeEngineAvailable = false
-            engineAvailable.value = settings.value.selectedEngine == "caissa" || settings.value.selectedEngine == "morrow"
+            engineAvailable.value = settings.value.selectedEngine == "caissa" || settings.value.selectedEngine == "morrow" || (settings.value.selectedEngine == "stockfish" && stockfishEngine.isInstalled())
             nnueStatus.value = when (settings.value.selectedEngine) {
                 "morrow" -> "Morrow independent engine active · native library not required"
                 "caissa" -> "Caissa Kotlin engine active"
+                "stockfish" -> if (stockfishEngine.isInstalled()) "Stockfish ${stockfishEngine.installedVersion()} active" else "Stockfish is not installed · download it in Settings"
                 else -> "Native engine initialization failed"
             }
         }
@@ -649,7 +652,12 @@ class GameViewModel(private val context: Context) : ViewModel() {
     }
 
     private fun startEngineSearch(force: Boolean) {
-        if (!engineAvailable.value && settings.value.selectedEngine != "caissa" && settings.value.selectedEngine != "morrow") return
+        if (settings.value.selectedEngine == "stockfish" && !stockfishEngine.isInstalled()) {
+            engineAvailable.value = false
+            nnueStatus.value = "Stockfish is not installed · download it in Settings"
+            return
+        }
+        if (!engineAvailable.value && settings.value.selectedEngine != "caissa" && settings.value.selectedEngine != "morrow" && settings.value.selectedEngine != "stockfish") return
         val fen = board.fen
         val searchOptions = options.value
         val rapidProfile = settings.value.selectedEngine == "aetheris_rapid"
@@ -677,6 +685,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
                     when {
                         settings.value.selectedEngine == "caissa" -> CaissaEngine.bestMove(fen, depth.coerceIn(1, 4))
                         morrowProfile -> MorrowEngine.bestMove(fen, depth.coerceIn(1, 18), timeMs.toInt())
+                        settings.value.selectedEngine == "stockfish" -> stockfishEngine.bestMove(fen, depth.coerceIn(1, 40), timeMs.toInt())
                         else -> {
                         CrashDiagnostics.searchStarted(context, fen, depth, timeMs.toInt())
                         NativeEngine.searchPositionConfigured(
@@ -723,6 +732,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
     fun stopEngine() {
         engineGeneration++
         engineThinking.value = false
+        stockfishEngine.stop()
     }
 
     private fun createChess960Board(): Board {
@@ -1077,8 +1087,12 @@ class GameViewModel(private val context: Context) : ViewModel() {
         if (s.flipped != flipped.value) flipped.value = s.flipped
         if (engineChanged) {
             stopEngine()
-            engineAvailable.value = if (s.selectedEngine == "caissa" || s.selectedEngine == "morrow") true else nativeEngineAvailable
-            nnueStatus.value = when (s.selectedEngine) { "morrow" -> "Morrow independent engine active"; "caissa" -> "Caissa Kotlin active"; "aetheris_rapid" -> "Aetheris Rapid active"; "aetheris_classic" -> "Aetheris Classic active"; else -> "Aetheris Enhanced active" }
+            engineAvailable.value = when (s.selectedEngine) {
+                "caissa", "morrow" -> true
+                "stockfish" -> stockfishEngine.isInstalled()
+                else -> nativeEngineAvailable
+            }
+            nnueStatus.value = when (s.selectedEngine) { "morrow" -> "Morrow independent engine active"; "caissa" -> "Caissa Kotlin active"; "stockfish" -> if (stockfishEngine.isInstalled()) "Stockfish ${stockfishEngine.installedVersion()} active" else "Stockfish is not installed · download it in Settings"; "aetheris_rapid" -> "Aetheris Rapid active"; "aetheris_classic" -> "Aetheris Classic active"; else -> "Aetheris Enhanced active" }
             if (mode.value == PlayMode.PLAY) maybeEngineMove()
             updateEvaluationAsync()
         }
@@ -1123,6 +1137,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
                 val raw = when (settings.value.selectedEngine) {
                     "caissa" -> runCatching { CaissaEngine.evaluate(fen) }.getOrDefault(0)
                     "morrow" -> runCatching { MorrowEngine.evaluate(fen) }.getOrDefault(0)
+                    "stockfish" -> runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
                     else -> {
                     val searchedCp = runCatching { NativeEngine.searchEvaluationFen(fen, 5, 900) }.getOrNull()
                     searchedCp ?: runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
