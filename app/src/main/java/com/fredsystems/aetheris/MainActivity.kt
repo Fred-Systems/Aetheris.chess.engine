@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontFamily
@@ -75,6 +76,7 @@ import com.fredsystems.aetheris.viewmodel.GameViewModel
 import com.fredsystems.aetheris.viewmodel.PlayMode
 import com.fredsystems.aetheris.viewmodel.SimViewModel
 import com.fredsystems.aetheris.updater.GitHubUpdater
+import com.fredsystems.aetheris.engine.process.StockfishEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -305,6 +307,11 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
     val liveAnalysisLines = vm.analysisLines.value
     val flipped by vm.flipped
     val settings by vm.settings
+    val appContext = LocalContext.current.applicationContext
+    val stockfish = remember(appContext) { StockfishEngine(appContext) }
+    var stockfishStatus by remember { mutableStateOf(if (stockfish.isInstalled()) "Stockfish ${stockfish.installedVersion()} installed" else "Stockfish is not installed") }
+    var stockfishDownloading by remember { mutableStateOf(false) }
+    val downloadScope = rememberCoroutineScope()
     val whiteTime by vm.whiteTimeMs
     val blackTime by vm.blackTimeMs
     val timeControl = vm.timeControlSeconds.value
@@ -553,6 +560,23 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                     Text("Aetheris can use the Lichess opening database to choose established opening moves and show opening continuations.")
                     Text("Recommended · Download now", color = Color(0xFF7CDBA1), fontWeight = FontWeight.SemiBold)
                     Text(vm.openingBookStatus.value, color = Color(0xFF9B93B8), fontSize = 12.sp)
+                    Divider(color = Color(0xFF393248), modifier = Modifier.padding(vertical = 4.dp))
+                    Text("You can also add Stockfish as an independent engine for either side in Engine Arena.", color = Color(0xFF9B93B8), fontSize = 12.sp)
+                    Text(stockfishStatus, color = Color(0xFFB9A8FF), fontSize = 11.sp)
+                    OutlinedButton(
+                        onClick = {
+                            if (!stockfishDownloading) downloadScope.launch {
+                                stockfishDownloading = true
+                                stockfishStatus = "Checking official Stockfish release…"
+                                runCatching { stockfish.installLatest { stockfishStatus = it } }
+                                    .onSuccess { stockfishStatus = "Stockfish $it installed and ready" }
+                                    .onFailure { stockfishStatus = "Stockfish download failed: ${it.message ?: "unknown error"}" }
+                                stockfishDownloading = false
+                            }
+                        },
+                        enabled = !stockfishDownloading,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(if (stockfishDownloading) "Downloading Stockfish…" else if (stockfish.isInstalled()) "Update Stockfish" else "Download Stockfish") }
                 }
             },
             confirmButton = {
@@ -599,6 +623,21 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                         Switch(checked = settings.showOpeningBookArrows, onCheckedChange = { vm.updateSettings(settings.copy(showOpeningBookArrows = it)) })
                     }
                     Text(vm.openingBookStatus.value, color = Color(0xFFB9A8FF), fontSize = 11.sp)
+                    Text("Stockfish · ${stockfishStatus}", color = Color(0xFF9B93B8), fontSize = 11.sp)
+                    OutlinedButton(
+                        onClick = {
+                            if (!stockfishDownloading) downloadScope.launch {
+                                stockfishDownloading = true
+                                stockfishStatus = "Checking official Stockfish release…"
+                                runCatching { stockfish.installLatest { stockfishStatus = it } }
+                                    .onSuccess { stockfishStatus = "Stockfish $it installed and ready" }
+                                    .onFailure { stockfishStatus = "Stockfish download failed: ${it.message ?: "unknown error"}" }
+                                stockfishDownloading = false
+                            }
+                        },
+                        enabled = !stockfishDownloading,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(if (stockfishDownloading) "Downloading Stockfish…" else if (stockfish.isInstalled()) "Update Stockfish" else "Download Stockfish") }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { vm.downloadOpeningBook() }, modifier = Modifier.weight(1f)) { Text("Download Lichess") }
                         OutlinedButton(onClick = { bookImportLauncher.launch(arrayOf("text/*", "application/octet-stream", "*/*")) }, modifier = Modifier.weight(1f)) { Text("Import TSV") }
