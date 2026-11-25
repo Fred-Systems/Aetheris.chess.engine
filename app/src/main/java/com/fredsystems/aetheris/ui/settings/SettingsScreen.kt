@@ -381,12 +381,16 @@ fun SettingsScreen(
                 ModeChip("Aetheris Rapid", settings.selectedEngine == "aetheris_rapid", Modifier.fillMaxWidth()) {
                     viewModel.updateSettings(settings.copy(selectedEngine = "aetheris_rapid"))
                 }
+                ModeChip("Stockfish (download required)", settings.selectedEngine == "stockfish", Modifier.fillMaxWidth()) {
+                    viewModel.updateSettings(settings.copy(selectedEngine = "stockfish"))
+                }
             }
             Text(when (settings.selectedEngine) {
                 "morrow" -> "Morrow is an independently authored Kotlin engine with its own iterative-deepening PVS search, transposition table, quiescence search, and handcrafted evaluator. Its strength is still being benchmarked."
                 "caissa" -> "Caissa uses its independent Kotlin alpha-beta search."
                 "aetheris_classic" -> "Aetheris Classic retains the previous native search profile."
                 "aetheris_rapid" -> "Aetheris Rapid uses the enhanced native search with a fast-play budget."
+                "stockfish" -> if (stockfish.isInstalled()) "Official Stockfish ${stockfish.installedVersion()} UCI engine. It can be used for Play and either side in Engine Arena." else "Stockfish is selected but not installed. Download it above before starting a game."
                 else -> "Aetheris Enhanced is the new default native search, using static-exchange move ordering and tactical extensions."
             }, color = Color(0xFF9B93B8), fontSize = 11.sp)
             Spacer(Modifier.height(8.dp))
