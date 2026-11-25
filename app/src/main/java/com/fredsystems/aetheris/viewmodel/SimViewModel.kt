@@ -149,6 +149,7 @@ class SimViewModel(private val context: Context) : ViewModel() {
                                         val sideScore = MorrowEngine.evaluate(board.fen)
                                         if (board.sideToMove == Side.WHITE) sideScore else -sideScore
                                     }
+                                    mode.equals("Stockfish", true) -> eval.value
                                     else -> NativeEngine.evaluateFen(board.fen)
                                 }
                             }.getOrDefault(eval.value)
