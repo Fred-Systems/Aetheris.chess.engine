@@ -14,6 +14,7 @@ import com.fredsystems.aetheris.engine.NativeEngine
 import com.fredsystems.aetheris.engine.CaissaEngine
 import com.fredsystems.aetheris.engine.MorrowEngine
 import com.fredsystems.aetheris.engine.OpeningBook
+import com.fredsystems.aetheris.engine.process.StockfishEngine
 import com.fredsystems.aetheris.domain.model.SettingsStore
 import com.github.bhlangonijr.chesslib.Board
 import com.github.bhlangonijr.chesslib.Piece as LibPiece
@@ -28,6 +29,7 @@ import kotlinx.coroutines.withContext
 class SimViewModel(private val context: Context) : ViewModel() {
     private var board = Board()
     private val openingBook = OpeningBook(context.applicationContext)
+    private val stockfishEngine = StockfishEngine(context.applicationContext)
     private val appSettings = SettingsStore(context).load()
     val boardState = mutableStateOf(toUi(board))
     val eval = mutableStateOf(0)
@@ -59,7 +61,12 @@ class SimViewModel(private val context: Context) : ViewModel() {
 
     fun start() {
         if (running.value) return
-        val needsNative = (!modeA.equals("Caissa", true) && !modeA.equals("Morrow", true)) || (!modeB.equals("Caissa", true) && !modeB.equals("Morrow", true))
+        val needsStockfish = modeA.equals("Stockfish", true) || modeB.equals("Stockfish", true)
+        if (needsStockfish && !stockfishEngine.isInstalled()) {
+            status.value = "Stockfish is not installed. Download it from the app's opening-book / engine downloads first."
+            return
+        }
+        val needsNative = (!modeA.equals("Caissa", true) && !modeA.equals("Morrow", true) && !modeA.equals("Stockfish", true)) || (!modeB.equals("Caissa", true) && !modeB.equals("Morrow", true) && !modeB.equals("Stockfish", true))
         if (needsNative && !nativeEngineInitialized) {
             runCatching {
                 NativeEngine.initialize()
@@ -93,6 +100,7 @@ class SimViewModel(private val context: Context) : ViewModel() {
                                 bookMove ?: when {
                                     mode.equals("Caissa", true) -> CaissaEngine.bestMove(fen, depth.coerceIn(1, 4))
                                     mode.equals("Morrow", true) -> MorrowEngine.bestMove(fen, depth.coerceIn(1, 18), timeMs.coerceIn(100, 30000))
+                                    mode.equals("Stockfish", true) -> stockfishEngine.bestMove(fen, depth.coerceIn(1, 40), timeMs.coerceIn(100, 30000))
                                     else -> NativeEngine.searchConfiguredPosition(
                                         fen = fen,
                                         depth = if (mode.equals("AetherisRapid", true)) depth.coerceIn(1, 12) else depth.coerceIn(1, 24),
@@ -253,8 +261,11 @@ class SimViewModel(private val context: Context) : ViewModel() {
     }
     fun stop() {
         running.value = false
+        stockfishEngine.stop()
         status.value = "Stopped"
     }
+
+    fun isStockfishInstalled(): Boolean = stockfishEngine.isInstalled()
 
     private fun modeOrdinal(mode: String): Int = 2
 
