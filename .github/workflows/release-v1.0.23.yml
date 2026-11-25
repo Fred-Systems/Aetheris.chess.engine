@@ -153,6 +153,9 @@ jobs:
             - Added opening continuation arrows and move labels in Analysis with an independent visibility toggle.
             - Added Caissa, an independent Kotlin alpha-beta engine, selectable alongside Aetheris Classical for Play and Analysis and independently for either side in Engine Arena.
 
+            - Added an in-app installer for the latest official Stockfish Android release (ARM64 and ARMv7), with Stockfish available as a selectable UCI engine in Play and for either side in Engine Arena. The download is offered on first launch and beside the Lichess opening-book controls.
+            - Replaced the Engine Arena side-engine popup dropdown with a dedicated selection dialog to avoid the nested popup interaction associated with the crash report.
+
             Classical engine and reliability:
             - Removed the unvalidated NNUE weights from the APK and disabled neural evaluation. The app now uses the classical evaluator consistently and no longer offers Classical / NNUE / Hybrid mode switches. Caissa is a separate built-in alternative.
             - Raised the default search depth and improved classical search with deeper quiescence, broader bounded check extensions, transposition-table mate-distance normalization, and halfmove-clock-aware position keys.
