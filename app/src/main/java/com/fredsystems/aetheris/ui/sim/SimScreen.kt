@@ -201,7 +201,7 @@ fun SimScreen(viewModel: SimViewModel, onBack: () -> Unit, onOpenAnalysis: (com.
                             viewModel.openingBookA = openingBookA; viewModel.openingBookB = openingBookB
                             viewModel.openingPolicyA = openingPolicyA; viewModel.openingPolicyB = openingPolicyB
                             viewModel.start()
-                            matchStarted = true
+                            matchStarted = viewModel.running.value
                         },
                         enabled = !viewModel.running.value,
                         modifier = Modifier.weight(1f),
