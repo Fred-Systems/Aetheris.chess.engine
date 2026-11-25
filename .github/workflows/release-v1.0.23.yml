@@ -166,7 +166,7 @@ jobs:
             - Engine match setup lets White and Black independently select Aetheris Classical or Caissa. Aetheris retains persona sliders; Caissa uses its own search.
 
             Release compatibility:
-            - Version code 24 / version name 1.0.30.
+            - Version code 30 / version name 1.0.30.
             - This workflow requires the stable repository signing secrets and stops if any are missing. It will not publish a debug-signed APK.
             - Android can update an existing installation only if its signing certificate matches. Older debug-signed installs may need a one-time uninstall before installing this stable-key release.
           files: release-assets/*
