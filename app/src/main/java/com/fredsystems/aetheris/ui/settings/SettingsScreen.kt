@@ -342,10 +342,14 @@ fun SettingsScreen(
                     if (!stockfishDownloading) scope.launch {
                         stockfishDownloading = true
                         stockfishStatus = "Checking Stockfish release…"
-                        runCatching { stockfish.installLatest { stockfishStatus = it } }
-                            .onSuccess { stockfishStatus = "Stockfish $it installed and ready" }
-                            .onFailure { stockfishStatus = "Stockfish download failed: ${it.message ?: "unknown error"}" }
-                        stockfishDownloading = false
+                        try {
+                            val version = stockfish.installLatest { stockfishStatus = it }
+                            stockfishStatus = "Stockfish $version installed and ready"
+                        } catch (error: Exception) {
+                            stockfishStatus = "Stockfish download failed: ${error.message ?: error.javaClass.simpleName}"
+                        } finally {
+                            stockfishDownloading = false
+                        }
                     }
                 },
                 enabled = !stockfishDownloading,
