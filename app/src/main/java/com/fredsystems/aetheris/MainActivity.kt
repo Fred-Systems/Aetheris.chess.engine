@@ -428,7 +428,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 ) {
                     Box(Modifier.weight(1f).padding(end = 6.dp), contentAlignment = Alignment.CenterStart) {
                         Text(
-                            text = if (thinking) "${when (settings.selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} · thinking · depth ${opts.depth}" else "${when (settings.selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} · depth ${opts.depth}",
+                            text = if (thinking) "${when (settings.selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa"; "stockfish" -> "Stockfish"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} · thinking · depth ${opts.depth}" else "${when (settings.selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} · depth ${opts.depth}",
                             color = if (thinking) Color(0xFFB9A8FF) else Color(0xFFB9B2CE),
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 11.sp,
@@ -713,6 +713,7 @@ private fun EnginePickerDialog(selectedEngine: String, onSelect: (String) -> Uni
                     Triple("aetheris_classic", "Aetheris Classic", "The previous native search behavior, retained as a separate option"),
                     Triple("caissa", "Caissa", "Independent Kotlin chess engine"),
                     Triple("aetheris_rapid", "Aetheris Rapid", "Fast-play profile using the enhanced Aetheris search core")
+                    ,Triple("stockfish", "Stockfish", "Official downloadable Stockfish UCI engine")
                 ).forEach { (id, title, description) ->
                     Surface(
                         shape = RoundedCornerShape(12.dp),
@@ -911,7 +912,7 @@ private fun NewGameDialog(
                 Spacer(Modifier.height(14.dp))
                 Text("Choose engine", fontSize = 12.sp, color = Color(0xFF9B93B8))
                 Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    listOf("aetheris" to "Aetheris (Enhanced)", "aetheris_classic" to "Aetheris Classic", "morrow" to "Morrow", "caissa" to "Caissa", "aetheris_rapid" to "Aetheris Rapid").forEach { (id, label) ->
+                    listOf("aetheris" to "Aetheris (Enhanced)", "aetheris_classic" to "Aetheris Classic", "morrow" to "Morrow", "caissa" to "Caissa", "aetheris_rapid" to "Aetheris Rapid", "stockfish" to "Stockfish").forEach { (id, label) ->
                         ModeChip(label, engine == id, Modifier.fillMaxWidth()) { engine = id }
                     }
                 }
