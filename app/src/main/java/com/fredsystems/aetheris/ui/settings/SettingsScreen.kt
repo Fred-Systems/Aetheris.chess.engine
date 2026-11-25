@@ -35,6 +35,7 @@ import com.fredsystems.aetheris.domain.model.EngineMode
 import com.fredsystems.aetheris.ui.theme.BoardThemes
 import com.fredsystems.aetheris.ui.theme.PieceSets
 import com.fredsystems.aetheris.updater.GitHubUpdater
+import com.fredsystems.aetheris.engine.process.StockfishEngine
 import com.fredsystems.aetheris.viewmodel.GameViewModel
 import kotlinx.coroutines.launch
 
@@ -70,6 +71,9 @@ fun SettingsScreen(
 
     val context = LocalContext.current
     val updater = remember { GitHubUpdater(context) }
+    val stockfish = remember { StockfishEngine(context.applicationContext) }
+    var stockfishStatus by remember { mutableStateOf(if (stockfish.isInstalled()) "Stockfish ${stockfish.installedVersion()} installed" else "Stockfish is not installed") }
+    var stockfishDownloading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val openingBookPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(viewModel::importOpeningBook) }
     var updateTag by remember { mutableStateOf<String?>(null) }
@@ -329,6 +333,24 @@ fun SettingsScreen(
             }
             Text(viewModel.openingBookStatus.value, color = Color(0xFFB9A8FF), fontSize = 11.sp)
             Text("Random good (default) varies among well-supported continuations. Top move always selects the most frequently played line. Unorthodox favors less common book lines. Aggressive favors active, centralizing and capture-oriented continuations where the book offers them.", color = Color(0xFF9B93B8), fontSize = 11.sp)
+            Divider(color = Color(0xFF393248), modifier = Modifier.padding(vertical = 6.dp))
+            Text("Stockfish engine", color = Color(0xFFF2EEFF), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text("Download the latest official Stockfish Android build. Once installed, Stockfish can be selected for either side in Engine Arena.", color = Color(0xFF9B93B8), fontSize = 11.sp)
+            Text(stockfishStatus, color = Color(0xFFB9A8FF), fontSize = 11.sp)
+            Button(
+                onClick = {
+                    if (!stockfishDownloading) scope.launch {
+                        stockfishDownloading = true
+                        stockfishStatus = "Checking Stockfish release…"
+                        runCatching { stockfish.installLatest { stockfishStatus = it } }
+                            .onSuccess { stockfishStatus = "Stockfish $it installed and ready" }
+                            .onFailure { stockfishStatus = "Stockfish download failed: ${it.message ?: "unknown error"}" }
+                        stockfishDownloading = false
+                    }
+                },
+                enabled = !stockfishDownloading,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text(if (stockfishDownloading) "Downloading Stockfish…" else if (stockfish.isInstalled()) "Update Stockfish" else "Download Stockfish") }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { viewModel.downloadOpeningBook() }, modifier = Modifier.weight(1f)) { Text("Download public book") }
                 OutlinedButton(onClick = { openingBookPicker.launch(arrayOf("text/*", "application/octet-stream", "*/*")) }, modifier = Modifier.weight(1f)) { Text("Import TSV") }
