@@ -258,9 +258,10 @@ private fun EngineSetupCard(
     ) {
         Text(label, color = Color(0xFFF2EEFF), fontWeight = FontWeight.Bold, fontSize = 13.sp)
         EngineModePicker(mode, onMode, Modifier.fillMaxWidth())
-        Text(when (mode) { "Morrow" -> "Independent Kotlin engine · original search"; "Caissa" -> "Independent Kotlin engine"; "AetherisRapid" -> "Fast native Aetheris profile"; "AetherisStrong" -> "Enhanced native search"; else -> "Legacy Aetheris Classic search" }, color = Color(0xFFB9B2CE), fontSize = 10.sp)
+        Text(when (mode) { "Morrow" -> "Independent Kotlin engine · original search"; "Caissa" -> "Independent Kotlin engine"; "Stockfish" -> "Official Stockfish UCI engine · download required"; "AetherisRapid" -> "Fast native Aetheris profile"; "AetherisStrong" -> "Enhanced native search"; else -> "Legacy Aetheris Classic search" }, color = Color(0xFFB9B2CE), fontSize = 10.sp)
         if (mode == "Caissa") Text("Caissa uses its independent Kotlin search; Aetheris style sliders do not affect it.", color = Color(0xFF9B93B8), fontSize = 10.sp)
-        val supportsPersona = !mode.equals("Caissa", ignoreCase = true) && !mode.equals("Morrow", ignoreCase = true)
+        if (mode == "Stockfish") Text("Install Stockfish from Settings before starting this match. Stockfish uses its own UCI search and evaluation.", color = Color(0xFFE0B878), fontSize = 10.sp)
+        val supportsPersona = !mode.equals("Caissa", ignoreCase = true) && !mode.equals("Morrow", ignoreCase = true) && !mode.equals("Stockfish", ignoreCase = true)
         if (supportsPersona) {
             PersonaPicker(persona, onPersona, Modifier.fillMaxWidth())
         }
@@ -288,16 +289,47 @@ private fun EngineSetupCard(
 @Composable
 private fun EngineModePicker(current: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
-    val options = listOf("AetherisStrong" to "Aetheris (Enhanced)", "PureClassical" to "Aetheris Classic", "Morrow" to "Morrow (Independent)", "Caissa" to "Caissa", "AetherisRapid" to "Aetheris Rapid")
+    val options = listOf(
+        "AetherisStrong" to "Aetheris (Enhanced)",
+        "PureClassical" to "Aetheris Classic",
+        "Morrow" to "Morrow (Independent)",
+        "Caissa" to "Caissa",
+        "AetherisRapid" to "Aetheris Rapid",
+        "Stockfish" to "Stockfish (download required)"
+    )
     Box(modifier) {
-        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)) {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(10.dp),
+            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
+        ) {
             Text(options.firstOrNull { it.first == current }?.second ?: current, fontSize = 11.sp)
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.heightIn(max = 320.dp)) {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                options.forEach { (id, label) -> DropdownMenuItem(text = { Text(label) }, onClick = { onChange(id); expanded = false }) }
-            }
-        }
+    }
+    if (expanded) {
+        AlertDialog(
+            onDismissRequest = { expanded = false },
+            title = { Text("Choose engine") },
+            text = {
+                Column(
+                    Modifier.fillMaxWidth().heightIn(max = 380.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    options.forEach { (id, label) ->
+                        Surface(
+                            onClick = { onChange(id); expanded = false },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (current == id) Color(0xFF302448) else Color(0xFF1A1626),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(label, color = Color(0xFFF2EEFF), modifier = Modifier.padding(12.dp), fontSize = 13.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { expanded = false }) { Text("Cancel") } }
+        )
     }
 }
 
