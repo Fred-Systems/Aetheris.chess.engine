@@ -428,7 +428,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 ) {
                     Box(Modifier.weight(1f).padding(end = 6.dp), contentAlignment = Alignment.CenterStart) {
                         Text(
-                            text = if (thinking) "${when (settings.selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa"; "stockfish" -> "Stockfish"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} · thinking · depth ${opts.depth}" else "${when (settings.selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa"; "stockfish" -> "Stockfish"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris"; else -> "Aetheris Tactical" }} · depth ${opts.depth}",
+                            text = if (thinking) "${when (settings.selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa"; "stockfish" -> "Stockfish"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} · thinking · depth ${opts.depth}" else "${when (settings.selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa"; "stockfish" -> "Stockfish"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris Tactical" }} · depth ${opts.depth}",
                             color = if (thinking) Color(0xFFB9A8FF) else Color(0xFFB9B2CE),
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 11.sp,
@@ -843,7 +843,7 @@ private fun PlayFromHereDialog(
                     Text("Depth ${depth.toInt()}", fontWeight = FontWeight.Bold)
                 }
                 Slider(value = depth, onValueChange = { depth = it }, valueRange = 1f..20f, steps = 18)
-                Text("Engine: Aetheris Classical", fontSize = 12.sp, color = Color(0xFF9B93B8))
+                Text("Engine: Aetheris Classic", fontSize = 12.sp, color = Color(0xFF9B93B8))
             }
         },
         confirmButton = { Button(onClick = { onStart(color, timeControl, depth.toInt()) }) { Text("Start from Here") } },
