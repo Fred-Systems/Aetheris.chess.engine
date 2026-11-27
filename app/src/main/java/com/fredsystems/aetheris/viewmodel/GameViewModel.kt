@@ -772,6 +772,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
         board = Board()
         initialFen = board.fen
         moveList.clear()
+        savedVariations.value = emptyList()
+        activeVariationLabel.value = "Main line"
+        nextVariationId = 1
         positionHistory.clear()
         positionHistory.add(board.fen)
         historyIndex.value = 0
@@ -967,6 +970,8 @@ class GameViewModel(private val context: Context) : ViewModel() {
         updateEvaluationAsync()
     }
 
+    fun isStockfishInstalled(): Boolean = stockfishEngine.isInstalled()
+
     fun analysisEngineId(): String =
         if (settings.value.analysisEngine == "auto") {
             if (stockfishEngine.isInstalled()) "stockfish" else "aetheris_classic"
@@ -977,6 +982,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         analysisLines.value = emptyList()
         bestMoveUci.value = null
         bestAnalysisFen = ""
+        updateEvaluationAsync()
         analyzePosition()
     }
 
