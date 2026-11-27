@@ -69,7 +69,7 @@ fun AnalysisScreen(viewModel: GameViewModel) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(
                 "auto" to "Auto",
-                "aetheris_classic" to "Aetheris",
+                "aetheris_classic" to "Aetheris Classic",
                 "aetheris" to "Aetheris Tactical",
                 "aetheris_rapid" to "Aetheris Rapid",
                 "morrow" to "Morrow",
