@@ -817,6 +817,9 @@ class GameViewModel(private val context: Context) : ViewModel() {
         board = if (settings.value.chess960Enabled) createChess960Board() else Board()
         initialFen = board.fen
         moveList.clear()
+        savedVariations.value = emptyList()
+        activeVariationLabel.value = "Main line"
+        nextVariationId = 1
         analysisLines.value = emptyList()
         positionHistory.clear()
         positionHistory.add(board.fen)
@@ -843,6 +846,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         engineThinking.value = false
         evalVisible.value = if (newMode == PlayMode.ANALYSIS) settings.value.showEvalAnalysis
         else settings.value.showEvalPlay
+        updateEvaluationAsync()
         if (newMode == PlayMode.PLAY) maybeEngineMove()
     }
 
@@ -1225,7 +1229,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
             if (board.fen == fen) {
                 evaluation.value = score
                 bestMoveUci.value = null
-                analysisLines.value = emptyList()
+                if (mode.value != PlayMode.ANALYSIS) analysisLines.value = emptyList()
             }
         }
     }
