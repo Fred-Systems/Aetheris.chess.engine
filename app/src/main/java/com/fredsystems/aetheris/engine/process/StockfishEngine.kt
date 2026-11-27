@@ -136,7 +136,7 @@ class StockfishEngine(private val context: Context) {
                 break
             }
         }
-        return latest.values.joinToString("\\n") { (pv, score) -> "$pv|$score" }
+        return latest.values.joinToString("\n") { (pv, score) -> "$pv|$score" }
     }
 
     private fun prepareSearch() {
@@ -212,7 +212,7 @@ class StockfishEngine(private val context: Context) {
     }
 
     fun stop() {
-        runCatching { writer?.write("quit\\n"); writer?.flush() }
+        runCatching { writer?.write("quit\n"); writer?.flush() }
         runCatching { process?.destroy() }
         process = null
         reader = null
