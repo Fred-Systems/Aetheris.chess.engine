@@ -258,7 +258,7 @@ private fun EngineSetupCard(
     ) {
         Text(label, color = Color(0xFFF2EEFF), fontWeight = FontWeight.Bold, fontSize = 13.sp)
         EngineModePicker(mode, onMode, Modifier.fillMaxWidth())
-        Text(when (mode) { "Morrow" -> "Independent Kotlin engine · original search"; "Caissa" -> "Independent Kotlin engine"; "Stockfish" -> "Official Stockfish UCI engine · download required"; "AetherisRapid" -> "Fast native Aetheris profile"; "AetherisStrong" -> "Enhanced native search"; else -> "Legacy Aetheris Classic search" }, color = Color(0xFFB9B2CE), fontSize = 10.sp)
+        Text(when (mode) { "Morrow" -> "Independent Kotlin engine · original search"; "Caissa" -> "Independent Kotlin engine"; "Stockfish" -> "Official Stockfish UCI engine · download required"; "AetherisRapid" -> "Fast native Aetheris profile"; "AetherisStrong" -> "Tactical native search with more forcing move ordering"; else -> "Aetheris classical search" }, color = Color(0xFFB9B2CE), fontSize = 10.sp)
         if (mode == "Caissa") Text("Caissa uses its independent Kotlin search; Aetheris style sliders do not affect it.", color = Color(0xFF9B93B8), fontSize = 10.sp)
         if (mode == "Stockfish") Text("Install Stockfish from Settings before starting this match. Stockfish uses its own UCI search and evaluation.", color = Color(0xFFE0B878), fontSize = 10.sp)
         val supportsPersona = !mode.equals("Caissa", ignoreCase = true) && !mode.equals("Morrow", ignoreCase = true) && !mode.equals("Stockfish", ignoreCase = true)
@@ -290,8 +290,8 @@ private fun EngineSetupCard(
 private fun EngineModePicker(current: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     val options = listOf(
-        "AetherisStrong" to "Aetheris (Enhanced)",
-        "PureClassical" to "Aetheris Classic",
+        "AetherisStrong" to "Aetheris Tactical",
+        "PureClassical" to "Aetheris",
         "Morrow" to "Morrow (Independent)",
         "Caissa" to "Caissa",
         "AetherisRapid" to "Aetheris Rapid",
