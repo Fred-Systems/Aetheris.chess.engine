@@ -1,7 +1,7 @@
-name: Publish Aetheris v1.0.30 APK
+name: Publish Aetheris v1.0.31 APK
 # Build the hotfix directly from current main and verify its stable signature and version before publishing.
-# v1.0.30 includes Lichess ECO TSV PGN-to-UCI indexing with corrected Kotlin tab parsing, SAN-to-UCI conversion, persistent book disable/remove behavior, direct engine selectors, and a fixed non-scrolling Play viewport, downloadable/importable book controls, best/random book selection, analysis arrows, and the independent Caissa Kotlin engine in Play, Analysis, and Engine Arena. Prior Notebook, ordered premove, conditional-move and board-layout changes are retained. Release requires the same stable Android signing secrets and verifies the APK signature/version before publishing.
-# Publish v1.0.30 from main with the final premove queue, board-based conditional setup, fixed board layout, and settings guidance and position-bound conditional-reply cleanup. Stable signing is mandatory; never publish a debug-signed update. Includes the latest Notebook, premove, engine-match, and settings updates. Final source snapshot, including the Notebook variation parser, analysis lifecycle, and live Notebook refresh fixes; release attempt restarted after queued CI runs.
+# v1.0.31 includes Lichess ECO TSV PGN-to-UCI indexing with corrected Kotlin tab parsing, SAN-to-UCI conversion, persistent book disable/remove behavior, direct engine selectors, and a fixed non-scrolling Play viewport, downloadable/importable book controls, best/random book selection, analysis arrows, and the independent Caissa Kotlin engine in Play, Analysis, and Engine Arena. Prior Notebook, ordered premove, conditional-move and board-layout changes are retained. Release requires the same stable Android signing secrets and verifies the APK signature/version before publishing.
+# Publish v1.0.31 from main with the final premove queue, board-based conditional setup, fixed board layout, and settings guidance and position-bound conditional-reply cleanup. Stable signing is mandatory; never publish a debug-signed update. Includes the latest Notebook, premove, engine-match, and settings updates. Final source snapshot, including the Notebook variation parser, analysis lifecycle, and live Notebook refresh fixes; release attempt restarted after queued CI runs.
 
 on:
   push:
@@ -14,6 +14,7 @@ on:
       - app/src/main/java/com/fredsystems/aetheris/viewmodel/SimViewModel.kt
       - app/src/main/java/com/fredsystems/aetheris/ui/sim/SimScreen.kt
       - app/src/main/java/com/fredsystems/aetheris/ui/settings/SettingsScreen.kt
+      - app/src/main/java/com/fredsystems/aetheris/ui/analysis/AnalysisScreen.kt
       - app/src/main/java/com/fredsystems/aetheris/engine/process/StockfishEngine.kt
       - app/src/main/java/com/fredsystems/aetheris/viewmodel/GameViewModel.kt
   workflow_dispatch:
@@ -22,7 +23,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: aetheris-release-v1.0.30
+  group: aetheris-release-v1.0.31
   cancel-in-progress: true
 
 jobs:
@@ -84,8 +85,8 @@ jobs:
           APK="$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
           test -n "$APK"
           "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/aapt" dump badging "$APK" | grep -F "versionName='1.0.30'"
-          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/aapt" dump badging "$APK" | grep -F "versionCode='30'"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/aapt" dump badging "$APK" | grep -F "versionName='1.0.31'"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/aapt" dump badging "$APK" | grep -F "versionCode='31'"
 
       - name: Prepare APK and classical UCI packages
         shell: bash
@@ -127,20 +128,20 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: aetheris-v1.0.30-release
+          name: aetheris-v1.0.31-release
           path: release-assets/*
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish v1.0.30 release
+      - name: Publish v1.0.31 release
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.RELEASE_TOKEN || github.token }}
-          tag_name: v1.0.30
-          name: Aetheris v1.0.30
+          tag_name: v1.0.31
+          name: Aetheris v1.0.31
           target_commitish: ${{ github.sha }}
           body: |
-            Aetheris v1.0.30 stability hotfix
+            Aetheris v1.0.31 stability hotfix
 
             - Fixed the launch-time startup workload by making the large Lichess opening database opt-in instead of automatically downloading and indexing it on first launch.
             - Deferred Engine Arena's native engine initialization until the user actually starts a match, avoiding competing native initialization during initial screen creation.
@@ -155,6 +156,10 @@ jobs:
 
             - Added an in-app installer for the latest official Stockfish Android release (ARM64 and ARMv7), with Stockfish available as a selectable UCI engine in Play and for either side in Engine Arena. The download is offered on first launch and beside the Lichess opening-book controls.
             - Replaced the Engine Arena side-engine popup dropdown with a dedicated selection dialog to avoid the nested popup interaction associated with the crash report.
+            - Reworked Stockfish UCI process management with a dedicated output reader, response timeouts, error diagnostics, and an install-time self-test that requires Stockfish to return a legal move before installation succeeds.
+            - Added Stockfish multi-line analysis and an Analysis engine selector for Auto, Aetheris Classic, Aetheris Tactical, Aetheris Rapid, Morrow, Caissa, and Stockfish. Auto chooses Stockfish when installed and Aetheris Classic otherwise.
+            - Set Aetheris Classic as the default Play and Engine Arena engine; renamed the enhanced tactical search profile to Aetheris Tactical.
+            - Analysis now lets users play a different move from an earlier position without deleting the existing continuation. Saved side variations remain selectable in the move-branches list.
 
             Classical engine and reliability:
             - Removed the unvalidated NNUE weights from the APK and disabled neural evaluation. The app now uses the classical evaluator consistently and no longer offers Classical / NNUE / Hybrid mode switches. Caissa is a separate built-in alternative.
@@ -166,7 +171,7 @@ jobs:
             - Engine match setup lets White and Black independently select Aetheris Classical or Caissa. Aetheris retains persona sliders; Caissa uses its own search.
 
             Release compatibility:
-            - Version code 30 / version name 1.0.30.
+            - Version code 31 / version name 1.0.31.
             - This workflow requires the stable repository signing secrets and stops if any are missing. It will not publish a debug-signed APK.
             - Android can update an existing installation only if its signing certificate matches. Older debug-signed installs may need a one-time uninstall before installing this stable-key release.
           files: release-assets/*
