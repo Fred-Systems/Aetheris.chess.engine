@@ -29,6 +29,9 @@ fun AnalysisScreen(viewModel: GameViewModel) {
     val lines = viewModel.analysisLines.value
     val bookMoves = viewModel.openingBookMoves.value
     val loading = viewModel.analysisLoading.value
+    val activeEngine = viewModel.analysisEngineId()
+    val variations = viewModel.savedVariations.value
+    val activeVariation = viewModel.activeVariationLabel.value
     var autoplay by remember { mutableStateOf(false) }
     var continuousAnalysis by remember { mutableStateOf(true) }
     var analysisDepth by remember(index, length) { mutableStateOf(viewModel.options.value.depth.coerceIn(1, 20)) }
@@ -62,18 +65,28 @@ fun AnalysisScreen(viewModel: GameViewModel) {
 
     Column(Modifier.fillMaxSize().background(Color(0xFF0E0C14)).verticalScroll(rememberScrollState()).padding(8.dp)) {
         Text("Game Analysis", color = Color(0xFFF2EEFF), style = MaterialTheme.typography.headlineSmall)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            Text("Engine", color = Color(0xFF9B93B8), style = MaterialTheme.typography.labelSmall)
-            FilterChip(
-                selected = settings.selectedEngine == "aetheris",
-                onClick = { viewModel.updateSettings(settings.copy(selectedEngine = "aetheris")) },
-                label = { Text("Aetheris Classical") }
-            )
-            FilterChip(
-                selected = settings.selectedEngine == "caissa",
-                onClick = { viewModel.updateSettings(settings.copy(selectedEngine = "caissa")) },
-                label = { Text("Caissa") }
-            )
+        Text("Analysis engine", color = Color(0xFF9B93B8), style = MaterialTheme.typography.labelSmall)
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(
+                "auto" to "Auto",
+                "aetheris_classic" to "Aetheris",
+                "aetheris" to "Aetheris Tactical",
+                "aetheris_rapid" to "Aetheris Rapid",
+                "morrow" to "Morrow",
+                "caissa" to "Caissa",
+                "stockfish" to "Stockfish"
+            ).forEach { (id, label) ->
+                FilterChip(
+                    selected = if (id == "auto") settings.analysisEngine == "auto" else activeEngine == id && settings.analysisEngine == id,
+                    onClick = { viewModel.setAnalysisEngine(id) },
+                    label = { Text(label) }
+                )
+            }
+        }
+        if (settings.analysisEngine == "auto") {
+            Text(if (activeEngine == "stockfish") "Auto selected Stockfish because it is installed." else "Auto uses Aetheris until Stockfish is installed, then switches to Stockfish.", color = Color(0xFF9B93B8), style = MaterialTheme.typography.bodySmall)
+        } else if (settings.analysisEngine == "stockfish" && activeEngine != "stockfish") {
+            Text("Download Stockfish in Settings to use it for analysis.", color = Color(0xFFE0B878), style = MaterialTheme.typography.bodySmall)
         }
         Spacer(Modifier.height(4.dp))
         Text("Position ${index + 1} of $length · Evaluation ${if (evaluation >= 0) "+" else ""}${"%.2f".format(evaluation / 100.0)}", color = Color(0xFFD7D0EA), style = MaterialTheme.typography.bodyMedium)
@@ -84,6 +97,18 @@ fun AnalysisScreen(viewModel: GameViewModel) {
             Button(onClick = { autoplay = !autoplay }, modifier = Modifier.weight(1.3f), contentPadding = PaddingValues(horizontal = 2.dp)) { Text(if (autoplay) "Pause" else "▶ Play") }
             OutlinedButton(onClick = { autoplay = false; viewModel.goForward() }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 2.dp)) { Text("▶") }
             OutlinedButton(onClick = { autoplay = false; viewModel.goToEnd() }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 2.dp)) { Text("▶|") }
+        }
+        if (variations.isNotEmpty()) {
+            Text("Move branches · $activeVariation", color = Color(0xFFF2EEFF), style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                variations.forEach { variation ->
+                    FilterChip(
+                        selected = activeVariation == variation.label,
+                        onClick = { autoplay = false; viewModel.selectAnalysisVariation(variation.id) },
+                        label = { Text(variation.label) }
+                    )
+                }
+            }
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
