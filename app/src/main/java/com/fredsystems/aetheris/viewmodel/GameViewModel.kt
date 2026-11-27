@@ -67,6 +67,10 @@ class GameViewModel(private val context: Context) : ViewModel() {
     private var conditionalSetupGeneration = 0
     val historyIndex = mutableStateOf(0)
     val historyLength = mutableStateOf(1)
+    data class SavedVariation(val id: Int, val label: String, val moves: List<String>)
+    val savedVariations = mutableStateOf<List<SavedVariation>>(emptyList())
+    val activeVariationLabel = mutableStateOf("Main line")
+    private var nextVariationId = 1
     private val settingsStore = store
     private var nativeEngineAvailable = false
     val settings = mutableStateOf(store.load())
@@ -174,7 +178,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
             handleConditionalSetupClick(index)
             return
         }
-        if (boardState.value.gameOver || historyIndex.value < historyLength.value - 1) return
+        if (boardState.value.gameOver || (mode.value == PlayMode.PLAY && historyIndex.value < historyLength.value - 1)) return
         val userSide = if (playerColor.value == PieceColor.WHITE) Side.WHITE else Side.BLACK
         val clickedPiece = board.getPiece(LibSquare.squareAt(index))
         // On the engine's turn, selecting one of its pieces starts a conditional
@@ -523,9 +527,17 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val isCapture = board.getPiece(move.to) != LibPiece.NONE || (board.getPiece(move.from).pieceType == LibPieceType.PAWN && move.from.file != move.to.file && board.getEnPassant() == move.to)
         val isCastle = board.getPiece(move.from).pieceType == LibPieceType.KING && runCatching { board.context.isCastleMove(move) }.getOrDefault(false)
         val isPromotion = move.promotion != LibPiece.NONE
+        val currentIndex = historyIndex.value.coerceIn(0, positionHistory.lastIndex)
+        if (mode.value == PlayMode.ANALYSIS && currentIndex < moveList.lastIndex) {
+            val oldLine = moveList.toList()
+            if (oldLine.isNotEmpty() && savedVariations.value.none { it.moves == oldLine }) {
+                val id = nextVariationId++
+                savedVariations.value = savedVariations.value + SavedVariation(id, "Variation $id", oldLine)
+            }
+            activeVariationLabel.value = "Main line"
+        }
         if (!board.doMove(move)) return
         playMoveSound(board.isKingAttacked(), isCapture, isCastle, isPromotion)
-        val currentIndex = historyIndex.value.coerceIn(0, positionHistory.lastIndex)
         while (positionHistory.size > currentIndex + 1) positionHistory.removeAt(positionHistory.lastIndex)
         while (moveList.size > currentIndex) moveList.removeAt(moveList.lastIndex)
         moveList.add(move.toString())
@@ -912,6 +924,61 @@ class GameViewModel(private val context: Context) : ViewModel() {
         runPendingPremove()
     }
 
+    fun selectAnalysisVariation(id: Int) {
+        if (mode.value != PlayMode.ANALYSIS) return
+        val selected = savedVariations.value.firstOrNull { it.id == id } ?: return
+        val current = moveList.toList()
+        if (current.isNotEmpty() && savedVariations.value.none { it.moves == current }) {
+            val newId = nextVariationId++
+            savedVariations.value = savedVariations.value + SavedVariation(newId, "Variation $newId", current)
+        }
+        loadAnalysisLine(selected.moves)
+        activeVariationLabel.value = selected.label
+    }
+
+    private fun loadAnalysisLine(moves: List<String>) {
+        engineGeneration++
+        engineThinking.value = false
+        board = Board()
+        runCatching { board.loadFromFen(initialFen) }
+        moveList.clear()
+        positionHistory.clear()
+        positionHistory.add(board.fen)
+        for (uci in moves) {
+            val from = runCatching { LibSquare.valueOf(uci.take(2).uppercase()) }.getOrNull() ?: break
+            val to = runCatching { LibSquare.valueOf(uci.substring(2, 4).uppercase()) }.getOrNull() ?: break
+            val candidates = board.legalMoves().filter { it.from == from && it.to == to }
+            val promo = uci.getOrNull(4)?.lowercaseChar() ?: 'q'
+            val desired = when (promo) { 'n' -> LibPieceType.KNIGHT; 'b' -> LibPieceType.BISHOP; 'r' -> LibPieceType.ROOK; else -> LibPieceType.QUEEN }
+            val move = candidates.firstOrNull { it.promotion != LibPiece.NONE && it.promotion.pieceType == desired }
+                ?: candidates.firstOrNull { it.promotion == LibPiece.NONE } ?: candidates.firstOrNull() ?: break
+            if (!board.doMove(move)) break
+            moveList.add(move.toString().lowercase())
+            positionHistory.add(board.fen)
+        }
+        historyIndex.value = positionHistory.lastIndex
+        historyLength.value = positionHistory.size
+        analysisLines.value = emptyList()
+        bestMoveUci.value = null
+        boardState.value = toUi(board).copy(moveNumber = historyIndex.value)
+        evaluation.value = 0
+        refreshOpeningBookMoves(board.fen)
+        updateEvaluationAsync()
+    }
+
+    fun analysisEngineId(): String =
+        if (settings.value.analysisEngine == "auto") {
+            if (stockfishEngine.isInstalled()) "stockfish" else "aetheris_classic"
+        } else settings.value.analysisEngine
+
+    fun setAnalysisEngine(engine: String) {
+        saveSettings(settings.value.copy(analysisEngine = engine))
+        analysisLines.value = emptyList()
+        bestMoveUci.value = null
+        bestAnalysisFen = ""
+        analyzePosition()
+    }
+
     fun analyzePosition(count: Int = settings.value.analysisLineCount) {
         if (analysisLoading.value) return
         val fen = board.fen
@@ -920,21 +987,23 @@ class GameViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch {
             val raw = withContext(Dispatchers.Default) {
                 runCatching {
-                    if (settings.value.selectedEngine == "caissa" || settings.value.selectedEngine == "morrow") {
-                        val line = if (settings.value.selectedEngine == "morrow")
-                            MorrowEngine.principalLine(fen, requestedDepth.coerceIn(1, 8))
-                        else CaissaEngine.principalLine(fen, requestedDepth.coerceIn(1, 4))
-                        val sideScore = if (settings.value.selectedEngine == "morrow") MorrowEngine.evaluate(fen) else CaissaEngine.evaluate(fen)
-                        val scoreWhite = if (fen.split(" ").getOrNull(1) == "b") -sideScore else sideScore
-                        if (line.isEmpty()) "" else line.joinToString(" ") + "|" + scoreWhite
-                    } else {
-                        NativeEngine.analyzeFen(
-                            fen,
-                            requestedDepth.coerceAtLeast(4),
-                            (5000 + requestedDepth * 500).coerceAtMost(15000),
-                            count.coerceIn(1, 5),
-                            if (settings.value.selectedEngine == "aetheris_classic") 0 else 1
-                        )
+                    when (analysisEngineId()) {
+                        "stockfish" -> stockfishEngine.analyze(fen, requestedDepth.coerceIn(1, 30), (5000 + requestedDepth * 500).coerceAtMost(20000), count.coerceIn(1, 5))
+                        "morrow" -> {
+                            val line = MorrowEngine.principalLine(fen, requestedDepth.coerceIn(1, 8))
+                            val sideScore = MorrowEngine.evaluate(fen)
+                            val scoreWhite = if (fen.split(" ").getOrNull(1) == "b") -sideScore else sideScore
+                            if (line.isEmpty()) "" else line.joinToString(" ") + "|" + scoreWhite
+                        }
+                        "caissa" -> {
+                            val line = CaissaEngine.principalLine(fen, requestedDepth.coerceIn(1, 4))
+                            val sideScore = CaissaEngine.evaluate(fen)
+                            val scoreWhite = if (fen.split(" ").getOrNull(1) == "b") -sideScore else sideScore
+                            if (line.isEmpty()) "" else line.joinToString(" ") + "|" + scoreWhite
+                        }
+                        else -> NativeEngine.analyzeFen(fen, requestedDepth.coerceAtLeast(4),
+                            (5000 + requestedDepth * 500).coerceAtMost(15000), count.coerceIn(1, 5),
+                            if (analysisEngineId() == "aetheris_classic") 0 else 1)
                     }
                 }.getOrDefault("")
             }
@@ -1137,7 +1206,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
                 val raw = when (settings.value.selectedEngine) {
                     "caissa" -> runCatching { CaissaEngine.evaluate(fen) }.getOrDefault(0)
                     "morrow" -> runCatching { MorrowEngine.evaluate(fen) }.getOrDefault(0)
-                    "stockfish" -> runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
+                    "stockfish" -> runCatching { stockfishEngine.analyze(fen, 4, 1000, 1).substringAfter("|").toIntOrNull() ?: 0 }.getOrDefault(0)
                     else -> {
                     val searchedCp = runCatching { NativeEngine.searchEvaluationFen(fen, 5, 900) }.getOrNull()
                     searchedCp ?: runCatching { NativeEngine.evaluateFen(fen) }.getOrDefault(0)
