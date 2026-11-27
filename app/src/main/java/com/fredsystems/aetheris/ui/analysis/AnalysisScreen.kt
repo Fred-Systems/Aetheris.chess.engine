@@ -85,7 +85,7 @@ fun AnalysisScreen(viewModel: GameViewModel) {
         }
         if (settings.analysisEngine == "auto") {
             Text(if (activeEngine == "stockfish") "Auto selected Stockfish because it is installed." else "Auto uses Aetheris until Stockfish is installed, then switches to Stockfish.", color = Color(0xFF9B93B8), style = MaterialTheme.typography.bodySmall)
-        } else if (settings.analysisEngine == "stockfish" && activeEngine != "stockfish") {
+        } else if (settings.analysisEngine == "stockfish" && !viewModel.isStockfishInstalled()) {
             Text("Download Stockfish in Settings to use it for analysis.", color = Color(0xFFE0B878), style = MaterialTheme.typography.bodySmall)
         }
         Spacer(Modifier.height(4.dp))
