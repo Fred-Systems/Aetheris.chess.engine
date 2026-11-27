@@ -1201,10 +1201,11 @@ class GameViewModel(private val context: Context) : ViewModel() {
         // Prefer a bounded searched score over static material-only evaluation so
         // immediate recaptures, forcing checks, and short mating tactics influence the bar.
         val fen = board.fen
+        val engineForEvaluation = if (mode.value == PlayMode.ANALYSIS) analysisEngineId() else settings.value.selectedEngine
         viewModelScope.launch {
             val score = withContext(Dispatchers.Default) {
                 val whiteToMove = fen.split(" ").getOrNull(1) != "b"
-                val raw = when (settings.value.selectedEngine) {
+                val raw = when (engineForEvaluation) {
                     "caissa" -> runCatching { CaissaEngine.evaluate(fen) }.getOrDefault(0)
                     "morrow" -> runCatching { MorrowEngine.evaluate(fen) }.getOrDefault(0)
                     "stockfish" -> runCatching { stockfishEngine.analyze(fen, 4, 1000, 1).substringAfter("|").toIntOrNull() ?: 0 }.getOrDefault(0)
