@@ -41,8 +41,8 @@ class SimViewModel(private val context: Context) : ViewModel() {
     var depthB = 6
     var timeMs = 800
     var games = 1
-    var modeA = "AetherisStrong"
-    var modeB = "AetherisStrong"
+    var modeA = "PureClassical"
+    var modeB = "PureClassical"
     var personaA = "Balanced"
     var personaB = "Balanced"
     var aggressionA = 50
