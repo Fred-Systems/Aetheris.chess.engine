@@ -686,6 +686,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         }.let { if (rapidProfile) it.coerceAtMost(1400L) else it }
         val generation = ++engineGeneration
         engineThinking.value = true
+        var engineSearchError: String? = null
         viewModelScope.launch {
             val move = withContext(Dispatchers.Default) {
                 runCatching {
@@ -708,7 +709,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
                         ).also { CrashDiagnostics.searchCompleted(context, it) }
                         }
                     }
-                }.onFailure { error -> CrashDiagnostics.recordException(context, "Engine.searchPosition", error) }.getOrNull()
+                }.onFailure { error -> engineSearchError = error.message ?: error.javaClass.simpleName; CrashDiagnostics.recordException(context, "Engine.searchPosition", error) }.getOrNull()
             }
             CrashDiagnostics.recordStage(context, "SEARCH_RESULT_HANDOFF", "generation=$generation currentGeneration=$engineGeneration move=${move ?: "<null>"}")
             if (generation != engineGeneration) {
@@ -719,7 +720,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
             if (move.isNullOrBlank()) {
                 // Never substitute a random legal move for a failed engine search.
                 engineAvailable.value = false
-                nnueStatus.value = "Engine search failed. Switch to Classical mode or restart the app; no random move was played."
+                nnueStatus.value = "Engine search failed: ${engineSearchError ?: "no move returned"}. No move was played."
                 CrashDiagnostics.recordStage(context, "SEARCH_FAILED_NO_MOVE", "force=$force fen=$fen")
                 return@launch
             }
