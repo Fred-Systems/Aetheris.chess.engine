@@ -368,14 +368,14 @@ fun SettingsScreen(
         SettingsCard("Engine") {
             Text("Built-in engine", color = Color(0xFFF2EEFF), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                ModeChip("Aetheris (Enhanced)", settings.selectedEngine == "aetheris", Modifier.fillMaxWidth()) {
+                ModeChip("Aetheris Tactical", settings.selectedEngine == "aetheris", Modifier.fillMaxWidth()) {
                     viewModel.updateSettings(settings.copy(selectedEngine = "aetheris"))
                 }
                 ModeChip("Morrow · Independent engine", settings.selectedEngine == "morrow", Modifier.fillMaxWidth()) {
                     viewModel.updateSettings(settings.copy(selectedEngine = "morrow"))
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ModeChip("Aetheris Classic", settings.selectedEngine == "aetheris_classic", Modifier.weight(1f)) {
+                    ModeChip("Aetheris", settings.selectedEngine == "aetheris_classic", Modifier.weight(1f)) {
                         viewModel.updateSettings(settings.copy(selectedEngine = "aetheris_classic"))
                     }
                     ModeChip("Caissa", settings.selectedEngine == "caissa", Modifier.weight(1f)) {
@@ -392,10 +392,10 @@ fun SettingsScreen(
             Text(when (settings.selectedEngine) {
                 "morrow" -> "Morrow is an independently authored Kotlin engine with its own iterative-deepening PVS search, transposition table, quiescence search, and handcrafted evaluator. Its strength is still being benchmarked."
                 "caissa" -> "Caissa uses its independent Kotlin alpha-beta search."
-                "aetheris_classic" -> "Aetheris Classic retains the previous native search profile."
+                "aetheris_classic" -> "Aetheris uses the original, stable classical search profile and is the default engine."
                 "aetheris_rapid" -> "Aetheris Rapid uses the enhanced native search with a fast-play budget."
                 "stockfish" -> if (stockfish.isInstalled()) "Official Stockfish ${stockfish.installedVersion()} UCI engine. It can be used for Play and either side in Engine Arena." else "Stockfish is selected but not installed. Download it above before starting a game."
-                else -> "Aetheris Enhanced is the new default native search, using static-exchange move ordering and tactical extensions."
+                else -> "Aetheris Tactical uses more forcing move ordering and tactical extensions than the standard Aetheris search."
             }, color = Color(0xFF9B93B8), fontSize = 11.sp)
             Spacer(Modifier.height(8.dp))
             SwitchRow("Ponder during my turn", settings.pondering) {
