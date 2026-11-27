@@ -70,6 +70,20 @@ class StockfishEngine(private val context: Context) {
                 file.isFile && runCatching { FileInputStream(file).use { input -> input.read() == 0x7f && input.read() == 0x45 && input.read() == 0x4c && input.read() == 0x46 } }.getOrDefault(false)
             } ?: error("The Android Stockfish archive did not contain an executable")
             binary.setExecutable(true, true)
+            onProgress("Checking Stockfish can start and return a legal move…")
+            try {
+                start(binary)
+                send("position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+                send("go depth 2 movetime 500")
+                var selfTestMove: String? = null
+                while (selfTestMove == null) {
+                    val line = nextLine(10000)
+                    if (line.startsWith("bestmove ")) selfTestMove = line.trim().split(Regex("\\s+")).getOrNull(1)
+                }
+                if (selfTestMove.length < 4 || selfTestMove == "(none)") error("Stockfish did not pass its legal-move startup test")
+            } finally {
+                stop()
+            }
             val installed = File(engineRoot, "current")
             installed.deleteRecursively()
             if (!staging.renameTo(installed)) error("Could not finish installing Stockfish")
@@ -108,6 +122,8 @@ class StockfishEngine(private val context: Context) {
         prepareSearch()
         val count = multiPv.coerceIn(1, 5)
         send("setoption name MultiPV value $count")
+        send("isready")
+        awaitLine("readyok")
         send("position fen $fen")
         send("go depth ${depth.coerceIn(1, 40)} movetime ${timeMs.coerceIn(100, 30000)}")
         val latest = sortedMapOf<Int, Pair<String, Int>>()
