@@ -428,7 +428,7 @@ fun GameScreen(vm: GameViewModel, navController: androidx.navigation.NavControll
                 ) {
                     Box(Modifier.weight(1f).padding(end = 6.dp), contentAlignment = Alignment.CenterStart) {
                         Text(
-                            text = if (thinking) "${when (settings.selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa"; "stockfish" -> "Stockfish"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris" }} · thinking · depth ${opts.depth}" else "${when (settings.selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa"; "stockfish" -> "Stockfish"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris Tactical" }} · depth ${opts.depth}",
+                            text = if (thinking) "${when (settings.selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa"; "stockfish" -> "Stockfish"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris Tactical" }} · thinking · depth ${opts.depth}" else "${when (settings.selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa"; "stockfish" -> "Stockfish"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris Tactical" }} · depth ${opts.depth}",
                             color = if (thinking) Color(0xFFB9A8FF) else Color(0xFFB9B2CE),
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 11.sp,
@@ -759,7 +759,7 @@ private fun QuickEngineOptionsDialog(
         title = { Text("Quick engine controls") },
         text = {
             Column(Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
-                Text("Engine: ${when (selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa Kotlin"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris"; else -> "Aetheris Tactical" }}", color = Color(0xFFB9B2CE), style = MaterialTheme.typography.labelLarge)
+                Text("Engine: ${when (selectedEngine) { "morrow" -> "Morrow"; "caissa" -> "Caissa Kotlin"; "aetheris_rapid" -> "Aetheris Rapid"; "aetheris_classic" -> "Aetheris Classic"; else -> "Aetheris Tactical" }}", color = Color(0xFFB9B2CE), style = MaterialTheme.typography.labelLarge)
                 if (selectedEngine == "caissa" || selectedEngine == "morrow") {
                     Text("This independent engine does not expose persona sliders.", color = Color(0xFF9B93B8), fontSize = 12.sp)
                 } else {
