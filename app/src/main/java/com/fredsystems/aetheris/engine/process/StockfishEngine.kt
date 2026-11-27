@@ -80,7 +80,8 @@ class StockfishEngine(private val context: Context) {
                     val line = nextLine(10000)
                     if (line.startsWith("bestmove ")) selfTestMove = line.trim().split(Regex("\\s+")).getOrNull(1)
                 }
-                if (selfTestMove.length < 4 || selfTestMove == "(none)") error("Stockfish did not pass its legal-move startup test")
+                val checkedMove = selfTestMove ?: error("Stockfish did not return a move during its startup test")
+                if (checkedMove.length < 4 || checkedMove == "(none)") error("Stockfish did not pass its legal-move startup test")
             } finally {
                 stop()
             }
