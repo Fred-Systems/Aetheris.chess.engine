@@ -41,7 +41,8 @@ data class AppSettings(
     val multiplePremoves: Boolean = false,
     val conditionalMoves: Boolean = false,
     val chess960Enabled: Boolean = false,
-    val selectedEngine: String = "aetheris",
+    val selectedEngine: String = "aetheris_classic",
+    val analysisEngine: String = "auto",
     val openingBookEnabled: Boolean = true,
     val openingBookPromptShown: Boolean = false,
     val openingBookPolicy: String = "random",
@@ -75,7 +76,8 @@ class SettingsStore(context: Context) {
         multiplePremoves = prefs.getBoolean("multiplePremoves", false),
         conditionalMoves = prefs.getBoolean("conditionalMoves", false),
         chess960Enabled = prefs.getBoolean("chess960Enabled", false),
-        selectedEngine = prefs.getString("selectedEngine", "aetheris") ?: "aetheris",
+        selectedEngine = (prefs.getString("selectedEngine", "aetheris_classic") ?: "aetheris_classic").let { if (it == "aetheris") "aetheris_classic" else it },
+        analysisEngine = prefs.getString("analysisEngine", "auto") ?: "auto",
         openingBookEnabled = if (prefs.getBoolean("openingBookPromptShown", false)) prefs.getBoolean("openingBookEnabled", true) else true,
         openingBookPromptShown = prefs.getBoolean("openingBookPromptShown", false),
         openingBookPolicy = (prefs.getString("openingBookPolicy", "random") ?: "random").let { if (it == "best") "top" else it },
@@ -108,6 +110,7 @@ class SettingsStore(context: Context) {
             .putBoolean("conditionalMoves", s.conditionalMoves)
             .putBoolean("chess960Enabled", s.chess960Enabled)
             .putString("selectedEngine", s.selectedEngine)
+            .putString("analysisEngine", s.analysisEngine)
             .putBoolean("openingBookEnabled", s.openingBookEnabled)
             .putBoolean("openingBookPromptShown", s.openingBookPromptShown)
             .putString("openingBookPolicy", s.openingBookPolicy)
