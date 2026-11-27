@@ -1130,7 +1130,7 @@ class GameViewModel(private val context: Context) : ViewModel() {
         val classical = o.copy(mode = EngineMode.PURE_CLASSICAL)
         options.value = classical
         applyNativeOptions(classical)
-        nnueStatus.value = "Aetheris Classical active"
+        nnueStatus.value = "Aetheris Classic active"
     }
 
     private fun applyNativeOptions(o: EngineOptions) {
