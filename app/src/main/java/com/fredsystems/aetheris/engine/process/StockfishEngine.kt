@@ -16,6 +16,8 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.zip.GZIPInputStream
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
 
 /**
  * Installs and runs the official Stockfish Android UCI binary.
@@ -27,6 +29,8 @@ class StockfishEngine(private val context: Context) {
     private var process: Process? = null
     private var reader: BufferedReader? = null
     private var writer: BufferedWriter? = null
+    private var outputQueue: LinkedBlockingQueue<String>? = null
+    private val recentOutput = ArrayDeque<String>()
     @Volatile private var ready = false
 
     fun isInstalled(): Boolean = findBinary() != null
@@ -84,29 +88,93 @@ class StockfishEngine(private val context: Context) {
         }
     }
 
+    @Synchronized
     fun bestMove(fen: String, depth: Int, timeMs: Int): String {
-        val binary = findBinary() ?: error("Stockfish is not installed. Download it from Settings first.")
-        if (process?.isAlive != true || !ready) start(binary)
+        prepareSearch()
         send("position fen $fen")
         send("go depth ${depth.coerceIn(1, 40)} movetime ${timeMs.coerceIn(100, 30000)}")
-        var result: String? = null
         while (true) {
-            val line = reader?.readLine() ?: error("Stockfish stopped before returning a move")
+            val line = nextLine((timeMs.coerceIn(100, 30000) + 15000).toLong())
             if (line.startsWith("bestmove ")) {
-                result = line.split(Regex("\\s+")).getOrNull(1)
+                val move = line.trim().split(Regex("\\s+")).getOrNull(1)
+                return move?.takeIf { it.length >= 4 && it != "(none)" }
+                    ?: error("Stockfish returned no legal move. Output: ${diagnosticOutput()}")
+            }
+        }
+    }
+
+    @Synchronized
+    fun analyze(fen: String, depth: Int, timeMs: Int, multiPv: Int): String {
+        prepareSearch()
+        val count = multiPv.coerceIn(1, 5)
+        send("setoption name MultiPV value $count")
+        send("position fen $fen")
+        send("go depth ${depth.coerceIn(1, 40)} movetime ${timeMs.coerceIn(100, 30000)}")
+        val latest = sortedMapOf<Int, Pair<String, Int>>()
+        while (true) {
+            val line = nextLine((timeMs.coerceIn(100, 30000) + 15000).toLong())
+            if (line.startsWith("info ")) {
+                val tokens = line.trim().split(Regex("\\s+"))
+                val pvIndex = tokens.indexOf("pv")
+                val scoreIndex = tokens.indexOf("score")
+                if (pvIndex >= 0 && scoreIndex >= 0 && pvIndex + 2 < tokens.size) {
+                    val scoreType = tokens[scoreIndex + 1]
+                    val scoreValue = tokens[scoreIndex + 2].toIntOrNull()
+                    val multipvIndex = tokens.indexOf("multipv")
+                    val lineIndex = if (multipvIndex >= 0 && multipvIndex + 1 < tokens.size) tokens[multipvIndex + 1].toIntOrNull() ?: 1 else 1
+                    if (scoreValue != null) {
+                        val cp = when (scoreType) {
+                            "cp" -> scoreValue
+                            "mate" -> if (scoreValue > 0) 30000 - scoreValue else -30000 - scoreValue
+                            else -> 0
+                        }
+                        val pv = tokens.drop(pvIndex + 1).takeWhile { it.matches(Regex("[a-h][1-8][a-h][1-8][qrbn]?")) }
+                        if (pv.isNotEmpty()) latest[lineIndex] = pv.joinToString(" ") to cp
+                    }
+                }
+            } else if (line.startsWith("bestmove ")) {
                 break
             }
         }
-        return result?.takeIf { it.length >= 4 && it != "(none)" }
-            ?: error("Stockfish did not return a legal move")
+        return latest.values.joinToString("\\n") { (pv, score) -> "$pv|$score" }
+    }
+
+    private fun prepareSearch() {
+        val binary = findBinary() ?: error("Stockfish is not installed. Download it from Settings first.")
+        if (process?.isAlive != true || !ready) start(binary)
+        send("ucinewgame")
+        send("isready")
+        awaitLine("readyok")
     }
 
     private fun start(binary: File) {
         stop()
-        val p = ProcessBuilder(binary.absolutePath).directory(binary.parentFile).redirectErrorStream(true).start()
+        val p = ProcessBuilder(binary.absolutePath)
+            .directory(binary.parentFile)
+            .redirectErrorStream(true)
+            .start()
         process = p
         writer = BufferedWriter(OutputStreamWriter(p.outputStream))
         reader = BufferedReader(InputStreamReader(p.inputStream))
+        val queue = LinkedBlockingQueue<String>()
+        outputQueue = queue
+        recentOutput.clear()
+        Thread({
+            try {
+                while (true) {
+                    val line = reader?.readLine() ?: break
+                    synchronized(recentOutput) {
+                        recentOutput.addLast(line)
+                        while (recentOutput.size > 40) recentOutput.removeFirst()
+                    }
+                    queue.offer(line)
+                }
+            } catch (ignored: Exception) {
+                queue.offer("__UCI_EOF__")
+            } finally {
+                queue.offer("__UCI_EOF__")
+            }
+        }, "Stockfish-UCI-output").apply { isDaemon = true; start() }
         ready = false
         send("uci")
         awaitLine("uciok")
@@ -117,9 +185,23 @@ class StockfishEngine(private val context: Context) {
 
     private fun awaitLine(expected: String) {
         while (true) {
-            val line = reader?.readLine() ?: error("Stockfish did not respond to $expected")
+            val line = nextLine(15000)
             if (line.trim() == expected) return
         }
+    }
+
+    private fun nextLine(timeoutMs: Long): String {
+        val line = outputQueue?.poll(timeoutMs, TimeUnit.MILLISECONDS)
+            ?: error("Timed out waiting for Stockfish. Output: ${diagnosticOutput()}")
+        if (line == "__UCI_EOF__") {
+            val exit = process?.let { if (it.isAlive) "still running" else "exit code ${it.exitValue()}" } ?: "process stopped"
+            error("Stockfish stopped responding ($exit). Output: ${diagnosticOutput()}")
+        }
+        return line
+    }
+
+    private fun diagnosticOutput(): String = synchronized(recentOutput) {
+        recentOutput.toList().takeLast(12).joinToString(" | ")
     }
 
     private fun send(command: String) {
@@ -130,11 +212,13 @@ class StockfishEngine(private val context: Context) {
     }
 
     fun stop() {
-        runCatching { writer?.write("quit\n"); writer?.flush() }
+        runCatching { writer?.write("quit\\n"); writer?.flush() }
         runCatching { process?.destroy() }
         process = null
         reader = null
         writer = null
+        outputQueue?.offer("__UCI_EOF__")
+        outputQueue = null
         ready = false
     }
 
